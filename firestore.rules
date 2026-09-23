@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email != null && request.auth.token.email == 'baristait969@gmail.com') ||
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    function isEditorOrAdmin() {
+      return isSignedIn() && (
+        isAdmin() ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'editor'
+        )
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    // Connection test document
+    match /test/{docId} {
+      allow read: if isSignedIn();
+    }
+
+    // Users collection - strictly managed by Administrator
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isAdmin();
+      allow update: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Inventory batches
+    match /inventory/{batchId} {
+      allow read: if isSignedIn();
+      allow create: if isEditorOrAdmin();
+      allow update: if isSignedIn(); // Allows quantity decrement upon dispatch as well as editor/admin updates
+      allow delete: if isAdmin();
+    }
+
+    // Batch Audit Logs
+    match /batch_logs/{logId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    // Outlets
+    match /outlets/{outletId} {
+      allow read: if isSignedIn();
+      allow create, update: if isEditorOrAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Dispatch Logs (HACCP BCL/REC/HACCP/32)
+    match /dispatch_logs/{dispatchId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn(); // User can retrieve submitted reports for edits
+      allow delete: if isAdmin();
+    }
+
+    // Drivers
+    match /drivers/{driverId} {
+      allow read: if isSignedIn();
+      allow create, update: if isEditorOrAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}
