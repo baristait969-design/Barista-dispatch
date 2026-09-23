@@ -17,6 +17,7 @@ import {
   Edit3, 
   RotateCcw,
   Sparkles,
+  Copy,
   ArrowRight,
   Eye,
   Search,
@@ -196,9 +197,21 @@ export const FormsView: React.FC<FormsViewProps> = ({
     );
   };
 
-  const handleRowQuantityChange = (rowId: string, qty: number) => {
+  const handleRowQuantityChange = (rowId: string, requestedQty: number) => {
     setLineItems(prev =>
-      prev.map(row => (row.id === rowId ? { ...row, quantity: Math.max(0, qty) } : row))
+      prev.map(row => {
+        if (row.id === rowId) {
+          // Strictly positive numbers only (min 0)
+          let safeQty = Math.max(0, Math.floor(isNaN(requestedQty) ? 0 : requestedQty));
+
+          // Limits to batch number quantity and should not exceed available stock
+          if (row.availableStock !== undefined && row.availableStock !== null) {
+            safeQty = Math.min(safeQty, row.availableStock);
+          }
+          return { ...row, quantity: safeQty };
+        }
+        return row;
+      })
     );
   };
 
@@ -324,21 +337,9 @@ export const FormsView: React.FC<FormsViewProps> = ({
     setSubmitSuccess(null);
 
     try {
-      if (editingLogId) {
-        // Updating existing log
-        await updateDispatchLog(editingLogId, {
-          date,
-          dispatchTime,
-          outletIds: selectedOutletIds,
-          outletNames: selectedOutletNames,
-          driverName: selectedDriverName,
-          vehicleNo,
-          items: activeItems,
-          notes,
-          haccpCompliant: activeItems.every(i => i.dispatchTemp <= 5.0)
-        });
-        const updatedLog: DispatchLog = {
-          id: editingLogId,
+      // Always create a separate, new dispatch record so we never override previously submitted records!
+      const newLogId = await createDispatchLogWithDeduction(
+        {
           docNo: 'BCL/REC/HACCP/32',
           title: 'Central Kitchen Dispatch Log',
           revision: 'Rev 01',
@@ -358,66 +359,41 @@ export const FormsView: React.FC<FormsViewProps> = ({
           items: activeItems,
           notes,
           haccpCompliant: activeItems.every(i => i.dispatchTemp <= 5.0),
-          status: 'edited',
-          createdAt: new Date().toISOString()
-        };
-        setLastSubmittedLog(updatedLog);
-        setSubmitSuccess(`Dispatch Log updated successfully!`);
-        setEditingLogId(null);
-      } else {
-        // Creating new log with automated inventory deduction
-        const newLogId = await createDispatchLogWithDeduction(
-          {
-            docNo: 'BCL/REC/HACCP/32',
-            title: 'Central Kitchen Dispatch Log',
-            revision: 'Rev 01',
-            version: '01',
-            effectiveDate: '01 January 2025',
-            haccpLink: 'OPRP-2',
-            approvedBy: 'QA Executive',
-            date,
-            dispatchTime,
-            outletIds: selectedOutletIds,
-            outletNames: selectedOutletNames,
-            driverName: selectedDriverName,
-            vehicleNo,
-            supervisor: supervisorName,
-            supervisorId: supervisorId,
-            supervisorEmail: userProfile?.email || '',
-            items: activeItems,
-            notes,
-            haccpCompliant: activeItems.every(i => i.dispatchTemp <= 5.0),
-            status: 'submitted'
-          },
-          batches
-        );
-        const submittedDoc: DispatchLog = {
-          id: newLogId,
-          docNo: 'BCL/REC/HACCP/32',
-          title: 'Central Kitchen Dispatch Log',
-          revision: 'Rev 01',
-          version: '01',
-          effectiveDate: '01 January 2025',
-          haccpLink: 'OPRP-2',
-          approvedBy: 'QA Executive',
-          date,
-          dispatchTime,
-          outletIds: selectedOutletIds,
-          outletNames: selectedOutletNames,
-          driverName: selectedDriverName,
-          vehicleNo,
-          supervisor: supervisorName,
-          supervisorId: supervisorId,
-          supervisorEmail: userProfile?.email || '',
-          items: activeItems,
-          notes,
-          haccpCompliant: activeItems.every(i => i.dispatchTemp <= 5.0),
-          status: 'submitted',
-          createdAt: new Date().toISOString()
-        };
-        setLastSubmittedLog(submittedDoc);
-        setSubmitSuccess(`Dispatch Log successfully submitted! Inventory quantities automatically deducted from kitchen batches.`);
-      }
+          status: 'submitted'
+        },
+        batches
+      );
+
+      const submittedDoc: DispatchLog = {
+        id: newLogId,
+        docNo: 'BCL/REC/HACCP/32',
+        title: 'Central Kitchen Dispatch Log',
+        revision: 'Rev 01',
+        version: '01',
+        effectiveDate: '01 January 2025',
+        haccpLink: 'OPRP-2',
+        approvedBy: 'QA Executive',
+        date,
+        dispatchTime,
+        outletIds: selectedOutletIds,
+        outletNames: selectedOutletNames,
+        driverName: selectedDriverName,
+        vehicleNo,
+        supervisor: supervisorName,
+        supervisorId: supervisorId,
+        supervisorEmail: userProfile?.email || '',
+        items: activeItems,
+        notes,
+        haccpCompliant: activeItems.every(i => i.dispatchTemp <= 5.0),
+        status: 'submitted',
+        createdAt: new Date().toISOString()
+      };
+
+      setEditingLogId(null);
+      setLastSubmittedLog(submittedDoc);
+      // Immediately open the same printable report to print as before
+      setSelectedLogForPrint(submittedDoc);
+      setSubmitSuccess(`Dispatch Log successfully submitted as a new separate record (${newLogId})!`);
 
       // Reset quantities
       setLineItems(prev => prev.map(r => ({ ...r, quantity: 0 })));
@@ -647,9 +623,10 @@ export const FormsView: React.FC<FormsViewProps> = ({
                     <button
                       onClick={() => handleRetrieveForEdit(log)}
                       className="px-3 py-1.5 bg-stone-800 hover:bg-stone-750 text-amber-400 border border-stone-700 rounded-lg text-xs font-medium transition flex items-center space-x-1.5 cursor-pointer"
+                      title="Load this dispatch data to submit as a new separate dispatch record"
                     >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      <span>Retrieve for Edit</span>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Load into Form</span>
                     </button>
 
                     <button
@@ -670,10 +647,10 @@ export const FormsView: React.FC<FormsViewProps> = ({
         /* CREATE / EDIT FORM */
         <form onSubmit={handleSubmitDispatch} className="space-y-6">
           {editingLogId && (
-            <div className="p-3 bg-blue-950/70 border border-blue-800 rounded-xl text-blue-200 text-xs flex items-center justify-between print:hidden">
+            <div className="p-3 bg-amber-950/70 border border-amber-800 rounded-xl text-amber-200 text-xs flex items-center justify-between print:hidden">
               <div className="flex items-center space-x-2">
-                <Edit3 className="w-4 h-4 text-blue-400" />
-                <span>Currently Editing Dispatch Log ID: <strong>{editingLogId}</strong></span>
+                <Copy className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Loaded data from previous log (<strong>{editingLogId}</strong>). Submitting will create a <strong>new separate record</strong> without overwriting the previous one.</span>
               </div>
               <button
                 type="button"
@@ -681,9 +658,9 @@ export const FormsView: React.FC<FormsViewProps> = ({
                   setEditingLogId(null);
                   setLineItems(prev => prev.map(r => ({ ...r, quantity: 0 })));
                 }}
-                className="text-xs text-blue-300 underline hover:text-white"
+                className="text-xs text-amber-400 hover:text-white underline cursor-pointer ml-2 shrink-0"
               >
-                Cancel Edit Mode
+                Clear Form
               </button>
             </div>
           )}
@@ -1127,29 +1104,55 @@ export const FormsView: React.FC<FormsViewProps> = ({
                             </select>
                           </td>
 
-                          {/* Quantity (Manual with +/- steppers for better touch UX) */}
+                          {/* Quantity (Only +/- buttons, no up/down arrows, strictly positive numbers, limits to batch quantity) */}
                           <td className="py-2 px-3">
                             <div className="flex items-center justify-center space-x-1">
                               <button
                                 type="button"
-                                onClick={() => handleRowQuantityChange(item.id, Math.max(0, item.quantity - 1))}
-                                className="w-6 h-6 rounded bg-stone-800 hover:bg-stone-700 text-stone-300 flex items-center justify-center font-bold text-xs print:hidden cursor-pointer"
+                                disabled={item.quantity <= 0}
+                                onClick={() => handleRowQuantityChange(item.id, item.quantity - 1)}
+                                className="w-7 h-7 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center font-bold text-sm print:hidden cursor-pointer border border-stone-700 transition select-none"
+                                title="Decrease quantity (-)"
                               >
                                 -
                               </button>
                               <input
-                                type="number"
-                                min={0}
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 value={item.quantity}
-                                onChange={(e) => handleRowQuantityChange(item.id, parseInt(e.target.value) || 0)}
-                                className={`w-14 px-1.5 py-1 bg-stone-800 print:bg-white border rounded text-center text-xs text-white print:text-black font-bold font-mono focus:outline-none ${
-                                  isQtyExceeded ? 'border-red-500 text-red-400' : 'border-amber-600/70'
+                                onKeyDown={(e) => {
+                                  // Block negative signs, decimal points, and exponents
+                                  if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E' || e.key === '.') {
+                                    e.preventDefault();
+                                  }
+                                }}
+                                onChange={(e) => {
+                                  const digitsOnly = e.target.value.replace(/\D/g, '');
+                                  const num = digitsOnly === '' ? 0 : parseInt(digitsOnly, 10);
+                                  handleRowQuantityChange(item.id, num);
+                                }}
+                                className={`w-14 px-1 py-1 bg-stone-850 print:bg-white border rounded-lg text-center text-xs text-white print:text-black font-bold font-mono focus:outline-none transition ${
+                                  item.availableStock !== undefined && item.quantity >= item.availableStock && item.availableStock > 0
+                                    ? 'border-amber-500 bg-amber-500/10 text-amber-300'
+                                    : 'border-stone-750 focus:border-amber-500'
                                 }`}
+                                title={
+                                  item.availableStock !== undefined
+                                    ? `Max batch limit: ${item.availableStock}`
+                                    : 'Quantity'
+                                }
                               />
                               <button
                                 type="button"
+                                disabled={item.availableStock !== undefined && item.quantity >= item.availableStock}
                                 onClick={() => handleRowQuantityChange(item.id, item.quantity + 1)}
-                                className="w-6 h-6 rounded bg-stone-800 hover:bg-stone-700 text-stone-300 flex items-center justify-center font-bold text-xs print:hidden cursor-pointer"
+                                className="w-7 h-7 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center font-bold text-sm print:hidden cursor-pointer border border-stone-700 transition select-none"
+                                title={
+                                  item.availableStock !== undefined && item.quantity >= item.availableStock
+                                    ? `Reached batch stock limit (${item.availableStock})`
+                                    : 'Increase quantity (+)'
+                                }
                               >
                                 +
                               </button>
