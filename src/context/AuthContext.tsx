@@ -11,6 +11,7 @@ import { doc, getDoc, setDoc, updateDoc, getDocs, query, where, collection } fro
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from '../lib/firebase';
 import { UserProfile, UserRole, ModulePermissions } from '../types';
 import { INITIAL_USERS } from '../data/seedData';
+import { updateUserPassword } from '../services/dataService';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -21,6 +22,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   loginDemoRole: (role: UserRole) => void;
   loginWithEmail: (email: string, pass: string) => Promise<void>;
+  updateCurrentUserPassword: (newPassword: string) => Promise<void>;
   registerWithEmail: (email: string, pass: string, name: string, role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
   hasAccess: (module: keyof ModulePermissions, action?: 'view' | 'edit') => boolean;
@@ -167,21 +169,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithEmail = async (email: string, pass: string) => {
     setLoading(true);
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPass = pass.trim();
+
     try {
-      const cred = await signInWithEmailAndPassword(auth, email, pass);
-      if (cred.user) {
-        setIsSimulated(false);
-        localStorage.removeItem('barista_simulated_user');
-        await loadOrCreateUserProfile(cred.user);
-      }
-    } catch (err: any) {
-      // 1. Check if user was provisioned by Administrator in Firestore 'users' collection
+      // 1. Direct check in Firestore 'users' collection
       try {
-        const userQ = query(collection(db, 'users'), where('email', '==', email.trim().toLowerCase()));
+        const userQ = query(collection(db, 'users'), where('email', '==', cleanEmail));
         const userSnapshot = await getDocs(userQ);
         if (!userSnapshot.empty) {
           const userDoc = userSnapshot.docs[0];
           const userData = { ...userDoc.data(), id: userDoc.id } as UserProfile;
+          
+          // Verify password if one is configured
+          if (userData.password && userData.password !== cleanPass) {
+            throw new Error('Incorrect password. Please verify your credentials or contact your Administrator.');
+          }
+
           setUserProfile(userData);
           setRole(userData.role || 'viewer');
           setIsSimulated(true);
@@ -189,13 +193,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setLoading(false);
           return;
         }
-      } catch (dbErr) {
+      } catch (dbErr: any) {
+        if (dbErr.message && dbErr.message.includes('Incorrect password')) {
+          throw dbErr;
+        }
         console.warn('Could not query users collection fallback:', dbErr);
       }
 
-      // 2. Check if matching preset staff accounts for university presentation convenience
-      const demoMatch = INITIAL_USERS.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
+      // 2. Direct check in INITIAL_USERS (especially baristait969@gmail.com / 123)
+      const demoMatch = INITIAL_USERS.find(u => u.email.toLowerCase() === cleanEmail);
       if (demoMatch) {
+        if (demoMatch.password && demoMatch.password !== cleanPass) {
+          throw new Error('Incorrect password. Please verify your credentials or contact your Administrator.');
+        }
         setUserProfile(demoMatch);
         setRole(demoMatch.role);
         setIsSimulated(true);
@@ -203,9 +213,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
         return;
       }
-      throw err;
+
+      // 3. Fallback to Firebase Auth signInWithEmailAndPassword
+      try {
+        const cred = await signInWithEmailAndPassword(auth, email, pass);
+        if (cred.user) {
+          setIsSimulated(false);
+          localStorage.removeItem('barista_simulated_user');
+          await loadOrCreateUserProfile(cred.user);
+          return;
+        }
+      } catch (fbErr: any) {
+        throw new Error('Authentication failed. No user found with this email or password.');
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const updateCurrentUserPassword = async (newPassword: string) => {
+    if (!userProfile) return;
+    try {
+      await updateUserPassword(userProfile.id, newPassword);
+      const updated = { ...userProfile, password: newPassword.trim() };
+      setUserProfile(updated);
+      localStorage.setItem('barista_simulated_user', JSON.stringify(updated));
+    } catch (err: any) {
+      console.error('Error updating current user password:', err);
+      throw err;
     }
   };
 
@@ -297,6 +332,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signInWithGoogle,
         loginDemoRole,
         loginWithEmail,
+        updateCurrentUserPassword,
         registerWithEmail,
         logout,
         hasAccess,

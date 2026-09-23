@@ -15,6 +15,7 @@ export interface UserProfile {
   uid: string;
   userIdCode?: string; // Custom employee / user ID (e.g. EMP-101)
   email: string;
+  password?: string;
   displayName: string;
   role: UserRole;
   permissions?: Partial<ModulePermissions>;

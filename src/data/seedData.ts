@@ -95,13 +95,35 @@ export const INITIAL_DRIVERS: Driver[] = [
 
 export const INITIAL_USERS: UserProfile[] = [
   {
+    id: 'user-admin-main',
+    uid: 'admin-barista-00',
+    userIdCode: 'USR-ADM-01',
+    email: 'baristait969@gmail.com',
+    password: '123',
+    displayName: 'Barista IT Administrator',
+    role: 'admin',
+    designation: 'System Administrator & QA Executive',
+    department: 'Quality Assurance & Central Kitchen Logistics',
+    permissions: {
+      dashboard: { view: true, edit: true },
+      inventory: { view: true, edit: true },
+      forms: { view: true, edit: true },
+      outlets: { view: true, edit: true },
+      users: { view: true, edit: true },
+      roles: { view: true, edit: true },
+      reports: { view: true, edit: true }
+    },
+    createdAt: '2025-01-01T00:00:00.000Z'
+  },
+  {
     id: 'user-admin',
     uid: 'admin-barista-01',
-    userIdCode: 'USR-ADM-01',
+    userIdCode: 'USR-ADM-02',
     email: 'admin@barista.lk',
-    displayName: 'Tharindu Fernando (QA Executive / Admin)',
+    password: '123',
+    displayName: 'Tharindu Fernando (QA Executive)',
     role: 'admin',
-    designation: 'QA Executive / System Administrator',
+    designation: 'QA Executive',
     department: 'Quality Assurance & Kitchen Logistics',
     permissions: {
       dashboard: { view: true, edit: true },
@@ -119,6 +141,7 @@ export const INITIAL_USERS: UserProfile[] = [
     uid: 'editor-barista-02',
     userIdCode: 'USR-EDT-02',
     email: 'pastrychef@barista.lk',
+    password: '123',
     displayName: 'Chef Dineth (Head Pastry Chef)',
     role: 'editor',
     designation: 'Central Kitchen Shift Supervisor',
@@ -139,6 +162,7 @@ export const INITIAL_USERS: UserProfile[] = [
     uid: 'viewer-barista-03',
     userIdCode: 'USR-VIW-03',
     email: 'auditor@barista.lk',
+    password: '123',
     displayName: 'Anura Bandara (Outlet Auditor / Store Viewer)',
     role: 'viewer',
     designation: 'Audit & Compliance Inspector',

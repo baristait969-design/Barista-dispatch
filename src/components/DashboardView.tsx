@@ -388,10 +388,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div className="mt-4 pt-3 border-t border-stone-800">
             <button
-              onClick={() => onNavigate('vscode-guide')}
-              className="w-full py-2 bg-stone-800 hover:bg-stone-750 text-amber-300 rounded text-xs font-semibold transition"
+              onClick={() => onNavigate('reports')}
+              className="w-full py-2 bg-stone-800 hover:bg-stone-750 text-amber-300 border border-stone-700 hover:border-amber-500/50 rounded-lg text-xs font-semibold transition flex items-center justify-center space-x-1.5 cursor-pointer"
             >
-              View Local Run & VS Code Guide
+              <BarChart3 className="w-3.5 h-3.5 text-amber-400" />
+              <span>View Central Kitchen QA Reports</span>
             </button>
           </div>
         </div>

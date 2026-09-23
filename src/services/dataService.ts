@@ -41,11 +41,17 @@ export async function seedInitialDataIfNeeded(): Promise<boolean> {
       for (const d of INITIAL_DRIVERS) {
         await setDoc(doc(db, DRIVERS_COL, d.id), d);
       }
-      // Seed Demo Users
+      // Seed Users
       for (const u of INITIAL_USERS) {
         await setDoc(doc(db, USERS_COL, u.id), u);
       }
       return true;
+    } else {
+      // Ensure primary Administrator account exists with password
+      const primaryAdmin = INITIAL_USERS.find(u => u.email === 'baristait969@gmail.com');
+      if (primaryAdmin) {
+        await setDoc(doc(db, USERS_COL, primaryAdmin.id), primaryAdmin, { merge: true });
+      }
     }
     return false;
   } catch (error) {
@@ -371,13 +377,33 @@ export async function updateUserRoleAndPermissions(
   userId: string,
   role: UserRole,
   permissions: any,
-  userIdCode?: string
+  userIdCode?: string,
+  password?: string
 ): Promise<void> {
   try {
-    await updateDoc(doc(db, USERS_COL, userId), {
+    const updateData: any = {
       role,
       permissions,
       userIdCode: userIdCode || undefined,
+      updatedAt: new Date().toISOString()
+    };
+    if (password && password.trim().length > 0) {
+      updateData.password = password.trim();
+    }
+    await updateDoc(doc(db, USERS_COL, userId), updateData);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `${USERS_COL}/${userId}`);
+    throw error;
+  }
+}
+
+export async function updateUserPassword(
+  userId: string,
+  newPassword: string
+): Promise<void> {
+  try {
+    await updateDoc(doc(db, USERS_COL, userId), {
+      password: newPassword.trim(),
       updatedAt: new Date().toISOString()
     });
   } catch (error) {

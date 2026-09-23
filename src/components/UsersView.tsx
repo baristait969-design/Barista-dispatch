@@ -6,37 +6,55 @@ import {
   ShieldCheck, 
   Edit, 
   Trash2, 
-  Mail, 
   Key, 
   Check, 
   X, 
-  Sliders,
-  CheckCircle2,
-  Lock,
-  Info,
+  Sliders, 
+  CheckCircle2, 
+  Lock, 
+  AlertCircle,
+  Eye,
+  EyeOff,
+  KeyRound,
   ShieldAlert
 } from 'lucide-react';
 import { UserProfile, UserRole, ModulePermissions } from '../types';
-import { createNewUser, updateUserRoleAndPermissions, deleteUserRecord } from '../services/dataService';
+import { 
+  createNewUser, 
+  updateUserRoleAndPermissions, 
+  updateUserPassword, 
+  deleteUserRecord 
+} from '../services/dataService';
 
 interface UsersViewProps {
   usersList: UserProfile[];
 }
 
 export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
-  const { role, userProfile } = useAuth();
+  const { role, userProfile, updateCurrentUserPassword } = useAuth();
   const isAdmin = role === 'admin';
 
+  // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [creationSuccess, setCreationSuccess] = useState<string | null>(null);
+  const [passwordModalUser, setPasswordModalUser] = useState<UserProfile | null>(null);
 
-  // New User Form
+  // Password reset state
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  // General feedback
+  const [submitting, setSubmitting] = useState(false);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  // New User Form State
   const [formData, setFormData] = useState({
     userIdCode: `USR-${Math.floor(100 + Math.random() * 900)}`,
     displayName: '',
     email: '',
+    password: '123',
     role: 'editor' as UserRole,
     designation: 'Pastry Kitchen Supervisor',
     department: 'Central Kitchen & Logistics',
@@ -50,6 +68,9 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
       reports: { view: true, edit: false }
     }
   });
+
+  // Edit User optional password field
+  const [editUserPassword, setEditUserPassword] = useState('');
 
   const handleRoleChangeInForm = (newRole: UserRole) => {
     let perms: ModulePermissions;
@@ -96,17 +117,18 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) {
-      alert('Only Admins have authority to create new system users.');
+      alert('Security violation: Only Administrators can create staff users.');
       return;
     }
     setSubmitting(true);
-    setCreationSuccess(null);
+    setActionSuccess(null);
     try {
       await createNewUser({
         uid: `usr-${Date.now()}`,
         userIdCode: formData.userIdCode,
         displayName: formData.displayName,
         email: formData.email.trim().toLowerCase(),
+        password: formData.password.trim() || '123',
         role: formData.role,
         designation: formData.designation,
         department: formData.department,
@@ -114,15 +136,16 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
         createdAt: new Date().toISOString()
       });
       
-      const createdMsg = `Staff account created successfully! User ID: ${formData.userIdCode} • Assigned Role: ${formData.role.toUpperCase()} (${formData.displayName})`;
-      setCreationSuccess(createdMsg);
+      const createdMsg = `Staff account created! User ID: ${formData.userIdCode} • Assigned Role: ${formData.role.toUpperCase()} • Password: ${formData.password || '123'}`;
+      setActionSuccess(createdMsg);
       setShowAddModal(false);
 
-      // Reset form with new generated code
+      // Reset form with new code
       setFormData({
         userIdCode: `USR-${Math.floor(100 + Math.random() * 900)}`,
         displayName: '',
         email: '',
+        password: '123',
         role: 'editor',
         designation: 'Pastry Kitchen Supervisor',
         department: 'Central Kitchen & Logistics',
@@ -145,16 +168,28 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
 
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingUser || !isAdmin) return;
+    if (!editingUser || !isAdmin) {
+      alert('Security violation: Only Administrators can update user roles and permissions.');
+      return;
+    }
     setSubmitting(true);
     try {
       await updateUserRoleAndPermissions(
         editingUser.id,
         editingUser.role,
         editingUser.permissions,
-        editingUser.userIdCode
+        editingUser.userIdCode,
+        editUserPassword.trim().length > 0 ? editUserPassword.trim() : undefined
       );
+
+      // If current user's password was updated
+      if (editUserPassword.trim().length > 0 && userProfile?.id === editingUser.id) {
+        await updateCurrentUserPassword(editUserPassword.trim());
+      }
+
+      setActionSuccess(`Permissions and details updated successfully for ${editingUser.displayName}!`);
       setEditingUser(null);
+      setEditUserPassword('');
     } catch (err: any) {
       alert('Error updating user: ' + err.message);
     } finally {
@@ -162,11 +197,55 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
     }
   };
 
+  const handleSavePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordModalUser) return;
+    if (!isAdmin) {
+      alert('Security violation: Only Administrators can change staff passwords.');
+      return;
+    }
+
+    if (newPassword.trim().length === 0) {
+      setPasswordError('Please enter a valid password.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match. Please re-check.');
+      return;
+    }
+
+    setSubmitting(true);
+    setPasswordError(null);
+
+    try {
+      await updateUserPassword(passwordModalUser.id, newPassword.trim());
+
+      // If updating current logged in user's password
+      if (userProfile && (userProfile.id === passwordModalUser.id || userProfile.email === passwordModalUser.email)) {
+        await updateCurrentUserPassword(newPassword.trim());
+      }
+
+      setActionSuccess(`Password successfully changed for ${passwordModalUser.displayName} (${passwordModalUser.email})! New password is now active.`);
+      setPasswordModalUser(null);
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      setPasswordError('Failed to change password: ' + err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleDeleteUser = async (id: string, name: string) => {
-    if (!isAdmin) return;
+    if (!isAdmin) {
+      alert('Security violation: Only Administrators can remove users.');
+      return;
+    }
     if (confirm(`Are you sure you want to remove user "${name}"?`)) {
       try {
         await deleteUserRecord(id);
+        setActionSuccess(`User "${name}" has been removed from the system.`);
       } catch (err: any) {
         alert('Error removing user: ' + err.message);
       }
@@ -174,6 +253,8 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
   };
 
   const togglePermission = (module: keyof ModulePermissions, type: 'view' | 'edit') => {
+    if (!isAdmin) return; // Strictly Administrator only
+
     if (editingUser) {
       setEditingUser(prev => {
         if (!prev) return null;
@@ -230,44 +311,79 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
             </span>
           </div>
           <p className="text-xs text-stone-400 mt-1">
-            Exclusive administration section: Provision staff accounts with unique User IDs, assign roles (Admin, Editor, Viewer), and manage granular module visibility.
+            Exclusive administration section: Provision accounts, change passwords, and configure role permissions.
           </p>
         </div>
 
-        {isAdmin ? (
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-lg text-xs transition flex items-center space-x-2 shadow-sm cursor-pointer"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Create New Staff User</span>
-          </button>
-        ) : (
-          <div className="text-xs text-stone-400 flex items-center space-x-1.5 bg-stone-800 px-3 py-1.5 rounded-lg border border-stone-700">
-            <Lock className="w-3.5 h-3.5 text-amber-400" />
-            <span>User creation is restricted to System Administrators only</span>
-          </div>
-        )}
-      </div>
+        <div className="flex items-center space-x-2">
+          {/* Quick password change for currently signed-in user / Administrator */}
+          {userProfile && (
+            <button
+              onClick={() => {
+                setPasswordModalUser(userProfile);
+                setNewPassword('');
+                setConfirmPassword('');
+                setPasswordError(null);
+              }}
+              className="px-3 py-2 bg-stone-800 hover:bg-stone-750 border border-stone-700 hover:border-amber-500/50 text-stone-200 font-medium rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+              <span>Change My Password</span>
+            </button>
+          )}
 
-      {/* Security Rule Information Banner */}
-      <div className="bg-stone-850 border border-stone-800 rounded-xl p-4 flex items-start space-x-3">
-        <ShieldCheck className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-        <div className="text-xs text-stone-300 leading-relaxed">
-          <strong className="text-white">Central Kitchen Security Policy:</strong> In compliance with HACCP access governance, staff cannot self-register from the front login page. Account provisioning and role assignment are strictly restricted to this <strong>Users</strong> module and can only be executed by an authenticated <strong>System Administrator</strong>.
+          {isAdmin ? (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-lg text-xs transition flex items-center space-x-2 shadow-sm cursor-pointer"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Create New Staff User</span>
+            </button>
+          ) : (
+            <div className="text-xs text-stone-400 flex items-center space-x-1.5 bg-stone-800 px-3 py-1.5 rounded-lg border border-stone-700">
+              <Lock className="w-3.5 h-3.5 text-amber-400" />
+              <span>Only Administrator can manage permissions</span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Creation Success Banner */}
-      {creationSuccess && (
+      {/* Security Rule Information Banner */}
+      <div className={`p-4 rounded-xl border flex items-start space-x-3 ${
+        isAdmin 
+          ? 'bg-stone-900 border-stone-800 text-stone-300' 
+          : 'bg-amber-950/30 border-amber-800/50 text-amber-200'
+      }`}>
+        {isAdmin ? (
+          <ShieldCheck className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+        ) : (
+          <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+        )}
+        <div className="text-xs leading-relaxed">
+          <strong className="text-white">Access Governance:</strong>{' '}
+          {isAdmin ? (
+            <span>
+              You are signed in as <strong>Administrator ({userProfile?.email})</strong>. You have exclusive authority to create staff accounts, change/reset passwords for any user, and adjust granular module permissions.
+            </span>
+          ) : (
+            <span>
+              <strong>Read-Only View:</strong> You are signed in with the <strong>{role.toUpperCase()}</strong> role. Modifying user permissions, changing passwords, and creating accounts are strictly restricted to <strong>Administrator</strong> accounts.
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Success Notification Banner */}
+      {actionSuccess && (
         <div className="p-4 bg-emerald-950/70 border border-emerald-800 rounded-xl text-emerald-200 text-xs flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-            <span className="font-semibold">{creationSuccess}</span>
+            <span className="font-semibold">{actionSuccess}</span>
           </div>
           <button
-            onClick={() => setCreationSuccess(null)}
-            className="text-emerald-400 hover:text-white text-xs underline"
+            onClick={() => setActionSuccess(null)}
+            className="text-emerald-400 hover:text-white text-xs underline cursor-pointer"
           >
             Dismiss
           </button>
@@ -284,6 +400,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                 <th className="py-3 px-4">Name & Title</th>
                 <th className="py-3 px-4">Email Address</th>
                 <th className="py-3 px-4">Assigned Role</th>
+                <th className="py-3 px-4">Password Status</th>
                 <th className="py-3 px-4">Accessible Modules</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
@@ -292,6 +409,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
               {usersList.map((user) => {
                 const userRole = user.role || 'viewer';
                 const perms = user.permissions || {};
+                const isCurrentUser = userProfile?.id === user.id || userProfile?.email === user.email;
 
                 return (
                   <tr key={user.id} className="hover:bg-stone-800/40 transition">
@@ -299,7 +417,14 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                       {user.userIdCode || `USR-${user.id.slice(0, 5)}`}
                     </td>
                     <td className="py-3.5 px-4">
-                      <div className="font-semibold text-white">{user.displayName}</div>
+                      <div className="font-semibold text-white flex items-center space-x-1.5">
+                        <span>{user.displayName}</span>
+                        {isCurrentUser && (
+                          <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1 rounded font-normal">
+                            You
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[10px] text-stone-400">{user.designation || 'Staff'}</div>
                     </td>
                     <td className="py-3.5 px-4 text-stone-300 font-mono text-[11px]">
@@ -315,6 +440,25 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                       }`}>
                         {userRole}
                       </span>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center space-x-1.5">
+                        <span className="text-stone-400 font-mono text-[11px]">••••••••</span>
+                        {isAdmin && (
+                          <button
+                            onClick={() => {
+                              setPasswordModalUser(user);
+                              setNewPassword('');
+                              setConfirmPassword('');
+                              setPasswordError(null);
+                            }}
+                            className="text-[10px] text-amber-400 hover:text-amber-300 underline font-medium cursor-pointer"
+                            title="Change password for this user"
+                          >
+                            Change
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="flex flex-wrap gap-1">
@@ -340,10 +484,25 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end space-x-1">
-                        {isAdmin && (
+                        {isAdmin ? (
                           <>
                             <button
-                              onClick={() => setEditingUser(user)}
+                              onClick={() => {
+                                setPasswordModalUser(user);
+                                setNewPassword('');
+                                setConfirmPassword('');
+                                setPasswordError(null);
+                              }}
+                              className="p-1.5 text-stone-400 hover:text-amber-400 hover:bg-stone-800 rounded transition cursor-pointer"
+                              title="Change User Password"
+                            >
+                              <Key className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingUser(user);
+                                setEditUserPassword('');
+                              }}
                               className="p-1.5 text-stone-400 hover:text-blue-400 hover:bg-stone-800 rounded transition cursor-pointer"
                               title="Edit User Role & Module Permissions"
                             >
@@ -357,6 +516,11 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </>
+                        ) : (
+                          <span className="text-[10px] text-stone-600 flex items-center space-x-1">
+                            <Lock className="w-3 h-3" />
+                            <span>Protected</span>
+                          </span>
                         )}
                       </div>
                     </td>
@@ -368,9 +532,101 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
         </div>
       </div>
 
-      {/* CREATE USER MODAL - STRICTLY ADMINISTRATOR ONLY */}
+      {/* CHANGE PASSWORD MODAL */}
+      {passwordModalUser && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-stone-900 border border-stone-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-800 mb-4">
+              <div className="flex items-center space-x-2">
+                <KeyRound className="w-5 h-5 text-amber-400" />
+                <div>
+                  <h3 className="font-bold text-white text-base">Change Staff Password</h3>
+                  <p className="text-[11px] text-stone-400">
+                    Target User: <strong className="text-amber-300">{passwordModalUser.displayName}</strong> ({passwordModalUser.email})
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setPasswordModalUser(null)} 
+                className="text-stone-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {passwordError && (
+              <div className="mb-4 p-3 bg-red-950/60 border border-red-800 rounded-lg text-red-200 text-xs flex items-start space-x-2">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <span>{passwordError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSavePasswordChange} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-stone-300 mb-1">
+                  New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPass ? 'text' : 'password'}
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password (e.g. 123)"
+                    className="w-full px-3 py-2 pr-9 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 font-mono focus:outline-none focus:border-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPass(!showPass)}
+                    className="absolute right-2.5 top-2.5 text-stone-400 hover:text-stone-200 cursor-pointer"
+                  >
+                    {showPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-300 mb-1">
+                  Confirm New Password
+                </label>
+                <input
+                  type={showPass ? 'text' : 'password'}
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repeat new password"
+                  className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 font-mono focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div className="pt-2 text-[11px] text-stone-400 bg-stone-850 p-2.5 rounded-lg border border-stone-800">
+                The updated password will take effect immediately for staff portal login.
+              </div>
+
+              <div className="pt-3 border-t border-stone-800 flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setPasswordModalUser(null)}
+                  className="px-4 py-2 bg-stone-800 text-stone-300 rounded-lg text-xs font-medium cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-lg text-xs shadow-md transition cursor-pointer disabled:opacity-50"
+                >
+                  {submitting ? 'Updating Password...' : 'Save New Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CREATE USER MODAL - ADMINISTRATOR ONLY */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
           <div className="bg-stone-900 border border-stone-700 rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-stone-800 mb-4">
               <div className="flex items-center space-x-2">
@@ -378,11 +634,11 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                 <div>
                   <h3 className="font-bold text-white text-base">Provision New Staff User</h3>
                   <p className="text-[11px] text-stone-400">
-                    Administrator authority: assign User ID code & role
+                    Administrator authority: assign User ID code, password, & role
                   </p>
                 </div>
               </div>
-              <button onClick={() => setShowAddModal(false)} className="text-stone-400 hover:text-white">
+              <button onClick={() => setShowAddModal(false)} className="text-stone-400 hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -411,9 +667,9 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                     onChange={(e) => handleRoleChangeInForm(e.target.value as UserRole)}
                     className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500 font-bold"
                   >
-                    <option value="admin">Admin (QA Executive - Full Control)</option>
-                    <option value="editor">Editor (Pastry Chef - Inventory & Forms)</option>
-                    <option value="viewer">Viewer (Auditor - Read-only)</option>
+                    <option value="admin">Admin (Full Control & User Management)</option>
+                    <option value="editor">Editor (Kitchen & Forms Creation)</option>
+                    <option value="viewer">Viewer (Read-Only Audit)</option>
                   </select>
                 </div>
               </div>
@@ -432,18 +688,34 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-stone-300 mb-1">
-                  Staff Email Address (for Portal Sign In)
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="ksilva@barista.lk"
-                  className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 mb-1">
+                    Staff Email Address (for Login)
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="ksilva@barista.lk"
+                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 mb-1">
+                    Initial Password
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="Default: 123"
+                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -532,7 +804,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
 
       {/* EDIT USER ROLE & PERMISSIONS MODAL */}
       {editingUser && (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
           <div className="bg-stone-900 border border-stone-700 rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-stone-800 mb-4">
               <div className="flex items-center space-x-2">
@@ -541,7 +813,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                   Manage Access for {editingUser.displayName}
                 </h3>
               </div>
-              <button onClick={() => setEditingUser(null)} className="text-stone-400 hover:text-white">
+              <button onClick={() => setEditingUser(null)} className="text-stone-400 hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -575,6 +847,19 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                     <option value="viewer">Viewer (Read-only)</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-300 mb-1">
+                  Change Password (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={editUserPassword}
+                  onChange={(e) => setEditUserPassword(e.target.value)}
+                  placeholder="Leave empty to keep existing password, or enter new"
+                  className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 font-mono focus:outline-none"
+                />
               </div>
 
               {/* Granular Module Visibility Configuration */}

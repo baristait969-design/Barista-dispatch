@@ -9,7 +9,6 @@ import { OutletsView } from './components/OutletsView';
 import { UsersView } from './components/UsersView';
 import { RolesView } from './components/RolesView';
 import { ReportsView } from './components/ReportsView';
-import { VsCodeGuideView } from './components/VsCodeGuideView';
 import { 
   InventoryBatch, 
   Outlet, 
@@ -153,11 +152,9 @@ const MainContent: React.FC = () => {
           <ReportsView
             dispatchLogs={dispatchLogs}
             batches={batches}
+            outlets={outlets}
+            drivers={drivers}
           />
-        )}
-
-        {currentTab === 'vscode-guide' && (
-          <VsCodeGuideView />
         )}
       </main>
 
