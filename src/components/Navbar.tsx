@@ -12,10 +12,10 @@ import {
   Menu, 
   X, 
   ThermometerSnowflake,
-  UserCheck,
-  ChevronDown
+  UserCheck
 } from 'lucide-react';
 import { UserRole } from '../types';
+import { BaristaLogo } from './BaristaLogo';
 
 interface NavbarProps {
   currentTab: string;
@@ -23,9 +23,8 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => {
-  const { userProfile, role, logout, isSimulated, loginDemoRole, hasAccess } = useAuth();
+  const { userProfile, role, logout, hasAccess } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, visible: hasAccess('dashboard', 'view') },
@@ -50,8 +49,8 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
 
   return (
     <header className="bg-stone-900 text-white shadow-lg sticky top-0 z-40 border-b border-stone-800">
-      {/* Top micro bar for HACCP status and quick role switcher */}
-      <div className="bg-amber-950/60 text-amber-200 text-xs px-3 sm:px-6 py-1 flex items-center justify-between border-b border-amber-800/40">
+      {/* Top micro bar for HACCP status - clean and secure without backdoor role switcher */}
+      <div className="bg-amber-950/60 text-amber-200 text-xs px-3 sm:px-6 py-1.5 flex items-center justify-between border-b border-amber-800/40">
         <div className="flex items-center space-x-2 truncate">
           <ThermometerSnowflake className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
           <span className="font-semibold uppercase tracking-wider text-[11px] sm:text-xs">
@@ -63,75 +62,23 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
         </div>
         
         <div className="flex items-center space-x-2 shrink-0">
-          <span className="text-stone-400 text-[11px] hidden sm:inline">Active Role:</span>
-          <div className="flex items-center space-x-1 bg-stone-900/90 px-2 py-0.5 rounded-md border border-stone-700">
-            <span className="text-[10px] sm:text-[11px] font-bold uppercase text-amber-300">{role}</span>
-            <button 
-              onClick={() => setShowRoleSwitcher(!showRoleSwitcher)}
-              className="text-[10px] text-stone-300 hover:text-white underline ml-1 cursor-pointer flex items-center"
-              title="Switch role to test access permissions for university presentation"
-            >
-              <span>Switch</span>
-              <ChevronDown className="w-2.5 h-2.5 ml-0.5" />
-            </button>
-          </div>
+          <span className="text-stone-400 text-[11px] hidden sm:inline">Enterprise QA Portal:</span>
+          <span className="text-[10px] sm:text-[11px] font-bold uppercase text-amber-300 font-mono">
+            Barista Sri Lanka
+          </span>
         </div>
       </div>
-
-      {/* Role Switcher Floating Menu */}
-      {showRoleSwitcher && (
-        <div className="absolute right-4 top-8 bg-stone-900 border border-stone-700 rounded-xl shadow-2xl p-3 z-50 w-72 text-sm backdrop-blur-md">
-          <div className="font-semibold text-stone-200 mb-1 flex items-center justify-between pb-1.5 border-b border-stone-800">
-            <span className="text-xs font-bold text-amber-400">Presentation Role Switcher</span>
-            <button onClick={() => setShowRoleSwitcher(false)} className="text-stone-400 hover:text-white p-0.5">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          <p className="text-[11px] text-stone-400 mb-2">Switch roles to test access governance live:</p>
-          <div className="space-y-1.5">
-            <button
-              onClick={() => { loginDemoRole('admin'); setShowRoleSwitcher(false); }}
-              className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition cursor-pointer ${
-                role === 'admin' ? 'bg-amber-600 text-stone-950 font-bold' : 'bg-stone-800 text-stone-200 hover:bg-stone-750'
-              }`}
-            >
-              <span>Admin (Full Access & User Mgt)</span>
-              <span className="text-[9px] bg-stone-900/60 px-1.5 py-0.5 rounded font-mono">Full</span>
-            </button>
-            <button
-              onClick={() => { loginDemoRole('editor'); setShowRoleSwitcher(false); }}
-              className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition cursor-pointer ${
-                role === 'editor' ? 'bg-blue-600 text-white font-bold' : 'bg-stone-800 text-stone-200 hover:bg-stone-750'
-              }`}
-            >
-              <span>Editor (Kitchen & Forms)</span>
-              <span className="text-[9px] bg-stone-900/60 px-1.5 py-0.5 rounded font-mono">Edit</span>
-            </button>
-            <button
-              onClick={() => { loginDemoRole('viewer'); setShowRoleSwitcher(false); }}
-              className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition cursor-pointer ${
-                role === 'viewer' ? 'bg-emerald-600 text-white font-bold' : 'bg-stone-800 text-stone-200 hover:bg-stone-750'
-              }`}
-            >
-              <span>Viewer (Store Auditor)</span>
-              <span className="text-[9px] bg-stone-900/60 px-1.5 py-0.5 rounded font-mono">Read Only</span>
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Main Navbar */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-2">
-          {/* Logo & Brand */}
+          {/* Logo & Brand with authentic Barista circular logo */}
           <div 
             className="flex items-center space-x-2.5 sm:space-x-3 cursor-pointer shrink-0" 
-            onClick={() => setCurrentTab('dashboard')}
-            title="Go to Dashboard"
+            onClick={() => setCurrentTab(role === 'viewer' ? 'reports' : 'dashboard')}
+            title={role === 'viewer' ? "Go to Reports" : "Go to Dashboard"}
           >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center font-serif font-black text-lg sm:text-xl text-stone-950 tracking-wider shadow-md shadow-amber-900/20">
-              B
-            </div>
+            <BaristaLogo className="w-9 h-9 sm:w-10 sm:h-10 ring-1 ring-amber-500/40" />
             <div>
               <div className="flex items-center space-x-1.5">
                 <span className="font-extrabold tracking-widest text-base sm:text-lg font-serif text-amber-400">BARISTA</span>
@@ -264,16 +211,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
             })}
           </div>
 
-          <div className="pt-2 border-t border-stone-800/80 flex justify-between items-center text-xs">
-            <button
-              onClick={() => {
-                setShowRoleSwitcher(true);
-                setMobileMenuOpen(false);
-              }}
-              className="text-amber-400 hover:underline flex items-center space-x-1 cursor-pointer font-medium"
-            >
-              <span>Test Role Switcher ({role})</span>
-            </button>
+          <div className="pt-2 border-t border-stone-800/80 flex justify-end items-center text-xs">
             <button
               onClick={logout}
               className="flex items-center space-x-1.5 text-xs text-red-400 hover:text-red-300 px-3 py-1.5 bg-stone-900 hover:bg-stone-850 rounded-lg border border-stone-800 cursor-pointer"

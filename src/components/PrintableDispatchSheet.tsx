@@ -1,6 +1,7 @@
 import React from 'react';
 import { Printer, X, CheckCircle2, AlertTriangle, ShieldCheck, ThermometerSnowflake, FileText } from 'lucide-react';
 import { DispatchLog, DispatchLineItem } from '../types';
+import { BaristaLogo } from './BaristaLogo';
 
 interface PrintableDispatchSheetProps {
   dispatchLog: Partial<DispatchLog> & {
@@ -78,9 +79,7 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
               
               {/* Brand Logo & Name (4 cols) */}
               <div className="col-span-12 md:col-span-4 p-4 flex flex-col justify-center items-center text-center bg-stone-50">
-                <div className="w-10 h-10 rounded-lg bg-stone-900 text-amber-400 flex items-center justify-center font-serif font-black text-2xl mb-1">
-                  B
-                </div>
+                <BaristaLogo className="w-12 h-12 mb-1 shadow-sm" />
                 <h1 className="font-serif font-black tracking-widest text-xl text-stone-900 leading-none">
                   BARISTA
                 </h1>

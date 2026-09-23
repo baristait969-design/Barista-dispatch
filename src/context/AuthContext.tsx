@@ -43,16 +43,17 @@ const DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     dashboard: { view: true, edit: false },
     inventory: { view: true, edit: true },
     forms: { view: true, edit: true },
-    outlets: { view: true, edit: true },
+    outlets: { view: true, edit: false }, // Only admin can edit, add, delete, or suspend outlets
     users: { view: true, edit: false },
     roles: { view: true, edit: false },
     reports: { view: true, edit: false }
   },
   viewer: {
-    dashboard: { view: true, edit: false },
-    inventory: { view: true, edit: false },
-    forms: { view: true, edit: false },
-    outlets: { view: true, edit: false },
+    // In viewer section, only reports would be visible, no other stuff
+    dashboard: { view: false, edit: false },
+    inventory: { view: false, edit: false },
+    forms: { view: false, edit: false },
+    outlets: { view: false, edit: false },
     users: { view: false, edit: false },
     roles: { view: false, edit: false },
     reports: { view: true, edit: false }
@@ -306,6 +307,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hasAccess = (module: keyof ModulePermissions, action: 'view' | 'edit' = 'view'): boolean => {
     if (!userProfile) return false;
     if (userProfile.role === 'admin') return true;
+
+    // Strict rule: in viewer section only report would be visible not other stuff
+    if (userProfile.role === 'viewer') {
+      return module === 'reports' && action === 'view';
+    }
+
+    // Strict rule: only admin can edit, add, delete, or suspend the outlet list
+    if (module === 'outlets' && action === 'edit') {
+      return false;
+    }
 
     // Check custom permissions first if assigned
     if (userProfile.permissions && userProfile.permissions[module]) {

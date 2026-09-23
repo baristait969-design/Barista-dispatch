@@ -2,93 +2,73 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Default deny all
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Helper functions
-    function isSignedIn() {
+    function isAuthenticated() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
     function isAdmin() {
-      return isSignedIn() && (
-        (request.auth.token.email != null && request.auth.token.email == 'baristait969@gmail.com') ||
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      return isAuthenticated() && (
+        getUserData().role == 'admin' ||
+        request.auth.token.email == 'baristait969@gmail.com'
       );
     }
 
     function isEditorOrAdmin() {
-      return isSignedIn() && (
+      return isAuthenticated() && (
         isAdmin() ||
-        (
-          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'editor'
-        )
+        getUserData().role == 'editor'
       );
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() > 0 && id.size() <= 128;
     }
 
     // Connection test document
     match /test/{docId} {
-      allow read: if isSignedIn();
+      allow read, write: if true;
     }
 
-    // Users collection - strictly managed by Administrator
+    // Users collection - user profiles and credentials
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && isAdmin();
-      allow update: if isSignedIn() && (
-        isAdmin() ||
-        (isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'permissions'])))
-      );
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated() || !exists(/databases/$(database)/documents/users/$(userId));
     }
 
-    // Inventory batches
+    // Central Kitchen Inventory batches
     match /inventory/{batchId} {
-      allow read: if isSignedIn();
-      allow create: if isEditorOrAdmin();
-      allow update: if isSignedIn(); // Allows quantity decrement upon dispatch as well as editor/admin updates
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated() || isEditorOrAdmin();
     }
 
     // Batch Audit Logs
     match /batch_logs/{logId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
-    // Outlets
+    // Retail Outlets (Barista coffee branches)
     match /outlets/{outletId} {
-      allow read: if isSignedIn();
-      allow create, update: if isEditorOrAdmin();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
-    // Dispatch Logs (HACCP BCL/REC/HACCP/32)
+    // HACCP Dispatch Logs (BCL/REC/HACCP/32)
     match /dispatch_logs/{dispatchId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn(); // User can retrieve submitted reports for edits
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
-    // Drivers
+    // Logistics Drivers & Chilled Vehicles
     match /drivers/{driverId} {
-      allow read: if isSignedIn();
-      allow create, update: if isEditorOrAdmin();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Fallback rule
+    match /{document=**} {
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
   }
 }

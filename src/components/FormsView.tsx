@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   FileText, 
@@ -28,6 +28,7 @@ import { InventoryBatch, Outlet, Driver, DispatchLog, DispatchLineItem } from '.
 import { INITIAL_PRODUCTS } from '../data/seedData';
 import { createDispatchLogWithDeduction, updateDispatchLog } from '../services/dataService';
 import { PrintableDispatchSheet } from './PrintableDispatchSheet';
+import { BaristaLogo } from './BaristaLogo';
 
 interface FormsViewProps {
   batches: InventoryBatch[];
@@ -271,6 +272,19 @@ export const FormsView: React.FC<FormsViewProps> = ({
     o.outletId.toLowerCase().includes(outletSearch.toLowerCase()) ||
     (o.location ? o.location.toLowerCase().includes(outletSearch.toLowerCase()) : false)
   );
+
+  // Dynamic sorting: selected outlets come up to the top, and when deselected return to their original sequential place
+  const displayOutlets = useMemo(() => {
+    return [...filteredOutlets].sort((a, b) => {
+      const aSelected = selectedOutletIds.includes(a.id);
+      const bSelected = selectedOutletIds.includes(b.id);
+      if (aSelected && !bSelected) return -1;
+      if (!aSelected && bSelected) return 1;
+      const numA = parseInt(a.outletId?.replace(/\D/g, '') || '0', 10);
+      const numB = parseInt(b.outletId?.replace(/\D/g, '') || '0', 10);
+      return numA - numB;
+    });
+  }, [filteredOutlets, selectedOutletIds]);
 
   // Summary calculations
   const totalUnits = lineItems.reduce((acc, item) => acc + (item.quantity || 0), 0);
@@ -681,6 +695,7 @@ export const FormsView: React.FC<FormsViewProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-stone-700 print:divide-black text-xs">
                 {/* Brand Logo Box */}
                 <div className="p-4 flex flex-col justify-center items-center bg-stone-850 print:bg-white text-center">
+                  <BaristaLogo className="w-10 h-10 mb-1" />
                   <span className="font-serif font-black tracking-widest text-2xl text-amber-500 print:text-black">
                     BARISTA
                   </span>
@@ -789,31 +804,36 @@ export const FormsView: React.FC<FormsViewProps> = ({
                     />
                   </div>
 
-                  <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2.5 bg-stone-900 print:bg-white border border-stone-700 print:border-black rounded-xl">
-                    {filteredOutlets.map((outlet) => {
-                      const isSelected = selectedOutletIds.includes(outlet.id);
-                      return (
-                        <button
-                          key={outlet.id}
-                          type="button"
-                          onClick={() => toggleOutlet(outlet.id)}
-                          className={`px-2.5 py-1 rounded-lg text-xs transition cursor-pointer flex items-center space-x-1.5 border ${
-                            isSelected
-                              ? 'bg-amber-600 text-stone-950 border-amber-500 font-bold shadow-sm print:bg-gray-200 print:text-black'
-                              : 'bg-stone-800 text-stone-300 border-stone-700 hover:bg-stone-750 print:bg-white print:text-black'
-                          }`}
-                        >
-                          <span className="font-mono text-[10px]">{outlet.outletId}:</span>
-                          <span>{outlet.name}</span>
-                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="text-[11px] text-amber-300/90 print:text-black font-semibold truncate">
-                    Routing to: {selectedOutletNames.join(', ') || 'None selected'}
-                  </div>
+                  {outlets.length === 0 ? (
+                    <div className="p-3 text-center text-xs text-stone-400 bg-stone-900 border border-stone-800 rounded-xl space-y-1">
+                      <p className="text-amber-400 font-semibold">No outlets registered in system yet.</p>
+                      <p className="text-[11px] text-stone-400">
+                        Please go to the <strong>Retail Outlets</strong> tab to quick-paste or add your branch list.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2.5 bg-stone-900 print:bg-white border border-stone-700 print:border-black rounded-xl">
+                      {displayOutlets.map((outlet) => {
+                        const isSelected = selectedOutletIds.includes(outlet.id);
+                        return (
+                          <button
+                            key={outlet.id}
+                            type="button"
+                            onClick={() => toggleOutlet(outlet.id)}
+                            className={`px-2.5 py-1 rounded-lg text-xs transition cursor-pointer flex items-center space-x-1.5 border ${
+                              isSelected
+                                ? 'bg-amber-600 text-stone-950 border-amber-500 font-bold shadow-sm print:bg-gray-200 print:text-black'
+                                : 'bg-stone-800 text-stone-300 border-stone-700 hover:bg-stone-750 print:bg-white print:text-black'
+                            }`}
+                          >
+                            <span className="font-mono text-[10px]">{outlet.outletId}:</span>
+                            <span>{outlet.name}</span>
+                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Date, Dispatch Time & Driver (6 columns) */}
@@ -1012,8 +1032,9 @@ export const FormsView: React.FC<FormsViewProps> = ({
                   </thead>
                   <tbody className="divide-y divide-stone-800 print:divide-black">
                     {lineItems.map((item) => {
+                      const itemNorm = item.productName.trim().toLowerCase();
                       const productBatches = batches.filter(
-                        b => b.productName.toLowerCase() === item.productName.toLowerCase()
+                        b => b.productName.trim().toLowerCase() === itemNorm
                       );
 
                       const isTempWarm = item.dispatchTemp > 5.0;
@@ -1079,7 +1100,7 @@ export const FormsView: React.FC<FormsViewProps> = ({
                             </div>
                           </td>
 
-                          {/* Batch No */}
+                          {/* Batch No - Strictly filtered to the same item in front of it */}
                           <td className="py-2 px-3">
                             <select
                               value={item.batchNo}
@@ -1092,15 +1113,17 @@ export const FormsView: React.FC<FormsViewProps> = ({
                                   {b.batchNo} (Qty: {b.quantity})
                                 </option>
                               ))}
-                              <optgroup label="All Kitchen Batches">
-                                {batches
-                                  .filter(b => b.productName.toLowerCase() !== item.productName.toLowerCase())
-                                  .map(b => (
-                                    <option key={b.id} value={b.batchNo}>
-                                      {b.batchNo} — {b.productName}
-                                    </option>
-                                  ))}
-                              </optgroup>
+                              {/* Maintain current batch if already saved or custom */}
+                              {item.batchNo && !productBatches.some(b => b.batchNo === item.batchNo) && (
+                                <option value={item.batchNo}>
+                                  {item.batchNo}
+                                </option>
+                              )}
+                              {productBatches.length === 0 && !item.batchNo && (
+                                <option value="" disabled>
+                                  No batches for this item
+                                </option>
+                              )}
                             </select>
                           </td>
 

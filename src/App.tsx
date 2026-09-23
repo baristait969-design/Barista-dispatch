@@ -25,6 +25,7 @@ import {
 } from './data/seedData';
 import { 
   seedInitialDataIfNeeded, 
+  syncOfficialOutlets,
   subscribeBatches, 
   subscribeOutlets, 
   subscribeDrivers, 
@@ -35,8 +36,17 @@ import {
 import { Loader2 } from 'lucide-react';
 
 const MainContent: React.FC = () => {
-  const { userProfile, loading } = useAuth();
-  const [currentTab, setCurrentTab] = useState<string>('dashboard');
+  const { userProfile, loading, role, hasAccess } = useAuth();
+  const [currentTab, setCurrentTab] = useState<string>(role === 'viewer' ? 'reports' : 'dashboard');
+
+  // Enforce viewer role restriction: in viewer section only report is visible
+  useEffect(() => {
+    if (role === 'viewer') {
+      setCurrentTab('reports');
+    } else if (!hasAccess(currentTab as any, 'view')) {
+      setCurrentTab('dashboard');
+    }
+  }, [role, currentTab, hasAccess]);
 
   // Application Data States (synced with Firestore)
   const [batches, setBatches] = useState<InventoryBatch[]>(INITIAL_BATCHES);
@@ -56,7 +66,11 @@ const MainContent: React.FC = () => {
     });
 
     const unsubOutlets = subscribeOutlets((data) => {
-      if (data && data.length > 0) setOutlets(data);
+      if (data && data.length > 0) {
+        setOutlets(data);
+      } else {
+        syncOfficialOutlets(false);
+      }
     });
 
     const unsubDrivers = subscribeDrivers((data) => {
@@ -107,54 +121,66 @@ const MainContent: React.FC = () => {
       <Navbar currentTab={currentTab} setCurrentTab={setCurrentTab} />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-        {currentTab === 'dashboard' && (
-          <DashboardView
-            batches={batches}
-            dispatchLogs={dispatchLogs}
-            outlets={outlets}
-            onNavigate={(tab) => setCurrentTab(tab)}
-          />
-        )}
-
-        {currentTab === 'inventory' && (
-          <InventoryView
-            batches={batches}
-            batchLogs={batchLogs}
-          />
-        )}
-
-        {currentTab === 'forms' && (
-          <FormsView
-            batches={batches}
-            outlets={outlets}
-            drivers={drivers}
-            dispatchLogs={dispatchLogs}
-          />
-        )}
-
-        {currentTab === 'outlets' && (
-          <OutletsView
-            outlets={outlets}
-          />
-        )}
-
-        {currentTab === 'users' && (
-          <UsersView
-            usersList={usersList}
-          />
-        )}
-
-        {currentTab === 'roles' && (
-          <RolesView />
-        )}
-
-        {currentTab === 'reports' && (
+        {/* If user is Viewer, ONLY ReportsView is rendered, no other stuff */}
+        {role === 'viewer' ? (
           <ReportsView
             dispatchLogs={dispatchLogs}
             batches={batches}
             outlets={outlets}
             drivers={drivers}
           />
+        ) : (
+          <>
+            {currentTab === 'dashboard' && hasAccess('dashboard', 'view') && (
+              <DashboardView
+                batches={batches}
+                dispatchLogs={dispatchLogs}
+                outlets={outlets}
+                onNavigate={(tab) => setCurrentTab(tab)}
+              />
+            )}
+
+            {currentTab === 'inventory' && hasAccess('inventory', 'view') && (
+              <InventoryView
+                batches={batches}
+                batchLogs={batchLogs}
+              />
+            )}
+
+            {currentTab === 'forms' && hasAccess('forms', 'view') && (
+              <FormsView
+                batches={batches}
+                outlets={outlets}
+                drivers={drivers}
+                dispatchLogs={dispatchLogs}
+              />
+            )}
+
+            {currentTab === 'outlets' && hasAccess('outlets', 'view') && (
+              <OutletsView
+                outlets={outlets}
+              />
+            )}
+
+            {currentTab === 'users' && hasAccess('users', 'view') && (
+              <UsersView
+                usersList={usersList}
+              />
+            )}
+
+            {currentTab === 'roles' && hasAccess('roles', 'view') && (
+              <RolesView />
+            )}
+
+            {currentTab === 'reports' && hasAccess('reports', 'view') && (
+              <ReportsView
+                dispatchLogs={dispatchLogs}
+                batches={batches}
+                outlets={outlets}
+                drivers={drivers}
+              />
+            )}
+          </>
         )}
       </main>
 

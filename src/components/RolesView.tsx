@@ -27,34 +27,37 @@ export const RolesView: React.FC = () => {
       name: 'Editor',
       title: 'Head Pastry Chef / Central Kitchen Supervisor',
       badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
-      description: 'Central kitchen production and logistics team. Can register new production batches, adjust inventory, fill dispatch forms (BCL/REC/HACCP/32), and assign delivery drivers.',
-      scope: 'Kitchen Production & Dispatches'
+      description: 'Central kitchen production and logistics team. Can register new production batches, adjust inventory, fill dispatch forms (BCL/REC/HACCP/32), and assign delivery drivers. Outlets list is viewable in read-only mode.',
+      scope: 'Kitchen Production & Dispatches (Outlets Read-Only)'
     },
     {
       id: 'ROL-VIW-03',
       name: 'Viewer',
       title: 'Outlet Manager / External HACCP Auditor',
       badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-      description: 'Audit and inspection profile. Can view inventory levels, view submitted dispatch logs, and inspect compliance reports without permission to edit or tamper with production records.',
-      scope: 'Read-Only / Compliance Inspection'
+      description: 'Inspection and auditing profile. Strictly restricted to Reports section with print capability for official dispatch logs and QA audits. All other management modules are hidden.',
+      scope: 'Reports Viewing & Print Only'
     }
   ];
 
   const permissionsMatrix = [
-    { module: 'Personalized Dashboard', admin: 'Full Access', editor: 'Full Access', viewer: 'View Only' },
-    { module: 'Inventory - View Stock & Batches', admin: 'Full Access', editor: 'Full Access', viewer: 'View Only' },
+    { module: 'Personalized Dashboard', admin: 'Full Access', editor: 'Full Access', viewer: 'Denied (Hidden)' },
+    { module: 'Inventory - View Stock & Batches', admin: 'Full Access', editor: 'Full Access', viewer: 'Denied (Hidden)' },
     { module: 'Inventory - Create & Edit Batches', admin: 'Full Access', editor: 'Full Access', viewer: 'Denied' },
     { module: 'Inventory - Delete Batch Records', admin: 'Full Access', editor: 'Denied', viewer: 'Denied' },
-    { module: 'Inventory - Export CSV Analysis', admin: 'Full Access', editor: 'Full Access', viewer: 'Full Access' },
-    { module: 'Dispatch Form (BCL/REC/HACCP/32) - Issue & Submit', admin: 'Full Access', editor: 'Full Access', viewer: 'Denied' },
+    { module: 'Inventory - Export CSV Analysis', admin: 'Full Access', editor: 'Full Access', viewer: 'Denied' },
+    { module: 'Dispatch Form (BCL/REC/HACCP/32) - Issue & Submit', admin: 'Full Access', editor: 'Full Access', viewer: 'Denied (Hidden)' },
     { module: 'Dispatch Form - Real-time Stock Deduction', admin: 'Automatic', editor: 'Automatic', viewer: 'Denied' },
     { module: 'Dispatch Form - Supervisor Sign-off Lock', admin: 'Authenticated ID', editor: 'Authenticated ID', viewer: 'Denied' },
-    { module: 'Dispatch Logs - Retrieve & Edit Submitted', admin: 'Full Access', editor: 'Full Access', viewer: 'View Only' },
-    { module: 'Outlets - Add & Edit Branches', admin: 'Full Access', editor: 'Full Access', viewer: 'View Only' },
-    { module: 'Outlets - Delete Branch', admin: 'Full Access', editor: 'Denied', viewer: 'Denied' },
-    { module: 'Users - Register & Assign Roles', admin: 'Full Access', editor: 'Denied', viewer: 'Denied' },
-    { module: 'Roles & Security Matrix', admin: 'Full Access', editor: 'View Only', viewer: 'View Only' },
-    { module: 'HACCP Compliance Reports', admin: 'Full Access', editor: 'View Only', viewer: 'View Only' },
+    { module: 'Dispatch Logs - View & Search', admin: 'Full Access', editor: 'Full Access', viewer: 'View in Reports' },
+    { module: 'Outlets - Add & Edit Branches', admin: 'Exclusive Full Access', editor: 'Denied (Read-Only)', viewer: 'Denied (Hidden)' },
+    { module: 'Outlets - Active / Suspended Status Toggle', admin: 'Exclusive Full Access', editor: 'Denied', viewer: 'Denied (Hidden)' },
+    { module: 'Outlets - Delete Branch', admin: 'Exclusive Full Access', editor: 'Denied', viewer: 'Denied (Hidden)' },
+    { module: 'Users - Register & Assign Roles', admin: 'Full Access', editor: 'Denied', viewer: 'Denied (Hidden)' },
+    { module: 'Roles & Security Matrix', admin: 'Full Access', editor: 'View Only', viewer: 'Denied (Hidden)' },
+    { module: 'Reports & Audits - View & Filter', admin: 'Full Access', editor: 'Full Access', viewer: 'Full Access' },
+    { module: 'Reports - Official Sheet & Audit Printing', admin: 'Full Access', editor: 'Full Access', viewer: 'Print Enabled' },
+    { module: 'Reports - Export CSV', admin: 'Full Access', editor: 'Full Access', viewer: 'Denied' },
   ];
 
   return (

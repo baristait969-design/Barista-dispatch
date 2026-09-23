@@ -8,7 +8,8 @@ import {
   onSnapshot, 
   query, 
   orderBy, 
-  runTransaction
+  runTransaction,
+  writeBatch
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { InventoryBatch, BatchLog, Outlet, DispatchLog, Driver, UserProfile, UserRole } from '../types';
@@ -52,6 +53,8 @@ export async function seedInitialDataIfNeeded(): Promise<boolean> {
       if (primaryAdmin) {
         await setDoc(doc(db, USERS_COL, primaryAdmin.id), primaryAdmin, { merge: true });
       }
+      // Sync official 101 outlets if needed
+      await syncOfficialOutlets(false);
     }
     return false;
   } catch (error) {
@@ -181,7 +184,12 @@ export function subscribeOutlets(callback: (outlets: Outlet[]) => void) {
       snapshot.forEach((d) => {
         items.push({ id: d.id, ...d.data() } as Outlet);
       });
-      items.sort((a, b) => a.outletId.localeCompare(b.outletId));
+      // Natural numeric sort by OUT-XX sequence number (1 to 101+)
+      items.sort((a, b) => {
+        const numA = parseInt(a.outletId?.replace(/\D/g, '') || '0', 10);
+        const numB = parseInt(b.outletId?.replace(/\D/g, '') || '0', 10);
+        return numA - numB;
+      });
       callback(items);
     },
     (error) => {
@@ -190,10 +198,49 @@ export function subscribeOutlets(callback: (outlets: Outlet[]) => void) {
   );
 }
 
-export async function addOutlet(outlet: Omit<Outlet, 'id'>): Promise<string> {
-  const id = `outlet-${Date.now()}`;
+export function getNextOutletCode(outletsList: Outlet[]): string {
+  let max = 0;
+  for (const o of outletsList) {
+    const match = o.outletId?.match(/(\d+)/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > max) max = num;
+    }
+  }
+  const nextNum = max > 0 ? max + 1 : outletsList.length + 1;
+  return `OUT-${String(nextNum).padStart(2, '0')}`;
+}
+
+export async function addOutlet(outlet: { name: string; active?: boolean }): Promise<string> {
+  const name = outlet.name.trim();
+  if (!name) {
+    throw new Error('Outlet Name is compulsory.');
+  }
+
+  const id = `outlet-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
   try {
-    await setDoc(doc(db, OUTLETS_COL, id), { ...outlet, id });
+    // Automatically calculate next consecutive code
+    const snap = await getDocs(collection(db, OUTLETS_COL));
+    let max = 0;
+    snap.forEach((d) => {
+      const data = d.data();
+      const code = data.outletId as string;
+      const match = code?.match(/(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > max) max = num;
+      }
+    });
+    const autoCode = `OUT-${String(max + 1).padStart(2, '0')}`;
+
+    await setDoc(doc(db, OUTLETS_COL, id), {
+      id,
+      outletId: autoCode,
+      name,
+      location: '',
+      phone: '',
+      active: outlet.active !== undefined ? outlet.active : true
+    });
     return id;
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, `${OUTLETS_COL}/${id}`);
@@ -201,9 +248,22 @@ export async function addOutlet(outlet: Omit<Outlet, 'id'>): Promise<string> {
   }
 }
 
-export async function updateOutlet(id: string, updates: Partial<Outlet>): Promise<void> {
+export async function updateOutlet(
+  id: string, 
+  updates: { name?: string; active?: boolean }
+): Promise<void> {
   try {
-    await updateDoc(doc(db, OUTLETS_COL, id), updates);
+    const safeUpdates: Partial<Outlet> = {};
+    if (updates.name !== undefined) {
+      const trimmed = updates.name.trim();
+      if (!trimmed) throw new Error('Outlet Name is compulsory.');
+      safeUpdates.name = trimmed;
+    }
+    if (updates.active !== undefined) {
+      safeUpdates.active = updates.active;
+    }
+    // Outlet code (outletId) is intentionally preserved and cannot be overwritten manually
+    await updateDoc(doc(db, OUTLETS_COL, id), safeUpdates);
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `${OUTLETS_COL}/${id}`);
     throw error;
@@ -215,6 +275,124 @@ export async function deleteOutlet(id: string): Promise<void> {
     await deleteDoc(doc(db, OUTLETS_COL, id));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, `${OUTLETS_COL}/${id}`);
+    throw error;
+  }
+}
+
+export async function deleteAllOutlets(): Promise<void> {
+  try {
+    const snap = await getDocs(collection(db, OUTLETS_COL));
+    if (snap.empty) return;
+
+    let batch = writeBatch(db);
+    let count = 0;
+    const batchPromises = [];
+
+    for (const d of snap.docs) {
+      batch.delete(d.ref);
+      count++;
+      if (count >= 400) {
+        batchPromises.push(batch.commit());
+        batch = writeBatch(db);
+        count = 0;
+      }
+    }
+    if (count > 0) {
+      batchPromises.push(batch.commit());
+    }
+    await Promise.all(batchPromises);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, OUTLETS_COL);
+    throw error;
+  }
+}
+
+export async function syncOfficialOutlets(force = false): Promise<number> {
+  try {
+    const snap = await getDocs(collection(db, OUTLETS_COL));
+    const hasOldDemo = snap.docs.some(d => {
+      const data = d.data();
+      return (
+        data.name?.includes('Colombo Fort Branch') ||
+        data.name?.includes('Havelock Town') ||
+        data.name?.includes('Galle Face Mall')
+      );
+    });
+
+    if (force || snap.empty || snap.size < 50 || hasOldDemo) {
+      console.log('Syncing all 101 official Barista outlets to Firestore with writeBatch...');
+
+      // Batch delete existing
+      if (!snap.empty) {
+        let delBatch = writeBatch(db);
+        let delCount = 0;
+        const delPromises = [];
+        for (const d of snap.docs) {
+          delBatch.delete(d.ref);
+          delCount++;
+          if (delCount >= 400) {
+            delPromises.push(delBatch.commit());
+            delBatch = writeBatch(db);
+            delCount = 0;
+          }
+        }
+        if (delCount > 0) {
+          delPromises.push(delBatch.commit());
+        }
+        await Promise.all(delPromises);
+      }
+
+      // Batch insert all 101 official outlets
+      const insertBatch = writeBatch(db);
+      for (const o of INITIAL_OUTLETS) {
+        insertBatch.set(doc(db, OUTLETS_COL, o.id), o);
+      }
+      await insertBatch.commit();
+      console.log(`Successfully synced ${INITIAL_OUTLETS.length} official Barista outlets.`);
+      return INITIAL_OUTLETS.length;
+    }
+    return snap.size;
+  } catch (error) {
+    console.error('Sync official outlets error:', error);
+    handleFirestoreError(error, OperationType.WRITE, OUTLETS_COL);
+    throw error;
+  }
+}
+
+export async function bulkAddOutlets(
+  outletList: Array<{ name: string; location?: string; phone?: string }>
+): Promise<void> {
+  try {
+    const snap = await getDocs(collection(db, OUTLETS_COL));
+    let max = 0;
+    snap.forEach((d) => {
+      const data = d.data();
+      const code = data.outletId as string;
+      const match = code?.match(/(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > max) max = num;
+      }
+    });
+
+    let nextIndex = max + 1;
+    for (const item of outletList) {
+      const name = item.name.trim();
+      if (!name) continue;
+      const id = `outlet-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const code = `OUT-${String(nextIndex).padStart(2, '0')}`;
+      await setDoc(doc(db, OUTLETS_COL, id), {
+        id,
+        outletId: code,
+        name,
+        location: '',
+        phone: item.phone?.trim() || '',
+        active: true
+      });
+      nextIndex++;
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, OUTLETS_COL);
     throw error;
   }
 }

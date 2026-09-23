@@ -333,6 +333,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {role === 'viewer' && (
+            <div className="px-3 py-1.5 bg-emerald-950/70 border border-emerald-800 text-emerald-300 rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-sm">
+              <Printer className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Viewer Role: Reports & Print Only</span>
+            </div>
+          )}
+
           <button
             onClick={handlePrintExecutiveReport}
             className="px-3.5 py-2 bg-stone-800 hover:bg-stone-750 text-stone-200 border border-stone-700 font-semibold rounded-xl text-xs transition flex items-center space-x-1.5 cursor-pointer shadow-sm"
@@ -342,15 +349,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             <span>Print Executive Report</span>
           </button>
 
-          <button
-            onClick={exportAllDispatchesCSV}
-            disabled={filteredLogs.length === 0}
-            className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-xl text-xs transition flex items-center space-x-1.5 cursor-pointer shadow-md disabled:opacity-50"
-            title="Download CSV for Excel / ERP integration"
-          >
-            <Download className="w-4 h-4" />
-            <span>Export CSV</span>
-          </button>
+          {role !== 'viewer' && canExport && (
+            <button
+              onClick={exportAllDispatchesCSV}
+              disabled={filteredLogs.length === 0}
+              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-xl text-xs transition flex items-center space-x-1.5 cursor-pointer shadow-md disabled:opacity-50"
+              title="Download CSV for Excel / ERP integration"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export CSV</span>
+            </button>
+          )}
         </div>
       </div>
 

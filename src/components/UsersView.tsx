@@ -62,7 +62,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
       dashboard: { view: true, edit: false },
       inventory: { view: true, edit: true },
       forms: { view: true, edit: true },
-      outlets: { view: true, edit: true },
+      outlets: { view: true, edit: false }, // Only admin can edit outlets
       users: { view: false, edit: false },
       roles: { view: false, edit: false },
       reports: { view: true, edit: false }
@@ -89,20 +89,20 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
         dashboard: { view: true, edit: false },
         inventory: { view: true, edit: true },
         forms: { view: true, edit: true },
-        outlets: { view: true, edit: true },
+        outlets: { view: true, edit: false }, // Only admin can edit/add/delete/suspend outlets
         users: { view: true, edit: false },
         roles: { view: true, edit: false },
         reports: { view: true, edit: false }
       };
     } else {
       perms = {
-        dashboard: { view: true, edit: false },
-        inventory: { view: true, edit: false },
-        forms: { view: true, edit: false },
-        outlets: { view: true, edit: false },
+        dashboard: { view: false, edit: false },
+        inventory: { view: false, edit: false },
+        forms: { view: false, edit: false },
+        outlets: { view: false, edit: false },
         users: { view: false, edit: false },
         roles: { view: false, edit: false },
-        reports: { view: true, edit: false }
+        reports: { view: true, edit: false } // Viewer section only report visible and printable
       };
     }
 
@@ -254,6 +254,11 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
 
   const togglePermission = (module: keyof ModulePermissions, type: 'view' | 'edit') => {
     if (!isAdmin) return; // Strictly Administrator only
+
+    if (module === 'outlets' && type === 'edit') {
+      alert('Security Policy: Only Administrators can create, edit, suspend, or delete retail outlets.');
+      return;
+    }
 
     if (editingUser) {
       setEditingUser(prev => {
