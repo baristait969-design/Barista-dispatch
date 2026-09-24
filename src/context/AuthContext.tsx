@@ -35,6 +35,7 @@ const DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     inventory: { view: true, edit: true },
     forms: { view: true, edit: true },
     outlets: { view: true, edit: true },
+    products: { view: true, edit: true },
     users: { view: true, edit: true },
     roles: { view: true, edit: true },
     reports: { view: true, edit: true }
@@ -44,6 +45,7 @@ const DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     inventory: { view: true, edit: true },
     forms: { view: true, edit: true },
     outlets: { view: true, edit: false }, // Only admin can edit, add, delete, or suspend outlets
+    products: { view: true, edit: false }, // Admin manages product master catalog; Editor has view
     users: { view: true, edit: false },
     roles: { view: true, edit: false },
     reports: { view: true, edit: false }
@@ -54,6 +56,7 @@ const DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     inventory: { view: false, edit: false },
     forms: { view: false, edit: false },
     outlets: { view: false, edit: false },
+    products: { view: false, edit: false },
     users: { view: false, edit: false },
     roles: { view: false, edit: false },
     reports: { view: true, edit: false }
