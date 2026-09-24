@@ -5,6 +5,7 @@ export interface ModulePermissions {
   inventory: { view: boolean; edit: boolean };
   forms: { view: boolean; edit: boolean };
   outlets: { view: boolean; edit: boolean };
+  products: { view: boolean; edit: boolean };
   users: { view: boolean; edit: boolean };
   roles: { view: boolean; edit: boolean };
   reports: { view: boolean; edit: boolean };
@@ -66,6 +67,20 @@ export interface Outlet {
   active: boolean;
 }
 
+export interface Product {
+  id: string;
+  productId: string; // e.g. PRD-01, PRD-02 (system generated, locked/read-only, cannot be changed by any user)
+  name: string;
+  keyCode?: string; // Short key code for unique batch numbering, e.g. 'BCC', 'BCS', 'DBC', 'RVC', 'MC'
+  category: string; // e.g. 'Pastry Kitchen Items', 'Bakery & Pastry', etc.
+  dispatchTemp: number; // Default dispatch temperature in Celsius (e.g. 3.5), must be <= 5.0 °C
+  shelfLifeDays?: number; // Standard shelf life in days
+  unit?: string; // Standard unit (e.g. Slices, Cakes, Packs, Cups)
+  active: boolean; // Active or Suspended
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface DispatchLineItem {
   id: string;
   productName: string;
@@ -77,6 +92,7 @@ export interface DispatchLineItem {
   dispatchTemp: number;
   quantity: number;
   availableStock?: number;
+  isCustom?: boolean; // ONLY custom/new added rows allow search & selection; standard rows are locked
   notes?: string;
 }
 

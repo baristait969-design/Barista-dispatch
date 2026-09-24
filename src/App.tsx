@@ -6,12 +6,14 @@ import { DashboardView } from './components/DashboardView';
 import { InventoryView } from './components/InventoryView';
 import { FormsView } from './components/FormsView';
 import { OutletsView } from './components/OutletsView';
+import { ProductsView } from './components/ProductsView';
 import { UsersView } from './components/UsersView';
 import { RolesView } from './components/RolesView';
 import { ReportsView } from './components/ReportsView';
 import { 
   InventoryBatch, 
   Outlet, 
+  Product,
   Driver, 
   DispatchLog, 
   BatchLog, 
@@ -20,14 +22,17 @@ import {
 import { 
   INITIAL_BATCHES, 
   INITIAL_OUTLETS, 
+  INITIAL_PRODUCT_CATALOG,
   INITIAL_DRIVERS, 
   INITIAL_USERS 
 } from './data/seedData';
 import { 
   seedInitialDataIfNeeded, 
   syncOfficialOutlets,
+  syncOfficialProducts,
   subscribeBatches, 
   subscribeOutlets, 
+  subscribeProducts,
   subscribeDrivers, 
   subscribeDispatchLogs, 
   subscribeBatchLogs, 
@@ -51,6 +56,7 @@ const MainContent: React.FC = () => {
   // Application Data States (synced with Firestore)
   const [batches, setBatches] = useState<InventoryBatch[]>(INITIAL_BATCHES);
   const [outlets, setOutlets] = useState<Outlet[]>(INITIAL_OUTLETS);
+  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCT_CATALOG);
   const [drivers, setDrivers] = useState<Driver[]>(INITIAL_DRIVERS);
   const [dispatchLogs, setDispatchLogs] = useState<DispatchLog[]>([]);
   const [batchLogs, setBatchLogs] = useState<BatchLog[]>([]);
@@ -73,6 +79,14 @@ const MainContent: React.FC = () => {
       }
     });
 
+    const unsubProducts = subscribeProducts((data) => {
+      if (data && data.length > 0) {
+        setProducts(data);
+      } else {
+        syncOfficialProducts(false);
+      }
+    });
+
     const unsubDrivers = subscribeDrivers((data) => {
       if (data && data.length > 0) setDrivers(data);
     });
@@ -92,6 +106,7 @@ const MainContent: React.FC = () => {
     return () => {
       unsubBatches();
       unsubOutlets();
+      unsubProducts();
       unsubDrivers();
       unsubDispatch();
       unsubLogs();
@@ -136,6 +151,7 @@ const MainContent: React.FC = () => {
                 batches={batches}
                 dispatchLogs={dispatchLogs}
                 outlets={outlets}
+                products={products}
                 onNavigate={(tab) => setCurrentTab(tab)}
               />
             )}
@@ -144,6 +160,7 @@ const MainContent: React.FC = () => {
               <InventoryView
                 batches={batches}
                 batchLogs={batchLogs}
+                products={products}
               />
             )}
 
@@ -153,12 +170,19 @@ const MainContent: React.FC = () => {
                 outlets={outlets}
                 drivers={drivers}
                 dispatchLogs={dispatchLogs}
+                products={products}
               />
             )}
 
             {currentTab === 'outlets' && hasAccess('outlets', 'view') && (
               <OutletsView
                 outlets={outlets}
+              />
+            )}
+
+            {currentTab === 'products' && hasAccess('products', 'view') && (
+              <ProductsView
+                products={products}
               />
             )}
 
