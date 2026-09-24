@@ -103,6 +103,23 @@
         "active": { "type": "boolean", "description": "Active status" }
       },
       "required": ["name", "vehicleNo"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Central kitchen product with system-generated immutable product ID, name, category, and default dispatch temperature",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string", "maxLength": 50, "description": "System-generated immutable product code e.g. PRD-01" },
+        "name": { "type": "string", "maxLength": 120, "description": "Product name" },
+        "category": { "type": "string", "maxLength": 80, "description": "Category name" },
+        "dispatchTemp": { "type": "number", "description": "Default dispatch temperature in Celsius <= 5 C" },
+        "shelfLifeDays": { "type": "number", "description": "Shelf life in days" },
+        "unit": { "type": "string", "maxLength": 30, "description": "Unit e.g. Slices, Cakes, Packs" },
+        "active": { "type": "boolean", "description": "Whether product is currently available" },
+        "createdAt": { "type": "string", "description": "ISO timestamp" },
+        "updatedAt": { "type": "string", "description": "ISO timestamp" }
+      },
+      "required": ["productId", "name", "dispatchTemp"]
     }
   },
   "firestore": {
@@ -121,6 +138,10 @@
     "/outlets/{outletId}": {
       "schema": { "$ref": "#/entities/Outlet" },
       "description": "Retail coffee outlets and branches"
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Central kitchen product catalog"
     },
     "/dispatch_logs/{dispatchId}": {
       "schema": { "$ref": "#/entities/DispatchLog" },

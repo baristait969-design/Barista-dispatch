@@ -27,6 +27,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Products catalog (Pastry, Bakery, Savory items)
+    match /products/{productId} {
+      allow read, write: if true;
+    }
+
     // HACCP Dispatch Logs (BCL/REC/HACCP/32)
     match /dispatch_logs/{dispatchId} {
       allow read, write: if true;
