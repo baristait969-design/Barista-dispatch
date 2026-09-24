@@ -12,7 +12,8 @@ import {
   Menu, 
   X, 
   ThermometerSnowflake,
-  UserCheck
+  UserCheck,
+  UtensilsCrossed
 } from 'lucide-react';
 import { UserRole } from '../types';
 import { BaristaLogo } from './BaristaLogo';
@@ -31,6 +32,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
     { id: 'inventory', label: 'Inventory', icon: Package, visible: hasAccess('inventory', 'view') },
     { id: 'forms', label: 'Dispatch Forms', icon: FileText, visible: hasAccess('forms', 'view') },
     { id: 'outlets', label: 'Outlets', icon: Store, visible: hasAccess('outlets', 'view') },
+    { id: 'products', label: 'Products', icon: UtensilsCrossed, visible: hasAccess('products', 'view') },
     { id: 'users', label: 'Users & Access', icon: Users, visible: hasAccess('users', 'view') },
     { id: 'roles', label: 'Roles Matrix', icon: ShieldCheck, visible: hasAccess('roles', 'view') },
     { id: 'reports', label: 'Reports', icon: BarChart3, visible: hasAccess('reports', 'view') },

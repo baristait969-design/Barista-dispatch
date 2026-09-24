@@ -13,14 +13,16 @@ import {
   Clock, 
   ArrowRight,
   TrendingDown,
-  UserCheck
+  UserCheck,
+  UtensilsCrossed
 } from 'lucide-react';
-import { InventoryBatch, DispatchLog, Outlet } from '../types';
+import { InventoryBatch, DispatchLog, Outlet, Product } from '../types';
 
 interface DashboardViewProps {
   batches: InventoryBatch[];
   dispatchLogs: DispatchLog[];
   outlets: Outlet[];
+  products?: Product[];
   onNavigate: (tab: string) => void;
 }
 
@@ -28,6 +30,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   batches,
   dispatchLogs,
   outlets,
+  products,
   onNavigate
 }) => {
   const { userProfile, role, hasAccess } = useAuth();
@@ -72,6 +75,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       badge: `${outlets.length} Branches`,
       color: 'from-emerald-600 to-emerald-700',
       visible: hasAccess('outlets', 'view')
+    },
+    {
+      id: 'products',
+      title: 'Products Master Catalog',
+      desc: 'Master product catalog with system-generated IDs (PRD-XX), categories, and cold-chain dispatch temperatures.',
+      icon: UtensilsCrossed,
+      badge: `${(products || []).length} Products`,
+      color: 'from-amber-600 to-amber-700',
+      visible: hasAccess('products', 'view')
     },
     {
       id: 'users',

@@ -49,9 +49,24 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
   const [submitting, setSubmitting] = useState(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
+  // System-generated automatic User ID generator
+  const generateSystemUserId = (targetRole: UserRole = 'editor', list: UserProfile[] = usersList) => {
+    const rolePrefix = targetRole === 'admin' ? 'ADM' : targetRole === 'editor' ? 'EDT' : 'VIW';
+    const numbers = list
+      .map(u => {
+        const match = u.userIdCode?.match(/\d+/g);
+        return match ? parseInt(match[match.length - 1], 10) : 0;
+      })
+      .filter(n => !isNaN(n) && n > 0);
+
+    const highest = numbers.length > 0 ? Math.max(...numbers) : 3;
+    const nextNum = Math.max(highest + 1, list.length + 1);
+    return `USR-${rolePrefix}-${String(nextNum).padStart(2, '0')}`;
+  };
+
   // New User Form State
-  const [formData, setFormData] = useState({
-    userIdCode: `USR-${Math.floor(100 + Math.random() * 900)}`,
+  const [formData, setFormData] = useState(() => ({
+    userIdCode: `USR-EDT-${String(Math.max(4, usersList.length + 1)).padStart(2, '0')}`,
     displayName: '',
     email: '',
     password: '123',
@@ -63,11 +78,12 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
       inventory: { view: true, edit: true },
       forms: { view: true, edit: true },
       outlets: { view: true, edit: false }, // Only admin can edit outlets
+      products: { view: true, edit: false }, // Only admin can edit products
       users: { view: false, edit: false },
       roles: { view: false, edit: false },
       reports: { view: true, edit: false }
     }
-  });
+  }));
 
   // Edit User optional password field
   const [editUserPassword, setEditUserPassword] = useState('');
@@ -80,6 +96,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
         inventory: { view: true, edit: true },
         forms: { view: true, edit: true },
         outlets: { view: true, edit: true },
+        products: { view: true, edit: true },
         users: { view: true, edit: true },
         roles: { view: true, edit: true },
         reports: { view: true, edit: true }
@@ -90,6 +107,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
         inventory: { view: true, edit: true },
         forms: { view: true, edit: true },
         outlets: { view: true, edit: false }, // Only admin can edit/add/delete/suspend outlets
+        products: { view: true, edit: false }, // Only admin can edit/add/delete/suspend products
         users: { view: true, edit: false },
         roles: { view: true, edit: false },
         reports: { view: true, edit: false }
@@ -100,6 +118,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
         inventory: { view: false, edit: false },
         forms: { view: false, edit: false },
         outlets: { view: false, edit: false },
+        products: { view: false, edit: false },
         users: { view: false, edit: false },
         roles: { view: false, edit: false },
         reports: { view: true, edit: false } // Viewer section only report visible and printable
@@ -109,9 +128,19 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
     setFormData(prev => ({
       ...prev,
       role: newRole,
+      userIdCode: generateSystemUserId(newRole, usersList),
       permissions: perms,
       designation: newRole === 'admin' ? 'QA Executive / Admin' : newRole === 'editor' ? 'Pastry Kitchen Supervisor' : 'Store Auditor'
     }));
+  };
+
+  const handleOpenCreateModal = () => {
+    const nextCode = generateSystemUserId(formData.role, usersList);
+    setFormData(prev => ({
+      ...prev,
+      userIdCode: nextCode
+    }));
+    setShowAddModal(true);
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -123,9 +152,11 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
     setSubmitting(true);
     setActionSuccess(null);
     try {
+      // Ensure system generated User ID is always assigned
+      const assignedUserIdCode = formData.userIdCode || generateSystemUserId(formData.role, usersList);
       await createNewUser({
         uid: `usr-${Date.now()}`,
-        userIdCode: formData.userIdCode,
+        userIdCode: assignedUserIdCode,
         displayName: formData.displayName,
         email: formData.email.trim().toLowerCase(),
         password: formData.password.trim() || '123',
@@ -136,24 +167,26 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
         createdAt: new Date().toISOString()
       });
       
-      const createdMsg = `Staff account created! User ID: ${formData.userIdCode} • Assigned Role: ${formData.role.toUpperCase()} • Password: ${formData.password || '123'}`;
+      const createdMsg = `Staff account created! User ID: ${assignedUserIdCode} • Assigned Role: ${formData.role.toUpperCase()} • Password: ${formData.password || '123'}`;
       setActionSuccess(createdMsg);
       setShowAddModal(false);
 
-      // Reset form with new code
+      // Reset form with new system code for next user
+      const nextRole = 'editor';
       setFormData({
-        userIdCode: `USR-${Math.floor(100 + Math.random() * 900)}`,
+        userIdCode: generateSystemUserId(nextRole, [...usersList, { id: 'temp', userIdCode: assignedUserIdCode } as any]),
         displayName: '',
         email: '',
         password: '123',
-        role: 'editor',
+        role: nextRole,
         designation: 'Pastry Kitchen Supervisor',
         department: 'Central Kitchen & Logistics',
         permissions: {
           dashboard: { view: true, edit: false },
           inventory: { view: true, edit: true },
           forms: { view: true, edit: true },
-          outlets: { view: true, edit: true },
+          outlets: { view: true, edit: false },
+          products: { view: true, edit: false },
           users: { view: false, edit: false },
           roles: { view: false, edit: false },
           reports: { view: true, edit: false }
@@ -299,6 +332,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
     { key: 'inventory', label: 'Inventory (Batches, Stock, Dates)' },
     { key: 'forms', label: 'Dispatch Forms (BCL/REC/HACCP/32)' },
     { key: 'outlets', label: 'Outlets Directory' },
+    { key: 'products', label: 'Products Master Catalog' },
     { key: 'users', label: 'Users Settings & Creation' },
     { key: 'roles', label: 'Roles Matrix & Security' },
     { key: 'reports', label: 'QA Compliance Reports' },
@@ -339,7 +373,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
 
           {isAdmin ? (
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={handleOpenCreateModal}
               className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-lg text-xs transition flex items-center space-x-2 shadow-sm cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
@@ -651,16 +685,22 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-stone-300 mb-1">
-                    User ID Code
+                  <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
+                    <span>User ID Code</span>
+                    <span className="text-[10px] text-amber-400 font-medium flex items-center space-x-1">
+                      <Lock className="w-3 h-3" />
+                      <span>System Generated</span>
+                    </span>
                   </label>
                   <input
                     type="text"
-                    required
+                    readOnly
+                    disabled
                     value={formData.userIdCode}
-                    onChange={(e) => setFormData({ ...formData, userIdCode: e.target.value })}
-                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 font-mono focus:outline-none focus:border-amber-500"
+                    className="w-full px-3 py-2 bg-stone-900 border border-stone-800 rounded-lg text-xs text-amber-400 font-mono font-bold cursor-not-allowed select-none opacity-90 shadow-inner"
+                    title="User ID is automatically generated by the system and cannot be manually modified"
                   />
+                  <p className="text-[10px] text-stone-500 mt-1">Automatically assigned system identifier</p>
                 </div>
 
                 <div>
@@ -826,16 +866,22 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
             <form onSubmit={handleUpdateUser} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-stone-300 mb-1">
-                    User ID Code
+                  <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
+                    <span>User ID Code</span>
+                    <span className="text-[10px] text-amber-400 font-medium flex items-center space-x-1">
+                      <Lock className="w-3 h-3" />
+                      <span>Permanent & Locked</span>
+                    </span>
                   </label>
                   <input
                     type="text"
-                    required
-                    value={editingUser.userIdCode || ''}
-                    onChange={(e) => setEditingUser({ ...editingUser, userIdCode: e.target.value })}
-                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 font-mono focus:outline-none"
+                    readOnly
+                    disabled
+                    value={editingUser.userIdCode || `USR-${editingUser.id.slice(0, 5)}`}
+                    className="w-full px-3 py-2 bg-stone-900 border border-stone-800 rounded-lg text-xs text-amber-400 font-mono font-bold cursor-not-allowed select-none opacity-90 shadow-inner"
+                    title="Once a user is created, their User ID cannot be changed by any person"
                   />
+                  <p className="text-[10px] text-stone-500 mt-1">Permanent ID cannot be modified after creation</p>
                 </div>
 
                 <div>

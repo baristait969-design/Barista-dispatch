@@ -168,9 +168,9 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
               </div>
 
               <div>
-                <span className="text-stone-500 block text-[10px] uppercase font-semibold">Driver & Refrigerated Vehicle</span>
+                <span className="text-stone-500 block text-[10px] uppercase font-semibold">Assigned Dispatch Driver</span>
                 <span className="font-bold text-stone-900 text-sm">
-                  {dispatchLog.driverName} • <span className="font-mono">{dispatchLog.vehicleNo || 'Van'}</span>
+                  {dispatchLog.driverName}
                 </span>
               </div>
             </div>

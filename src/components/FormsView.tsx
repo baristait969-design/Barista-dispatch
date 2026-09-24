@@ -23,9 +23,11 @@ import {
   Search,
   Check,
   Zap,
-  Info
+  Info,
+  Lock,
+  X
 } from 'lucide-react';
-import { InventoryBatch, Outlet, Driver, DispatchLog, DispatchLineItem } from '../types';
+import { InventoryBatch, Outlet, Driver, DispatchLog, DispatchLineItem, Product } from '../types';
 import { INITIAL_PRODUCTS } from '../data/seedData';
 import { createDispatchLogWithDeduction, updateDispatchLog } from '../services/dataService';
 import { PrintableDispatchSheet } from './PrintableDispatchSheet';
@@ -36,13 +38,15 @@ interface FormsViewProps {
   outlets: Outlet[];
   drivers: Driver[];
   dispatchLogs: DispatchLog[];
+  products?: Product[];
 }
 
 export const FormsView: React.FC<FormsViewProps> = ({
   batches,
   outlets,
   drivers,
-  dispatchLogs
+  dispatchLogs,
+  products
 }) => {
   const { userProfile, role, hasAccess } = useAuth();
   const canEdit = hasAccess('forms', 'edit');
@@ -91,8 +95,9 @@ export const FormsView: React.FC<FormsViewProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
-  // Line Items state
+  // Line Items state - default prodDate and useByDate to TODAY
   const [lineItems, setLineItems] = useState<DispatchLineItem[]>(() => {
+    const today = getTodayDate();
     return INITIAL_PRODUCTS.slice(0, 5).map((prod, idx) => {
       const matchingBatches = batches.filter(b => b.productName === prod.name);
       const latestBatch = matchingBatches.length > 0 ? matchingBatches[0] : null;
@@ -103,11 +108,12 @@ export const FormsView: React.FC<FormsViewProps> = ({
         batchNo: latestBatch ? latestBatch.batchNo : '',
         batchId: latestBatch ? latestBatch.id : undefined,
         dispatchTime: getCurrentTime(),
-        prodDate: latestBatch ? latestBatch.prodDate : getTodayDate(),
-        useByDate: latestBatch ? latestBatch.useByDate : '',
+        prodDate: today,
+        useByDate: today,
         dispatchTemp: latestBatch ? latestBatch.dispatchTemp : prod.defaultTemp,
         quantity: 0,
-        availableStock: latestBatch ? latestBatch.quantity : 0
+        availableStock: latestBatch ? latestBatch.quantity : 0,
+        isCustom: false
       };
     });
   });
@@ -151,12 +157,10 @@ export const FormsView: React.FC<FormsViewProps> = ({
     }
   };
 
-  // Toggle Outlet in Multi-select
+  // Toggle Outlet in Multi-select (allows deselecting all)
   const toggleOutlet = (outletId: string) => {
     if (selectedOutletIds.includes(outletId)) {
-      if (selectedOutletIds.length > 1) {
-        setSelectedOutletIds(selectedOutletIds.filter(id => id !== outletId));
-      }
+      setSelectedOutletIds(selectedOutletIds.filter(id => id !== outletId));
     } else {
       setSelectedOutletIds([...selectedOutletIds, outletId]);
     }
@@ -166,14 +170,179 @@ export const FormsView: React.FC<FormsViewProps> = ({
     setSelectedOutletIds(outlets.map(o => o.id));
   };
 
+  // Reset Outlet Selection completely clears selected outlets
   const clearOutletSelection = () => {
-    if (outlets.length > 0) {
-      setSelectedOutletIds([outlets[0].id]);
-    }
+    setSelectedOutletIds([]);
+    setOutletSearch('');
   };
 
-  // Auto-fill product details when batch is selected
+  // Unique list of all available products from seed and existing inventory batches
+  const allAvailableProducts = useMemo(() => {
+    const set = new Set<string>();
+    if (products && products.length > 0) {
+      products.forEach(p => {
+        if (p.active) set.add(p.name);
+      });
+    }
+    INITIAL_PRODUCTS.forEach(p => set.add(p.name));
+    batches.forEach(b => {
+      if (b.productName) set.add(b.productName);
+    });
+    return Array.from(set);
+  }, [products, batches]);
+
+  // Reset entire form back to defaults
+  const handleResetEntireForm = () => {
+    setSelectedOutletIds([]);
+    setOutletSearch('');
+    setDate(getTodayDate());
+    setDispatchTime(getCurrentTime());
+    setNotes('');
+    const today = getTodayDate();
+    const usedBatches = new Set<string>();
+    const catalog = (products && products.length > 0 ? products : INITIAL_PRODUCTS);
+
+    setLineItems(
+      catalog.slice(0, 5).map((prod, idx) => {
+        const matchingBatches = batches.filter(
+          b => b.productName.trim().toLowerCase() === prod.name.trim().toLowerCase() && !usedBatches.has(b.batchNo)
+        );
+        const chosenBatch = matchingBatches.length > 0 ? matchingBatches[0] : null;
+        if (chosenBatch) usedBatches.add(chosenBatch.batchNo);
+        const defTemp = 'dispatchTemp' in prod ? prod.dispatchTemp : (prod as any).defaultTemp;
+
+        return {
+          id: `row-${idx}-${Date.now()}`,
+          productName: prod.name,
+          batchNo: chosenBatch ? chosenBatch.batchNo : '',
+          batchId: chosenBatch ? chosenBatch.id : undefined,
+          dispatchTime: getCurrentTime(),
+          prodDate: today,
+          useByDate: today,
+          dispatchTemp: chosenBatch ? chosenBatch.dispatchTemp : (defTemp || 3.5),
+          quantity: 0,
+          availableStock: chosenBatch ? chosenBatch.quantity : 0,
+          isCustom: false
+        };
+      })
+    );
+    setEditingLogId(null);
+    triggerTimeToast('Reset form to default state (today dates & cleared selection)');
+  };
+
+  // Handle product selection / change with automatic FIFO batch assignment and validation
+  const handleProductNameChange = (rowId: string, newProductName: string) => {
+    const trimmed = newProductName.trim();
+    if (!trimmed) {
+      setLineItems(prev =>
+        prev.map(row => {
+          if (row.id === rowId) {
+            return {
+              ...row,
+              productName: '',
+              batchNo: '',
+              batchId: undefined,
+              availableStock: 0,
+              quantity: 0,
+              prodDate: getTodayDate(),
+              useByDate: getTodayDate()
+            };
+          }
+          return row;
+        })
+      );
+      return;
+    }
+
+    // Find all batches registered for this product
+    const matchingBatches = batches.filter(
+      b => b.productName.trim().toLowerCase() === trimmed.toLowerCase()
+    );
+
+    // Collect batches already selected on other rows for this same product
+    const usedBatchNosInOtherRows = lineItems
+      .filter(r => r.id !== rowId && r.productName.trim().toLowerCase() === trimmed.toLowerCase() && r.batchNo)
+      .map(r => r.batchNo);
+
+    // Find first available batch that has not been selected yet (FIFO order)
+    const availableBatch = matchingBatches.find(b => !usedBatchNosInOtherRows.includes(b.batchNo));
+    const prodDef = (products || []).find(p => p.name.trim().toLowerCase() === trimmed.toLowerCase()) ||
+      INITIAL_PRODUCTS.find(p => p.name.trim().toLowerCase() === trimmed.toLowerCase());
+    const fallbackTemp = prodDef ? ('dispatchTemp' in prodDef ? prodDef.dispatchTemp : prodDef.defaultTemp) : 3.5;
+
+    setLineItems(prev =>
+      prev.map(row => {
+        if (row.id === rowId) {
+          if (availableBatch) {
+            return {
+              ...row,
+              productName: availableBatch.productName || newProductName,
+              batchNo: availableBatch.batchNo,
+              batchId: availableBatch.id,
+              prodDate: availableBatch.prodDate || getTodayDate(),
+              useByDate: availableBatch.useByDate || getTodayDate(),
+              dispatchTemp: availableBatch.dispatchTemp || fallbackTemp,
+              availableStock: availableBatch.quantity,
+              quantity: 0
+            };
+          } else {
+            return {
+              ...row,
+              productName: newProductName,
+              batchNo: '',
+              batchId: undefined,
+              prodDate: getTodayDate(),
+              useByDate: getTodayDate(),
+              dispatchTemp: fallbackTemp,
+              availableStock: 0,
+              quantity: 0
+            };
+          }
+        }
+        return row;
+      })
+    );
+  };
+
+  // Clear product name from a line item
+  const handleClearProduct = (rowId: string) => {
+    setLineItems(prev =>
+      prev.map(row => {
+        if (row.id === rowId) {
+          return {
+            ...row,
+            productName: '',
+            batchNo: '',
+            batchId: undefined,
+            availableStock: 0,
+            quantity: 0,
+            prodDate: getTodayDate(),
+            useByDate: getTodayDate()
+          };
+        }
+        return row;
+      })
+    );
+  };
+
+  // Auto-fill product details when batch is selected with duplicate batch prevention
   const handleBatchSelect = (rowId: string, batchNo: string) => {
+    const currentRow = lineItems.find(r => r.id === rowId);
+    if (!currentRow) return;
+
+    if (batchNo) {
+      // Validate that no other row for this same product is already using this batch
+      const isAlreadyUsed = lineItems.some(
+        r => r.id !== rowId && 
+             r.productName.trim().toLowerCase() === currentRow.productName.trim().toLowerCase() && 
+             r.batchNo === batchNo
+      );
+      if (isAlreadyUsed) {
+        alert(`Batch ${batchNo} is already selected on another row for this product. Please select a different batch.`);
+        return;
+      }
+    }
+
     const selectedBatch = batches.find(b => b.batchNo === batchNo);
     setLineItems(prev =>
       prev.map(row => {
@@ -184,13 +353,14 @@ export const FormsView: React.FC<FormsViewProps> = ({
               batchNo: selectedBatch.batchNo,
               batchId: selectedBatch.id,
               productName: selectedBatch.productName,
-              prodDate: selectedBatch.prodDate,
-              useByDate: selectedBatch.useByDate,
+              prodDate: selectedBatch.prodDate || getTodayDate(),
+              useByDate: selectedBatch.useByDate || getTodayDate(),
               dispatchTemp: selectedBatch.dispatchTemp,
-              availableStock: selectedBatch.quantity
+              availableStock: selectedBatch.quantity,
+              quantity: Math.min(row.quantity, selectedBatch.quantity)
             };
           }
-          return { ...row, batchNo };
+          return { ...row, batchNo, batchId: undefined, availableStock: 0 };
         }
         return row;
       })
@@ -249,22 +419,29 @@ export const FormsView: React.FC<FormsViewProps> = ({
   };
 
   const addCustomRow = () => {
+    const today = getTodayDate();
     const newRow: DispatchLineItem = {
       id: `row-custom-${Date.now()}`,
-      productName: INITIAL_PRODUCTS[0].name,
-      batchNo: batches.length > 0 ? batches[0].batchNo : '',
-      batchId: batches.length > 0 ? batches[0].id : undefined,
+      productName: '', // Blank so user can select/search product
+      batchNo: '',
+      batchId: undefined,
       dispatchTime: dispatchTime || getCurrentTime(),
-      prodDate: batches.length > 0 ? batches[0].prodDate : getTodayDate(),
-      useByDate: batches.length > 0 ? batches[0].useByDate : '',
+      prodDate: today,
+      useByDate: today,
       dispatchTemp: 3.5,
-      quantity: 1,
-      availableStock: batches.length > 0 ? batches[0].quantity : 0
+      quantity: 0,
+      availableStock: 0,
+      isCustom: true // Only newly added rows allow search and select
     };
     setLineItems(prev => [...prev, newRow]);
   };
 
   const removeRow = (rowId: string) => {
+    const rowToRemove = lineItems.find(r => r.id === rowId);
+    if (rowToRemove && !rowToRemove.isCustom) {
+      alert('Standard product rows are protected and cannot be deleted.');
+      return;
+    }
     if (lineItems.length <= 1) {
       alert('At least one product line is required on the dispatch log.');
       return;
@@ -754,7 +931,7 @@ export const FormsView: React.FC<FormsViewProps> = ({
                       <button
                         type="button"
                         onClick={selectAllOutlets}
-                        className="text-amber-400 hover:underline cursor-pointer"
+                        className="text-amber-400 hover:text-amber-300 hover:underline cursor-pointer font-medium"
                       >
                         Select All
                       </button>
@@ -762,9 +939,11 @@ export const FormsView: React.FC<FormsViewProps> = ({
                       <button
                         type="button"
                         onClick={clearOutletSelection}
-                        className="text-stone-400 hover:underline cursor-pointer"
+                        className="text-stone-300 hover:text-amber-400 hover:underline cursor-pointer flex items-center space-x-1 font-medium"
+                        title="Clear all selected outlets"
                       >
-                        Reset
+                        <RotateCcw className="w-3 h-3" />
+                        <span>Reset Selection</span>
                       </button>
                     </div>
                   </div>
@@ -912,31 +1091,22 @@ export const FormsView: React.FC<FormsViewProps> = ({
                     </label>
                   </div>
 
-                  {/* Driver & Vehicle */}
+                  {/* Driver (Vehicle plate removed as requested) */}
                   <div>
                     <label className="block text-xs font-bold text-white print:text-black mb-1">
-                      Assigned Driver & Refrigerated Vehicle
+                      Assigned Driver
                     </label>
-                    <div className="flex space-x-2">
-                      <select
-                        value={selectedDriverName}
-                        onChange={(e) => handleDriverChange(e.target.value)}
-                        className="flex-1 px-3 py-2 bg-stone-900 print:bg-white border border-stone-700 print:border-black rounded-lg text-xs text-stone-100 print:text-black focus:outline-none focus:border-amber-500"
-                      >
-                        {drivers.map((drv) => (
-                          <option key={drv.id} value={drv.name}>
-                            {drv.name} — {drv.vehicleNo}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="text"
-                        placeholder="Vehicle No"
-                        value={vehicleNo}
-                        onChange={(e) => setVehicleNo(e.target.value)}
-                        className="w-36 px-2.5 py-2 bg-stone-900 print:bg-white border border-stone-700 print:border-black rounded-lg text-xs text-stone-200 print:text-black font-mono"
-                      />
-                    </div>
+                    <select
+                      value={selectedDriverName}
+                      onChange={(e) => handleDriverChange(e.target.value)}
+                      className="w-full px-3 py-2 bg-stone-900 print:bg-white border border-stone-700 print:border-black rounded-lg text-xs text-stone-100 print:text-black font-semibold focus:outline-none focus:border-amber-500"
+                    >
+                      {drivers.map((drv) => (
+                        <option key={drv.id} value={drv.name}>
+                          {drv.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
@@ -986,12 +1156,12 @@ export const FormsView: React.FC<FormsViewProps> = ({
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-stone-850 print:bg-gray-100 text-stone-300 print:text-black font-bold uppercase tracking-wider border-b border-stone-700 print:border-black">
+              <div className="overflow-x-auto rounded-xl border border-stone-800">
+                <table className="w-full min-w-[1100px] text-left text-xs">
+                  <thead className="bg-stone-850 print:bg-gray-100 text-stone-300 print:text-black font-bold uppercase tracking-wider border-b border-stone-700 print:border-black select-none">
                     <tr>
-                      <th className="py-2.5 px-3 min-w-[200px]">Product Name</th>
-                      <th className="py-2.5 px-3 w-36">
+                      <th className="py-2.5 px-3 min-w-[260px] w-80">Product Name</th>
+                      <th className="py-2.5 px-3 min-w-[150px] w-36">
                         <div className="flex items-center justify-between">
                           <span>Dispatch Time</span>
                           <span className="text-[9px] font-normal text-amber-400 lowercase print:hidden">
@@ -999,12 +1169,12 @@ export const FormsView: React.FC<FormsViewProps> = ({
                           </span>
                         </div>
                       </th>
-                      <th className="py-2.5 px-3 w-40">Batch No (FIFO)</th>
-                      <th className="py-2.5 px-3 w-28 text-center">Qty (Manual)</th>
-                      <th className="py-2.5 px-3 w-32">Prod. Date</th>
-                      <th className="py-2.5 px-3 w-32">Use-By Date</th>
-                      <th className="py-2.5 px-3 w-28">Dispatch Temp °C</th>
-                      <th className="py-2.5 px-3 w-10 text-right print:hidden">Del</th>
+                      <th className="py-2.5 px-3 min-w-[240px] w-64">Batch No (FIFO)</th>
+                      <th className="py-2.5 px-3 min-w-[130px] w-32 text-center">Qty (Manual)</th>
+                      <th className="py-2.5 px-3 min-w-[130px] w-32">Prod. Date</th>
+                      <th className="py-2.5 px-3 min-w-[130px] w-32">Use-By Date</th>
+                      <th className="py-2.5 px-3 min-w-[130px] w-32">Dispatch Temp °C</th>
+                      <th className="py-2.5 px-3 w-12 text-right print:hidden">Del</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-800 print:divide-black">
@@ -1013,6 +1183,10 @@ export const FormsView: React.FC<FormsViewProps> = ({
                       const productBatches = batches.filter(
                         b => b.productName.trim().toLowerCase() === itemNorm
                       );
+                      // Collect batches already selected on other rows for this same product
+                      const otherRowBatchNos = lineItems
+                        .filter(r => r.id !== item.id && r.productName.trim().toLowerCase() === itemNorm && r.batchNo)
+                        .map(r => r.batchNo);
 
                       const isTempWarm = item.dispatchTemp > 5.0;
                       const isOutOfStock = item.availableStock !== undefined && item.availableStock <= 0;
@@ -1025,51 +1199,120 @@ export const FormsView: React.FC<FormsViewProps> = ({
                             item.quantity === 0 ? 'print:hidden' : ''
                           }`}
                         >
-                          {/* Product Name */}
-                          <td className="py-2 px-3 font-semibold text-white print:text-black">
-                            <input
-                              type="text"
-                              value={item.productName}
-                              onChange={(e) => {
-                                const newName = e.target.value;
-                                setLineItems(prev =>
-                                  prev.map(r => (r.id === item.id ? { ...r, productName: newName } : r))
-                                );
-                              }}
-                              className="w-full bg-transparent border-none text-white print:text-black font-semibold text-xs focus:ring-0 focus:outline-none"
-                            />
-                            {item.availableStock !== undefined && (
-                              <div className="flex items-center space-x-1.5 mt-0.5 print:hidden">
-                                <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
-                                  isOutOfStock
-                                    ? 'bg-red-950 text-red-400 border border-red-800'
-                                    : 'bg-stone-800 text-stone-400'
-                                }`}>
-                                  In Stock: {item.availableStock}
-                                </span>
-                                {isQtyExceeded && (
-                                  <span className="text-[10px] text-red-400 font-bold animate-pulse">
-                                    Exceeds stock!
+                          {/* Product Name with search / clear only for newly added rows */}
+                          <td className="py-2 px-3 font-semibold text-white print:text-black min-w-[260px]">
+                            {item.isCustom ? (
+                              <div>
+                                <div className="flex items-center justify-between mb-1 print:hidden">
+                                  <span className="text-[10px] font-semibold text-amber-400 flex items-center space-x-1">
+                                    <Plus className="w-3 h-3" />
+                                    <span>Added Product Row</span>
                                   </span>
+                                </div>
+                                <div className="relative flex items-center">
+                                  <input
+                                    type="text"
+                                    list={`product-options-${item.id}`}
+                                    placeholder="Select or type product name..."
+                                    value={item.productName}
+                                    onChange={(e) => handleProductNameChange(item.id, e.target.value)}
+                                    className="w-full bg-stone-900/90 print:bg-transparent border border-amber-500/60 print:border-none focus:border-amber-500 rounded-lg px-2.5 py-1.5 text-white print:text-black font-semibold text-xs focus:ring-0 focus:outline-none transition pr-7 shadow-inner"
+                                  />
+                                  <datalist id={`product-options-${item.id}`}>
+                                    {allAvailableProducts.map(p => (
+                                      <option key={p} value={p} />
+                                    ))}
+                                  </datalist>
+
+                                  {item.productName ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleClearProduct(item.id)}
+                                      className="absolute right-2 text-stone-400 hover:text-red-400 p-0.5 rounded cursor-pointer transition print:hidden"
+                                      title="Clear product name"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  ) : (
+                                    <Search className="w-3.5 h-3.5 text-amber-400 absolute right-2 pointer-events-none print:hidden" />
+                                  )}
+                                </div>
+
+                                {item.productName ? (
+                                  <div className="flex items-center space-x-1.5 mt-1 print:hidden">
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                                      isOutOfStock
+                                        ? 'bg-red-950 text-red-400 border border-red-800'
+                                        : 'bg-stone-800 text-stone-300 border border-stone-700'
+                                    }`}>
+                                      In Stock: {item.availableStock ?? 0}
+                                    </span>
+                                    {isQtyExceeded && (
+                                      <span className="text-[10px] text-red-400 font-bold animate-pulse">
+                                        Exceeds stock!
+                                      </span>
+                                    )}
+                                    {productBatches.length > 1 && (
+                                      <span className="text-[10px] text-amber-400/90 font-mono">
+                                        {productBatches.length} batches available
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="text-[10px] text-amber-400/80 italic mt-0.5 print:hidden">
+                                    Click or type to search & select from catalog
+                                  </div>
                                 )}
+                              </div>
+                            ) : (
+                              <div className="py-1">
+                                <div className="flex items-center space-x-2">
+                                  <span className="font-bold text-white print:text-black text-xs tracking-wide">
+                                    {item.productName}
+                                  </span>
+                                  <span className="text-[9px] px-1.5 py-0.5 bg-stone-800 text-amber-300/90 border border-stone-700 rounded font-semibold uppercase tracking-wider select-none print:hidden flex items-center space-x-1">
+                                    <Lock className="w-2.5 h-2.5 text-amber-400" />
+                                    <span>Core Item</span>
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center space-x-1.5 mt-1 print:hidden">
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                                    isOutOfStock
+                                      ? 'bg-red-950 text-red-400 border border-red-800'
+                                      : 'bg-stone-800 text-stone-300 border border-stone-700'
+                                  }`}>
+                                    In Stock: {item.availableStock ?? 0}
+                                  </span>
+                                  {isQtyExceeded && (
+                                    <span className="text-[10px] text-red-400 font-bold animate-pulse">
+                                      Exceeds stock!
+                                    </span>
+                                  )}
+                                  {productBatches.length > 1 && (
+                                    <span className="text-[10px] text-amber-400/90 font-mono">
+                                      {productBatches.length} batches available
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             )}
                           </td>
 
                           {/* DISPATCH TIME (CAN BE AUTO-FILLED OR MANUALLY ENTERED) */}
-                          <td className="py-2 px-3">
+                          <td className="py-2 px-3 min-w-[150px]">
                             <div className="flex items-center space-x-1">
                               <input
                                 type="time"
                                 value={item.dispatchTime || dispatchTime}
                                 onChange={(e) => handleRowTimeChange(item.id, e.target.value)}
-                                className="w-full px-2 py-1 bg-stone-800 print:bg-white border border-stone-700 print:border-black rounded text-xs text-stone-100 print:text-black font-mono focus:border-amber-500 focus:outline-none"
+                                className="w-full px-2 py-1.5 bg-stone-800 print:bg-white border border-stone-700 print:border-black rounded-lg text-xs text-stone-100 print:text-black font-mono focus:border-amber-500 focus:outline-none"
                                 title="Manual time entry or auto-filled"
                               />
                               <button
                                 type="button"
                                 onClick={() => handleSetRowTimeToNow(item.id)}
-                                className="p-1 bg-stone-700 hover:bg-stone-650 text-amber-400 hover:text-amber-300 rounded text-[10px] print:hidden transition cursor-pointer shrink-0"
+                                className="px-1.5 py-1.5 bg-stone-700 hover:bg-stone-650 text-amber-400 hover:text-amber-300 rounded-lg text-[10px] font-bold print:hidden transition cursor-pointer shrink-0"
                                 title="Set this row to current time"
                               >
                                 Now
@@ -1077,35 +1320,55 @@ export const FormsView: React.FC<FormsViewProps> = ({
                             </div>
                           </td>
 
-                          {/* Batch No - Strictly filtered to the same item in front of it */}
-                          <td className="py-2 px-3">
-                            <select
-                              value={item.batchNo}
-                              onChange={(e) => handleBatchSelect(item.id, e.target.value)}
-                              className="w-full px-2 py-1 bg-stone-800 print:bg-white border border-stone-700 print:border-black rounded text-xs text-amber-400 print:text-black font-mono font-bold focus:outline-none"
-                            >
-                              <option value="">-- Select Batch --</option>
-                              {productBatches.map(b => (
-                                <option key={b.id} value={b.batchNo}>
-                                  {b.batchNo} (Qty: {b.quantity})
-                                </option>
-                              ))}
-                              {/* Maintain current batch if already saved or custom */}
-                              {item.batchNo && !productBatches.some(b => b.batchNo === item.batchNo) && (
-                                <option value={item.batchNo}>
-                                  {item.batchNo}
-                                </option>
-                              )}
-                              {productBatches.length === 0 && !item.batchNo && (
-                                <option value="" disabled>
-                                  No batches for this item
-                                </option>
-                              )}
-                            </select>
+                          {/* Batch No (FIFO) - Auto-assigned, cannot be typed, only distinct batches selectable */}
+                          <td className="py-2 px-3 min-w-[240px]">
+                            {!item.productName ? (
+                              <div className="px-2.5 py-1.5 bg-stone-900/60 border border-stone-800 rounded-lg text-stone-500 font-mono text-xs italic">
+                                Select product first
+                              </div>
+                            ) : productBatches.length === 0 ? (
+                              <div className="px-2.5 py-1.5 bg-red-950/40 border border-red-900/50 rounded-lg text-red-400 font-mono text-xs">
+                                No batches registered
+                              </div>
+                            ) : (
+                              <div>
+                                <select
+                                  value={item.batchNo}
+                                  onChange={(e) => handleBatchSelect(item.id, e.target.value)}
+                                  className="w-full px-2.5 py-1.5 bg-stone-800 print:bg-white border border-stone-700 print:border-black rounded-lg text-xs text-amber-400 print:text-black font-mono font-bold focus:outline-none focus:border-amber-500 cursor-pointer shadow-sm"
+                                >
+                                  <option value="">-- Select Batch --</option>
+                                  {productBatches.map((b, bIdx) => {
+                                    const isUsedInOther = otherRowBatchNos.includes(b.batchNo);
+                                    const otherRowNumber = lineItems.findIndex(r => r.id !== item.id && r.batchNo === b.batchNo) + 1;
+
+                                    return (
+                                      <option 
+                                        key={b.id} 
+                                        value={b.batchNo} 
+                                        disabled={isUsedInOther}
+                                        className={isUsedInOther ? 'text-stone-500 bg-stone-900' : 'text-stone-100 bg-stone-800 font-bold'}
+                                      >
+                                        {b.batchNo} (Qty: {b.quantity}) {isUsedInOther ? `[In use on Row #${otherRowNumber}]` : bIdx === 0 ? '(FIFO 1st)' : `(Batch #${bIdx + 1})`}
+                                      </option>
+                                    );
+                                  })}
+                                  {item.batchNo && !productBatches.some(b => b.batchNo === item.batchNo) && (
+                                    <option value={item.batchNo}>
+                                      {item.batchNo} (Prior Batch)
+                                    </option>
+                                  )}
+                                </select>
+                                <div className="flex items-center space-x-1 mt-0.5 text-[10px] text-stone-400 print:hidden font-mono">
+                                  <Lock className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                                  <span>System batch • Cannot be manually typed</span>
+                                </div>
+                              </div>
+                            )}
                           </td>
 
                           {/* Quantity (Only +/- buttons, no up/down arrows, strictly positive numbers, limits to batch quantity) */}
-                          <td className="py-2 px-3">
+                          <td className="py-2 px-3 min-w-[130px]">
                             <div className="flex items-center justify-center space-x-1">
                               <button
                                 type="button"
@@ -1160,50 +1423,79 @@ export const FormsView: React.FC<FormsViewProps> = ({
                           </td>
 
                           {/* Prod. Date */}
-                          <td className="py-2 px-3">
-                            <input
-                              type="date"
-                              value={item.prodDate}
-                              onChange={(e) => handleRowProdDateChange(item.id, e.target.value)}
-                              className="w-full px-2 py-1 bg-stone-800 print:bg-white border border-stone-700 print:border-black rounded text-xs text-stone-300 print:text-black font-mono focus:outline-none"
-                            />
+                          <td className="py-2 px-3 min-w-[130px]">
+                            <div className="relative">
+                              <input
+                                type="date"
+                                value={item.prodDate}
+                                readOnly={!!item.batchNo}
+                                onChange={(e) => handleRowProdDateChange(item.id, e.target.value)}
+                                className={`w-full px-2 py-1.5 bg-stone-800 print:bg-white border border-stone-700 print:border-black rounded text-xs text-stone-300 print:text-black font-mono focus:outline-none ${
+                                  item.batchNo ? 'opacity-90 cursor-not-allowed bg-stone-900/80' : ''
+                                }`}
+                                title={item.batchNo ? 'Validated from batch record' : 'Production date'}
+                              />
+                              {item.batchNo && (
+                                <Lock className="w-2.5 h-2.5 text-stone-500 absolute right-1.5 top-2.5 pointer-events-none print:hidden" />
+                              )}
+                            </div>
                           </td>
 
                           {/* Use-By Date */}
-                          <td className="py-2 px-3">
-                            <input
-                              type="date"
-                              value={item.useByDate}
-                              onChange={(e) => handleRowUseByChange(item.id, e.target.value)}
-                              className="w-full px-2 py-1 bg-stone-800 print:bg-white border border-stone-700 print:border-black rounded text-xs text-stone-300 print:text-black font-mono focus:outline-none"
-                            />
+                          <td className="py-2 px-3 min-w-[130px]">
+                            <div className="relative">
+                              <input
+                                type="date"
+                                value={item.useByDate}
+                                readOnly={!!item.batchNo}
+                                onChange={(e) => handleRowUseByChange(item.id, e.target.value)}
+                                className={`w-full px-2 py-1.5 bg-stone-800 print:bg-white border border-stone-700 print:border-black rounded text-xs text-stone-300 print:text-black font-mono focus:outline-none ${
+                                  item.batchNo ? 'opacity-90 cursor-not-allowed bg-stone-900/80' : ''
+                                }`}
+                                title={item.batchNo ? 'Validated from batch record' : 'Use-by date'}
+                              />
+                              {item.batchNo && (
+                                <Lock className="w-2.5 h-2.5 text-stone-500 absolute right-1.5 top-2.5 pointer-events-none print:hidden" />
+                              )}
+                            </div>
                           </td>
 
                           {/* Dispatch Temp °C */}
-                          <td className="py-2 px-3">
+                          <td className="py-2 px-3 min-w-[130px]">
                             <input
                               type="number"
                               step="0.1"
                               value={item.dispatchTemp}
+                              readOnly={!!item.batchNo}
                               onChange={(e) => handleRowTempChange(item.id, parseFloat(e.target.value) || 0)}
-                              className={`w-full px-2 py-1 bg-stone-800 print:bg-white border rounded text-xs font-mono font-bold focus:outline-none ${
+                              className={`w-full px-2 py-1.5 bg-stone-800 print:bg-white border rounded text-xs font-mono font-bold focus:outline-none ${
                                 isTempWarm
                                   ? 'border-red-600 text-red-400 print:text-black'
                                   : 'border-cyan-600 text-cyan-300 print:text-black'
-                              }`}
+                              } ${item.batchNo ? 'opacity-90 cursor-not-allowed bg-stone-900/80' : ''}`}
+                              title={item.batchNo ? 'Validated from batch record' : 'Dispatch temperature'}
                             />
                           </td>
 
-                          {/* Delete row */}
-                          <td className="py-2 px-3 text-right print:hidden">
-                            <button
-                              type="button"
-                              onClick={() => removeRow(item.id)}
-                              className="text-stone-500 hover:text-red-400 p-1 cursor-pointer transition"
-                              title="Remove item"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                          {/* Delete row: only custom added rows can be removed */}
+                          <td className="py-2 px-3 text-right print:hidden w-12">
+                            {item.isCustom ? (
+                              <button
+                                type="button"
+                                onClick={() => removeRow(item.id)}
+                                className="text-stone-500 hover:text-red-400 p-1 cursor-pointer transition"
+                                title="Remove added product row"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            ) : (
+                              <span
+                                className="inline-flex p-1 text-stone-600 cursor-not-allowed select-none"
+                                title="Core product row is protected and cannot be deleted"
+                              >
+                                <Lock className="w-3.5 h-3.5" />
+                              </span>
+                            )}
                           </td>
                         </tr>
                       );
@@ -1290,7 +1582,7 @@ export const FormsView: React.FC<FormsViewProps> = ({
               </div>
 
               <div className="text-stone-400 font-mono text-[11px]">
-                Driver: <strong className="text-stone-200">{selectedDriverName}</strong> ({vehicleNo})
+                Driver: <strong className="text-stone-200">{selectedDriverName}</strong>
               </div>
             </div>
 
@@ -1301,6 +1593,16 @@ export const FormsView: React.FC<FormsViewProps> = ({
               </div>
 
               <div className="flex items-center space-x-3 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={handleResetEntireForm}
+                  className="px-3.5 py-2.5 bg-stone-800 hover:bg-stone-750 text-stone-300 hover:text-amber-400 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center space-x-1.5"
+                  title="Reset form: clears outlet selection, resets dates to today, and clears quantities"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset Form</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setLineItems(prev => prev.map(r => ({ ...r, quantity: 0 })))}

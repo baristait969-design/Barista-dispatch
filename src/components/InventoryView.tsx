@@ -14,21 +14,25 @@ import {
   X,
   Filter,
   Calendar,
-  Layers
+  Layers,
+  Lock
 } from 'lucide-react';
-import { InventoryBatch, BatchLog } from '../types';
+import { InventoryBatch, BatchLog, Product } from '../types';
 import { INITIAL_PRODUCTS } from '../data/seedData';
 import { addInventoryBatch, updateInventoryBatch, deleteInventoryBatch } from '../services/dataService';
+import { getNextBatchNumberForProduct, getProductKeyCode } from '../utils/batchUtils';
 
 interface InventoryViewProps {
   batches: InventoryBatch[];
   batchLogs: BatchLog[];
+  products?: Product[];
   onRefresh?: () => void;
 }
 
 export const InventoryView: React.FC<InventoryViewProps> = ({
   batches,
-  batchLogs
+  batchLogs,
+  products
 }) => {
   const { role, userProfile } = useAuth();
   const canEdit = role === 'admin' || role === 'editor';
@@ -42,17 +46,24 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [selectedBatchForLogs, setSelectedBatchForLogs] = useState<InventoryBatch | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Product-specific unique batch sequence generator
+  const getNextBatchNo = (productName: string, list: InventoryBatch[] = batches) => {
+    return getNextBatchNumberForProduct(productName, list, products);
+  };
+
+  const initialProductName = (products && products.length > 0 ? products[0].name : INITIAL_PRODUCTS[0].name);
+
   // Form State
-  const [formData, setFormData] = useState({
-    batchNo: `B-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
-    productName: INITIAL_PRODUCTS[0].name,
-    category: INITIAL_PRODUCTS[0].category,
+  const [formData, setFormData] = useState(() => ({
+    batchNo: getNextBatchNumberForProduct(initialProductName, batches, products),
+    productName: initialProductName,
+    category: (products && products.length > 0 ? products[0].category : INITIAL_PRODUCTS[0].category) || 'Pastry Kitchen Items',
     quantity: 50,
     prodDate: new Date().toISOString().split('T')[0],
     useByDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 5 days in future
     dispatchTemp: 3.5,
     unit: 'Slices'
-  });
+  }));
 
   // Calculate stats
   const totalQuantity = batches.reduce((sum, b) => sum + (b.quantity || 0), 0);
@@ -69,19 +80,25 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const categories = Array.from(new Set(batches.map(b => b.category || 'Pastry Kitchen Items')));
 
   const handleProductSelect = (pName: string) => {
-    const found = INITIAL_PRODUCTS.find(p => p.name === pName);
+    const activeProducts = products && products.length > 0 ? products : [];
+    const found = activeProducts.find(p => p.name === pName) || INITIAL_PRODUCTS.find(p => p.name === pName);
+    const autoBatchNo = getNextBatchNumberForProduct(pName, batches, products);
+
     if (found) {
-      const futureDate = new Date(Date.now() + found.shelfLifeDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const shelfDays = 'shelfLifeDays' in found && found.shelfLifeDays ? found.shelfLifeDays : 5;
+      const defTemp = 'dispatchTemp' in found ? found.dispatchTemp : (found as any).defaultTemp;
+      const futureDate = new Date(Date.now() + shelfDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       setFormData(prev => ({
         ...prev,
+        batchNo: autoBatchNo,
         productName: found.name,
         category: found.category,
-        dispatchTemp: found.defaultTemp,
-        unit: found.unit,
+        dispatchTemp: defTemp,
+        unit: found.unit || 'Slices',
         useByDate: futureDate
       }));
     } else {
-      setFormData(prev => ({ ...prev, productName: pName }));
+      setFormData(prev => ({ ...prev, productName: pName, batchNo: autoBatchNo }));
     }
   };
 
@@ -90,8 +107,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     if (!canEdit) return;
     setSubmitting(true);
     try {
+      const assignedBatchNo = formData.batchNo.trim() || getNextBatchNumberForProduct(formData.productName, batches, products);
       await addInventoryBatch({
-        batchNo: formData.batchNo,
+        batchNo: assignedBatchNo,
         productName: formData.productName,
         category: formData.category,
         initialQuantity: Number(formData.quantity),
@@ -103,17 +121,18 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         createdBy: userProfile?.displayName || userProfile?.email || 'Central Kitchen Staff'
       });
       setShowAddModal(false);
-      // Reset form
-      setFormData({
-        batchNo: `B-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
-        productName: INITIAL_PRODUCTS[0].name,
-        category: INITIAL_PRODUCTS[0].category,
+
+      // Next batch for this same product automatically follows the sequence
+      const updatedBatches = [...batches, { id: 'temp', batchNo: assignedBatchNo, productName: formData.productName } as any];
+      const nextBatch = getNextBatchNumberForProduct(formData.productName, updatedBatches, products);
+
+      setFormData(prev => ({
+        ...prev,
+        batchNo: nextBatch,
         quantity: 50,
         prodDate: new Date().toISOString().split('T')[0],
-        useByDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        dispatchTemp: 3.5,
-        unit: 'Slices'
-      });
+        useByDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      }));
     } catch (err) {
       alert('Error creating batch: ' + (err as any)?.message);
     } finally {
@@ -234,7 +253,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
           {canEdit && (
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={() => {
+                setFormData(prev => ({
+                  ...prev,
+                  batchNo: getNextBatchNumberForProduct(prev.productName, batches, products)
+                }));
+                setShowAddModal(true);
+              }}
               className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-lg text-xs transition flex items-center space-x-2 shadow-sm cursor-pointer"
             >
               <Plus className="w-4 h-4" />
@@ -424,7 +449,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   onChange={(e) => handleProductSelect(e.target.value)}
                   className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500"
                 >
-                  {INITIAL_PRODUCTS.map((p) => (
+                  {(products && products.length > 0 ? products : INITIAL_PRODUCTS).map((p) => (
                     <option key={p.name} value={p.name}>
                       {p.name} ({p.category})
                     </option>
@@ -434,16 +459,22 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-stone-300 mb-1">
-                    Batch Number
+                  <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
+                    <span>Batch Number</span>
+                    <span className="text-[10px] text-amber-400 font-semibold flex items-center gap-1 bg-amber-950/60 border border-amber-800/60 px-1.5 py-0.5 rounded font-mono">
+                      Key: {getProductKeyCode(formData.productName, products)}
+                    </span>
                   </label>
                   <input
                     type="text"
                     required
                     value={formData.batchNo}
-                    onChange={(e) => setFormData({ ...formData, batchNo: e.target.value })}
-                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 font-mono focus:outline-none focus:border-amber-500"
+                    onChange={(e) => setFormData({ ...formData, batchNo: e.target.value.toUpperCase() })}
+                    className="w-full px-3 py-2 bg-stone-900 border border-stone-700 focus:border-amber-500 rounded-lg text-xs text-amber-400 font-mono font-bold focus:outline-none"
+                    placeholder={`e.g. ${getProductKeyCode(formData.productName, products)}-01`}
+                    title="Unique batch number for this product. Automatically follows sequence."
                   />
+                  <p className="text-[10px] text-stone-500 mt-1">Short unique code. Subsequent batches follow this sequence.</p>
                 </div>
 
                 <div>
@@ -552,6 +583,24 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             </div>
 
             <form onSubmit={handleUpdateBatch} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
+                  <span>Batch Number</span>
+                  <span className="text-[10px] text-amber-400 font-semibold flex items-center gap-1">
+                    <Lock className="w-3 h-3" /> System Locked
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  readOnly
+                  disabled
+                  value={editingBatch.batchNo}
+                  className="w-full px-3 py-2 bg-stone-950 border border-stone-800 rounded-lg text-xs text-amber-400 font-mono font-bold cursor-not-allowed select-none opacity-90 shadow-inner"
+                  title="Batch number cannot be changed"
+                />
+                <p className="text-[10px] text-stone-500 mt-1">Permanent system batch identifier</p>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-stone-300 mb-1">
                   Product Name
