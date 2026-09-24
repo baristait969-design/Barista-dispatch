@@ -12,13 +12,15 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { InventoryBatch, BatchLog, Outlet, DispatchLog, Driver, UserProfile, UserRole } from '../types';
-import { INITIAL_BATCHES, INITIAL_OUTLETS, INITIAL_DRIVERS, INITIAL_USERS } from '../data/seedData';
+import { InventoryBatch, BatchLog, Outlet, Product, DispatchLog, Driver, UserProfile, UserRole } from '../types';
+import { INITIAL_BATCHES, INITIAL_OUTLETS, INITIAL_DRIVERS, INITIAL_USERS, INITIAL_PRODUCT_CATALOG } from '../data/seedData';
+import { getProductKeyCode } from '../utils/batchUtils';
 
 // Collections
 const BATCHES_COL = 'inventory';
 const LOGS_COL = 'batch_logs';
 const OUTLETS_COL = 'outlets';
+const PRODUCTS_COL = 'products';
 const DISPATCH_COL = 'dispatch_logs';
 const DRIVERS_COL = 'drivers';
 const USERS_COL = 'users';
@@ -28,7 +30,7 @@ export async function seedInitialDataIfNeeded(): Promise<boolean> {
   try {
     const snap = await getDocs(collection(db, BATCHES_COL));
     if (snap.empty) {
-      console.log('Seeding initial central kitchen inventory and outlets...');
+      console.log('Seeding initial central kitchen inventory, outlets, and products...');
       
       // Seed Batches
       for (const b of INITIAL_BATCHES) {
@@ -37,6 +39,10 @@ export async function seedInitialDataIfNeeded(): Promise<boolean> {
       // Seed Outlets
       for (const o of INITIAL_OUTLETS) {
         await setDoc(doc(db, OUTLETS_COL, o.id), o);
+      }
+      // Seed Products
+      for (const p of INITIAL_PRODUCT_CATALOG) {
+        await setDoc(doc(db, PRODUCTS_COL, p.id), p);
       }
       // Seed Drivers
       for (const d of INITIAL_DRIVERS) {
@@ -48,6 +54,13 @@ export async function seedInitialDataIfNeeded(): Promise<boolean> {
       }
       return true;
     } else {
+      // Ensure products collection is also seeded if empty
+      const prodSnap = await getDocs(collection(db, PRODUCTS_COL));
+      if (prodSnap.empty) {
+        for (const p of INITIAL_PRODUCT_CATALOG) {
+          await setDoc(doc(db, PRODUCTS_COL, p.id), p);
+        }
+      }
       // Ensure primary Administrator account exists with password
       const primaryAdmin = INITIAL_USERS.find(u => u.email === 'baristait969@gmail.com');
       if (primaryAdmin) {
@@ -397,6 +410,275 @@ export async function bulkAddOutlets(
   }
 }
 
+// ----------------- PRODUCTS (Central Kitchen Catalog) -----------------
+export function subscribeProducts(callback: (products: Product[]) => void) {
+  const q = query(collection(db, PRODUCTS_COL));
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const items: Product[] = [];
+      snapshot.forEach((d) => {
+        items.push({ id: d.id, ...d.data() } as Product);
+      });
+      // Sort sequentially by product code PRD-01, PRD-02...
+      items.sort((a, b) => {
+        const numA = parseInt((a.productId || '').replace(/\D/g, ''), 10) || 0;
+        const numB = parseInt((b.productId || '').replace(/\D/g, ''), 10) || 0;
+        if (numA !== numB) return numA - numB;
+        return a.name.localeCompare(b.name);
+      });
+      callback(items);
+    },
+    (error) => {
+      handleFirestoreError(error, OperationType.GET, PRODUCTS_COL);
+    }
+  );
+}
+
+export function getNextProductCode(productsList: Product[]): string {
+  let max = 0;
+  for (const p of productsList) {
+    const match = p.productId?.match(/(\d+)/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > max) max = num;
+    }
+  }
+  const nextNum = max > 0 ? max + 1 : productsList.length + 1;
+  return `PRD-${String(nextNum).padStart(2, '0')}`;
+}
+
+export async function addProduct(product: {
+  name: string;
+  dispatchTemp: number;
+  category?: string;
+  keyCode?: string;
+  shelfLifeDays?: number;
+  unit?: string;
+  active?: boolean;
+}): Promise<string> {
+  const name = product.name.trim();
+  if (!name) {
+    throw new Error('Product Name is compulsory.');
+  }
+  if (product.dispatchTemp === undefined || isNaN(product.dispatchTemp)) {
+    throw new Error('Valid Dispatch Temperature (°C) is required.');
+  }
+
+  const id = `prd-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+  try {
+    // Automatically calculate next consecutive product code (System generated, immutable)
+    const snap = await getDocs(collection(db, PRODUCTS_COL));
+    let max = 0;
+    snap.forEach((d) => {
+      const data = d.data();
+      const code = data.productId as string;
+      const match = code?.match(/(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > max) max = num;
+      }
+    });
+    const autoCode = `PRD-${String(max + 1).padStart(2, '0')}`;
+    const cleanKeyCode = (product.keyCode && product.keyCode.trim()) 
+      ? product.keyCode.trim().toUpperCase() 
+      : getProductKeyCode(name);
+
+    const newProduct: Product = {
+      id,
+      productId: autoCode, // System generated - cannot be changed by user
+      name,
+      keyCode: cleanKeyCode,
+      category: product.category?.trim() || 'Pastry Kitchen Items',
+      dispatchTemp: Number(product.dispatchTemp),
+      shelfLifeDays: product.shelfLifeDays ? Number(product.shelfLifeDays) : 5,
+      unit: product.unit?.trim() || 'Slices',
+      active: product.active !== undefined ? product.active : true,
+      createdAt: new Date().toISOString()
+    };
+
+    await setDoc(doc(db, PRODUCTS_COL, id), newProduct);
+    return id;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, `${PRODUCTS_COL}/${id}`);
+    throw error;
+  }
+}
+
+export async function updateProduct(
+  id: string,
+  updates: {
+    name?: string;
+    dispatchTemp?: number;
+    category?: string;
+    keyCode?: string;
+    shelfLifeDays?: number;
+    unit?: string;
+    active?: boolean;
+  }
+): Promise<void> {
+  try {
+    const safeUpdates: Partial<Product> = {
+      updatedAt: new Date().toISOString()
+    };
+    if (updates.name !== undefined) {
+      const trimmed = updates.name.trim();
+      if (!trimmed) throw new Error('Product Name is compulsory.');
+      safeUpdates.name = trimmed;
+    }
+    if (updates.keyCode !== undefined) {
+      safeUpdates.keyCode = updates.keyCode.trim().toUpperCase();
+    }
+    if (updates.dispatchTemp !== undefined) {
+      if (isNaN(updates.dispatchTemp)) throw new Error('Dispatch Temperature must be a valid number.');
+      safeUpdates.dispatchTemp = Number(updates.dispatchTemp);
+    }
+    if (updates.category !== undefined) {
+      safeUpdates.category = updates.category.trim() || 'Pastry Kitchen Items';
+    }
+    if (updates.shelfLifeDays !== undefined) {
+      safeUpdates.shelfLifeDays = Number(updates.shelfLifeDays);
+    }
+    if (updates.unit !== undefined) {
+      safeUpdates.unit = updates.unit.trim() || 'Slices';
+    }
+    if (updates.active !== undefined) {
+      safeUpdates.active = updates.active;
+    }
+
+    // CRITICAL: Product ID (productId) is deliberately preserved and cannot be updated by any user
+    await updateDoc(doc(db, PRODUCTS_COL, id), safeUpdates);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `${PRODUCTS_COL}/${id}`);
+    throw error;
+  }
+}
+
+export async function deleteProduct(id: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, PRODUCTS_COL, id));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, `${PRODUCTS_COL}/${id}`);
+    throw error;
+  }
+}
+
+export async function deleteAllProducts(): Promise<void> {
+  try {
+    const snap = await getDocs(collection(db, PRODUCTS_COL));
+    if (snap.empty) return;
+
+    let batch = writeBatch(db);
+    let count = 0;
+    const batchPromises = [];
+
+    for (const d of snap.docs) {
+      batch.delete(d.ref);
+      count++;
+      if (count >= 400) {
+        batchPromises.push(batch.commit());
+        batch = writeBatch(db);
+        count = 0;
+      }
+    }
+    if (count > 0) {
+      batchPromises.push(batch.commit());
+    }
+    await Promise.all(batchPromises);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, PRODUCTS_COL);
+    throw error;
+  }
+}
+
+export async function syncOfficialProducts(force = false): Promise<number> {
+  try {
+    const snap = await getDocs(collection(db, PRODUCTS_COL));
+    if (force || snap.empty) {
+      console.log('Syncing official Barista product catalog to Firestore...');
+
+      if (!snap.empty) {
+        let delBatch = writeBatch(db);
+        let delCount = 0;
+        const delPromises = [];
+        for (const d of snap.docs) {
+          delBatch.delete(d.ref);
+          delCount++;
+          if (delCount >= 400) {
+            delPromises.push(delBatch.commit());
+            delBatch = writeBatch(db);
+            delCount = 0;
+          }
+        }
+        if (delCount > 0) {
+          delPromises.push(delBatch.commit());
+        }
+        await Promise.all(delPromises);
+      }
+
+      const insertBatch = writeBatch(db);
+      for (const p of INITIAL_PRODUCT_CATALOG) {
+        insertBatch.set(doc(db, PRODUCTS_COL, p.id), p);
+      }
+      await insertBatch.commit();
+      console.log(`Successfully synced ${INITIAL_PRODUCT_CATALOG.length} official products.`);
+      return INITIAL_PRODUCT_CATALOG.length;
+    }
+    return snap.size;
+  } catch (error) {
+    console.error('Sync official products error:', error);
+    handleFirestoreError(error, OperationType.WRITE, PRODUCTS_COL);
+    throw error;
+  }
+}
+
+export async function bulkAddProducts(
+  productList: Array<{ name: string; dispatchTemp?: number; category?: string; keyCode?: string; unit?: string; shelfLifeDays?: number }>
+): Promise<void> {
+  try {
+    const snap = await getDocs(collection(db, PRODUCTS_COL));
+    let max = 0;
+    snap.forEach((d) => {
+      const data = d.data();
+      const code = data.productId as string;
+      const match = code?.match(/(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > max) max = num;
+      }
+    });
+
+    let nextIndex = max + 1;
+    for (const item of productList) {
+      const name = item.name.trim();
+      if (!name) continue;
+      const id = `prd-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const code = `PRD-${String(nextIndex).padStart(2, '0')}`;
+      const temp = item.dispatchTemp !== undefined && !isNaN(item.dispatchTemp) ? item.dispatchTemp : 3.5;
+      const cleanKey = item.keyCode && item.keyCode.trim() 
+        ? item.keyCode.trim().toUpperCase() 
+        : getProductKeyCode(name);
+
+      await setDoc(doc(db, PRODUCTS_COL, id), {
+        id,
+        productId: code,
+        name,
+        keyCode: cleanKey,
+        category: item.category?.trim() || 'Pastry Kitchen Items',
+        dispatchTemp: Number(temp),
+        shelfLifeDays: item.shelfLifeDays || 5,
+        unit: item.unit?.trim() || 'Slices',
+        active: true,
+        createdAt: new Date().toISOString()
+      });
+      nextIndex++;
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, PRODUCTS_COL);
+    throw error;
+  }
+}
+
 // ----------------- DRIVERS -----------------
 export function subscribeDrivers(callback: (drivers: Driver[]) => void) {
   const q = query(collection(db, DRIVERS_COL));
@@ -555,14 +837,13 @@ export async function updateUserRoleAndPermissions(
   userId: string,
   role: UserRole,
   permissions: any,
-  userIdCode?: string,
+  _userIdCode?: string,
   password?: string
 ): Promise<void> {
   try {
     const updateData: any = {
       role,
       permissions,
-      userIdCode: userIdCode || undefined,
       updatedAt: new Date().toISOString()
     };
     if (password && password.trim().length > 0) {
