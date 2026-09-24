@@ -134,3 +134,32 @@ export function getNextBatchNumberForProduct(
   const nextSeq = productBatches.length + 1;
   return `${defaultKey}-${String(nextSeq).padStart(2, '0')}`;
 }
+
+/**
+ * Returns available batches for a product sorted in strict FIFO order (First-In, First-Out: earliest production date / oldest batch first)
+ * and strictly filters out batches with zero or finished stock (quantity <= 0).
+ */
+export function getAvailableFIFOBatches(productName: string, batches: InventoryBatch[]): InventoryBatch[] {
+  if (!productName || !productName.trim()) return [];
+  const trimmed = productName.trim().toLowerCase();
+
+  return batches
+    .filter(b => b.productName && b.productName.trim().toLowerCase() === trimmed && (b.quantity || 0) > 0)
+    .sort((a, b) => {
+      // 1. Sort by production date ascending (earliest first)
+      const dateA = a.prodDate ? new Date(a.prodDate).getTime() : 0;
+      const dateB = b.prodDate ? new Date(b.prodDate).getTime() : 0;
+      if (dateA !== dateB && dateA > 0 && dateB > 0) {
+        return dateA - dateB;
+      }
+      // 2. Sort by creation timestamp ascending
+      const createdA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const createdB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (createdA !== createdB && createdA > 0 && createdB > 0) {
+        return createdA - createdB;
+      }
+      // 3. Fallback: Sequential code comparison (e.g. BCC-01 before BCC-02)
+      return (a.batchNo || '').localeCompare(b.batchNo || '', undefined, { numeric: true, sensitivity: 'base' });
+    });
+}
+

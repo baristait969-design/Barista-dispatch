@@ -1,7 +1,9 @@
 import React from 'react';
-import { Printer, X, CheckCircle2, AlertTriangle, ShieldCheck, ThermometerSnowflake, FileText } from 'lucide-react';
+import { Printer, X, CheckCircle2, AlertTriangle, ShieldCheck, ThermometerSnowflake, FileText, Download } from 'lucide-react';
 import { DispatchLog, DispatchLineItem } from '../types';
 import { BaristaLogo } from './BaristaLogo';
+import { generateSingleDispatchPDF } from '../utils/pdfExport';
+import { printHtmlElement } from '../utils/printUtils';
 
 interface PrintableDispatchSheetProps {
   dispatchLog: Partial<DispatchLog> & {
@@ -26,18 +28,22 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
   const totalUnits = activeItems.reduce((acc, item) => acc + item.quantity, 0);
   const isAllHaccpCompliant = activeItems.every(item => item.dispatchTemp <= 5.0);
 
+  const handlePrint = () => {
+    printHtmlElement('printable-dispatch-sheet-content', `Barista Dispatch - ${dispatchLog.date} ${dispatchLog.dispatchTime}`);
+  };
+
   React.useEffect(() => {
     if (autoPrint) {
       const timer = setTimeout(() => {
-        window.print();
+        handlePrint();
       }, 400);
       return () => clearTimeout(timer);
     }
   }, [autoPrint]);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-950/80 backdrop-blur-sm flex justify-center p-2 sm:p-6 print:p-0 print:bg-white print:static print:inset-auto print:backdrop-blur-none">
-      <div className="relative w-full max-w-4xl bg-white text-stone-900 rounded-2xl shadow-2xl p-6 sm:p-8 print:p-4 print:shadow-none print:rounded-none print:w-full print:max-w-none">
+    <div className="printable-modal-overlay fixed inset-0 z-50 overflow-y-auto bg-stone-950/80 backdrop-blur-sm flex justify-center p-2 sm:p-6 print:p-0 print:bg-white print:static print:inset-auto print:backdrop-blur-none">
+      <div className="printable-card-container relative w-full max-w-4xl bg-white text-stone-900 rounded-2xl shadow-2xl p-6 sm:p-8 print:p-4 print:shadow-none print:rounded-none print:w-full print:max-w-none">
         
         {/* Screen Action Bar (Hidden in Print) */}
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-stone-200 print:hidden">
@@ -52,7 +58,15 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
 
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => window.print()}
+              onClick={() => generateSingleDispatchPDF(dispatchLog as any)}
+              className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl text-xs flex items-center space-x-1.5 shadow-md transition cursor-pointer"
+              title="Download official PDF copy"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download PDF (.pdf)</span>
+            </button>
+            <button
+              onClick={handlePrint}
               className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-xl text-xs flex items-center space-x-1.5 shadow-md transition cursor-pointer"
             >
               <Printer className="w-4 h-4" />
@@ -71,7 +85,7 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
         </div>
 
         {/* PRINTABLE OFFICIAL HACCP DOCUMENT */}
-        <div className="print-content text-stone-900">
+        <div id="printable-dispatch-sheet-content" className="print-content text-stone-900">
           
           {/* Header Grid */}
           <div className="border-2 border-stone-900 mb-4">
@@ -218,55 +232,38 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
                     <th className="p-2 border-r border-stone-400 w-24">Prod Date</th>
                     <th className="p-2 border-r border-stone-400 w-24">Use-By Date</th>
                     <th className="p-2 border-r border-stone-400 w-20 text-center">Qty (Units)</th>
-                    <th className="p-2 border-r border-stone-400 w-24 text-center">Temp °C</th>
-                    <th className="p-2 w-24 text-center">HACCP Check</th>
+                    <th className="p-2 w-24 text-center">Dispatch Temp</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-300">
-                  {activeItems.map((item, index) => {
-                    const isCompliant = item.dispatchTemp <= 5.0;
-                    return (
-                      <tr key={item.id || index} className="text-stone-900">
-                        <td className="p-2 border-r border-stone-300 text-center font-mono font-bold text-stone-500">
-                          {index + 1}
-                        </td>
-                        <td className="p-2 border-r border-stone-300 font-bold">
-                          {item.productName}
-                        </td>
-                        <td className="p-2 border-r border-stone-300 font-mono font-semibold text-stone-800">
-                          {item.batchNo || 'N/A'}
-                        </td>
-                        <td className="p-2 border-r border-stone-300 text-center font-mono">
-                          {item.dispatchTime || dispatchLog.dispatchTime}
-                        </td>
-                        <td className="p-2 border-r border-stone-300 font-mono text-stone-700">
-                          {item.prodDate || '-'}
-                        </td>
-                        <td className="p-2 border-r border-stone-300 font-mono text-stone-700">
-                          {item.useByDate || '-'}
-                        </td>
-                        <td className="p-2 border-r border-stone-300 text-center font-mono font-bold text-sm bg-stone-50">
-                          {item.quantity}
-                        </td>
-                        <td className="p-2 border-r border-stone-300 text-center font-mono font-bold">
-                          <span className={isCompliant ? 'text-stone-900' : 'text-red-600 underline'}>
-                            {item.dispatchTemp.toFixed(1)}°C
-                          </span>
-                        </td>
-                        <td className="p-2 text-center font-mono text-[10px] font-bold">
-                          {isCompliant ? (
-                            <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                              PASS (≤5°C)
-                            </span>
-                          ) : (
-                            <span className="text-red-700 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
-                              FAIL (&gt;5°C)
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {activeItems.map((item, index) => (
+                    <tr key={item.id || index} className="text-stone-900">
+                      <td className="p-2 border-r border-stone-300 text-center font-mono font-bold text-stone-500">
+                        {index + 1}
+                      </td>
+                      <td className="p-2 border-r border-stone-300 font-bold">
+                        {item.productName}
+                      </td>
+                      <td className="p-2 border-r border-stone-300 font-mono font-semibold text-stone-800">
+                        {item.batchNo || 'N/A'}
+                      </td>
+                      <td className="p-2 border-r border-stone-300 text-center font-mono">
+                        {item.dispatchTime || dispatchLog.dispatchTime}
+                      </td>
+                      <td className="p-2 border-r border-stone-300 font-mono text-stone-700">
+                        {item.prodDate || '-'}
+                      </td>
+                      <td className="p-2 border-r border-stone-300 font-mono text-stone-700">
+                        {item.useByDate || '-'}
+                      </td>
+                      <td className="p-2 border-r border-stone-300 text-center font-mono font-bold text-sm bg-stone-50">
+                        {item.quantity}
+                      </td>
+                      <td className="p-2 text-center font-mono font-bold text-stone-900">
+                        {item.dispatchTemp.toFixed(1)}°C
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-stone-900 bg-stone-100 font-bold text-xs text-stone-900">
@@ -276,12 +273,8 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
                     <td className="p-2 border-r border-l border-stone-900 text-center font-mono text-sm bg-stone-200 font-black">
                       {totalUnits} Units
                     </td>
-                    <td colSpan={2} className="p-2 text-center font-mono text-[11px]">
-                      {isAllHaccpCompliant ? (
-                        <span className="text-emerald-800 font-bold">✓ 100% Cold-Chain Compliant</span>
-                      ) : (
-                        <span className="text-red-800 font-bold">⚠ Deviation Detected</span>
-                      )}
+                    <td className="p-2 text-center font-mono text-xs">
+                      {activeItems.length > 0 ? (activeItems.reduce((s, i) => s + i.dispatchTemp, 0) / activeItems.length).toFixed(1) : '-'}°C avg
                     </td>
                   </tr>
                 </tfoot>

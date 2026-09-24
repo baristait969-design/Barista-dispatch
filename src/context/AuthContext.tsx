@@ -60,6 +60,17 @@ const DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     users: { view: false, edit: false },
     roles: { view: false, edit: false },
     reports: { view: true, edit: false }
+  },
+  driver: {
+    // Assigned Logistics Driver: Report only visible
+    dashboard: { view: false, edit: false },
+    inventory: { view: false, edit: false },
+    forms: { view: false, edit: false },
+    outlets: { view: false, edit: false },
+    products: { view: false, edit: false },
+    users: { view: false, edit: false },
+    roles: { view: false, edit: false },
+    reports: { view: true, edit: false }
   }
 };
 

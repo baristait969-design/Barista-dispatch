@@ -29,6 +29,7 @@ import {
   syncOfficialProducts,
   getNextProductCode
 } from '../services/dataService';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface ProductsViewProps {
   products: Product[];
@@ -55,8 +56,8 @@ const DEFAULT_UNITS = [
 
 export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
   const { role } = useAuth();
-  // Administrators have full permission to add, edit, delete, activate, or suspend products
-  const isAdmin = role === 'admin';
+  // Administrators and editors have permission to manage products
+  const isAdmin = role === 'admin' || role === 'editor';
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -66,6 +67,8 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Submission & loading state
   const [submitting, setSubmitting] = useState(false);
@@ -78,7 +81,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
   const [newName, setNewName] = useState('');
   const [newDispatchTemp, setNewDispatchTemp] = useState<number>(3.5);
   const [newCategory, setNewCategory] = useState('Pastry Kitchen Items');
-  const [newUnit, setNewUnit] = useState('Slices');
+  const [newUnit] = useState('NoS');
   const [newShelfLifeDays, setNewShelfLifeDays] = useState<number>(5);
   const [newActive, setNewActive] = useState(true);
 
@@ -158,7 +161,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
         name: trimmed,
         dispatchTemp: Number(newDispatchTemp),
         category: newCategory.trim() || 'Pastry Kitchen Items',
-        unit: newUnit.trim() || 'Slices',
+        unit: 'NoS',
         shelfLifeDays: Number(newShelfLifeDays) || 5,
         active: newActive
       });
@@ -167,7 +170,6 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
       setNewName('');
       setNewDispatchTemp(3.5);
       setNewCategory('Pastry Kitchen Items');
-      setNewUnit('Slices');
       setNewShelfLifeDays(5);
       setNewActive(true);
       setShowAddModal(false);
@@ -178,7 +180,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
     }
   };
 
-  // Handle Update Product (Product ID is immutable and never sent for modification)
+  // Handle Update Product (Product ID and Standard Unit are immutable and cannot be changed)
   const handleUpdateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) {
@@ -202,7 +204,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
         name: trimmed,
         dispatchTemp: Number(editingProduct.dispatchTemp),
         category: editingProduct.category,
-        unit: editingProduct.unit,
+        unit: 'NoS',
         shelfLifeDays: Number(editingProduct.shelfLifeDays) || 5,
         active: editingProduct.active
       });
@@ -215,17 +217,16 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
   };
 
   // Handle Delete Product
-  const handleDeleteProduct = async (prod: Product) => {
-    if (!isAdmin) {
-      alert('Security Policy: Only Administrators have permission to delete products.');
-      return;
-    }
-    if (confirm(`Are you sure you want to remove product "${prod.name}" (${prod.productId})? This will remove it from the Central Kitchen catalog.`)) {
-      try {
-        await deleteProduct(prod.id);
-      } catch (err: any) {
-        alert('Error removing product: ' + err.message);
-      }
+  const handleConfirmDeleteProduct = async () => {
+    if (!productToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteProduct(productToDelete.id);
+      setProductToDelete(null);
+    } catch (err: any) {
+      alert('Error removing product: ' + err.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -283,7 +284,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
 
     setBulkSubmitting(true);
     try {
-      // Format: Product Name, Temp, Category, Unit
+      // Format: Product Name, Temp, Category
       const itemsToImport = lines.map(line => {
         const parts = line.split(/[,\t]/).map(p => p.trim());
         const tempVal = parseFloat(parts[1]);
@@ -291,7 +292,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
           name: parts[0],
           dispatchTemp: !isNaN(tempVal) ? tempVal : 3.5,
           category: parts[2] || 'Pastry Kitchen Items',
-          unit: parts[3] || 'Slices'
+          unit: 'NoS'
         };
       });
 
@@ -344,10 +345,10 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
                 onClick={handleResyncAllOfficial}
                 disabled={syncing}
                 className="px-3.5 py-2 bg-stone-800 hover:bg-stone-750 text-stone-200 border border-stone-700 font-semibold rounded-xl text-xs transition flex items-center space-x-1.5 shadow-sm cursor-pointer disabled:opacity-50"
-                title="Restore default Barista products catalog"
+                title="Synchronize official Barista products catalog"
               >
                 <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${syncing ? 'animate-spin' : ''}`} />
-                <span>{syncing ? 'Syncing...' : 'Sync Default Menu'}</span>
+                <span>{syncing ? 'Syncing...' : 'Sync Products'}</span>
               </button>
 
               {products.length > 0 && (
@@ -375,7 +376,6 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
                   setNewName('');
                   setNewDispatchTemp(3.5);
                   setNewCategory('Pastry Kitchen Items');
-                  setNewUnit('Slices');
                   setNewShelfLifeDays(5);
                   setNewActive(true);
                   setShowAddModal(true);
@@ -430,16 +430,16 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
         {/* Filters Group */}
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Category Dropdown Filter */}
-          <div className="flex items-center space-x-1.5 text-xs text-stone-400">
-            <span className="hidden sm:inline">Category:</span>
+          <div className="flex items-center space-x-1.5 text-xs text-stone-300">
+            <span className="hidden sm:inline font-medium">Category:</span>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-amber-500 cursor-pointer"
+              className="bg-stone-950 border border-stone-700 text-stone-100 font-medium text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-amber-500 cursor-pointer"
             >
-              <option value="all">All Categories</option>
+              <option value="all" className="bg-stone-900 text-stone-100">All Categories</option>
               {allCategories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
+                <option key={cat} value={cat} className="bg-stone-900 text-stone-100">{cat}</option>
               ))}
             </select>
           </div>
@@ -565,20 +565,20 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
                       )}
                     </div>
 
-                    {/* Edit & Delete Actions: Admin Only */}
+                    {/* Edit & Delete Actions: Admin / Editor */}
                     {isAdmin && (
                       <div className="flex items-center space-x-1">
                         <button
                           onClick={() => setEditingProduct(prod)}
                           className="p-1 text-stone-400 hover:text-amber-400 hover:bg-stone-800 rounded transition cursor-pointer"
-                          title="Admin: Edit Product Details"
+                          title="Edit Product Details"
                         >
                           <Edit className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => handleDeleteProduct(prod)}
+                          onClick={() => setProductToDelete(prod)}
                           className="p-1 text-stone-400 hover:text-rose-400 hover:bg-stone-800 rounded transition cursor-pointer"
-                          title="Admin: Delete Product"
+                          title="Delete Product from Catalog"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -757,22 +757,22 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-stone-300 mb-1">
-                    Standard Unit
+                  <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
+                    <span>Standard Unit</span>
+                    <span className="text-[10px] text-amber-400 font-medium flex items-center space-x-1">
+                      <Lock className="w-3 h-3" />
+                      <span>Standard Fixed</span>
+                    </span>
                   </label>
                   <input
                     type="text"
-                    list="add-unit-options"
-                    value={newUnit}
-                    onChange={(e) => setNewUnit(e.target.value)}
-                    placeholder="e.g. Slices, Cakes, Packs"
-                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-xl text-xs text-white placeholder-stone-500 focus:outline-none focus:border-amber-500"
+                    readOnly
+                    disabled
+                    value="NoS"
+                    className="w-full px-3 py-2 bg-stone-900 border border-stone-800 rounded-xl text-xs font-mono font-bold text-amber-400 cursor-not-allowed select-none opacity-90 shadow-inner"
+                    title="Standard unit is set to NoS for all items across the kitchen and cannot be changed"
                   />
-                  <datalist id="add-unit-options">
-                    {DEFAULT_UNITS.map(u => (
-                      <option key={u} value={u} />
-                    ))}
-                  </datalist>
+                  <p className="text-[10px] text-stone-500 mt-1">Universal standard unit: Numbers (NoS)</p>
                 </div>
               </div>
 
@@ -937,21 +937,22 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-stone-300 mb-1">
-                    Standard Unit
+                  <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
+                    <span>Standard Unit</span>
+                    <span className="text-[10px] text-amber-400 font-medium flex items-center space-x-1">
+                      <Lock className="w-3 h-3" />
+                      <span>Standard Fixed</span>
+                    </span>
                   </label>
                   <input
                     type="text"
-                    list="edit-unit-options"
-                    value={editingProduct.unit || ''}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, unit: e.target.value })}
-                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-xl text-xs text-white placeholder-stone-500 focus:outline-none focus:border-amber-500"
+                    readOnly
+                    disabled
+                    value="NoS"
+                    className="w-full px-3 py-2 bg-stone-900 border border-stone-800 rounded-xl text-xs font-mono font-bold text-amber-400 cursor-not-allowed select-none opacity-90 shadow-inner"
+                    title="Standard unit is set to NoS for all items across the kitchen and cannot be changed"
                   />
-                  <datalist id="edit-unit-options">
-                    {DEFAULT_UNITS.map(u => (
-                      <option key={u} value={u} />
-                    ))}
-                  </datalist>
+                  <p className="text-[10px] text-stone-500 mt-1">Universal standard unit: Numbers (NoS)</p>
                 </div>
               </div>
 
@@ -1064,6 +1065,18 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
           </div>
         </div>
       )}
+
+      {/* CONFIRM DELETE MODAL */}
+      <ConfirmDeleteModal
+        isOpen={!!productToDelete}
+        title="Delete Central Kitchen Product"
+        itemName={productToDelete ? `${productToDelete.name} (${productToDelete.productId})` : ''}
+        itemType="Master Product"
+        description="Are you sure you want to permanently remove this product from the Central Kitchen master catalog? This action cannot be undone."
+        isDeleting={isDeleting}
+        onConfirm={handleConfirmDeleteProduct}
+        onClose={() => setProductToDelete(null)}
+      />
     </div>
   );
 };

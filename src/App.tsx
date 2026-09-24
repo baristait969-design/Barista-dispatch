@@ -136,8 +136,8 @@ const MainContent: React.FC = () => {
       <Navbar currentTab={currentTab} setCurrentTab={setCurrentTab} />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-        {/* If user is Viewer, ONLY ReportsView is rendered, no other stuff */}
-        {role === 'viewer' ? (
+        {/* If user is Viewer or Driver, ONLY ReportsView is rendered (Report-only access) */}
+        {role === 'viewer' || role === 'driver' ? (
           <ReportsView
             dispatchLogs={dispatchLogs}
             batches={batches}
@@ -169,6 +169,7 @@ const MainContent: React.FC = () => {
                 batches={batches}
                 outlets={outlets}
                 drivers={drivers}
+                usersList={usersList}
                 dispatchLogs={dispatchLogs}
                 products={products}
               />
@@ -202,6 +203,7 @@ const MainContent: React.FC = () => {
                 batches={batches}
                 outlets={outlets}
                 drivers={drivers}
+                usersList={usersList}
               />
             )}
           </>

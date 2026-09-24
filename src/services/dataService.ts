@@ -335,30 +335,22 @@ export async function syncOfficialOutlets(force = false): Promise<number> {
     if (force || snap.empty || snap.size < 50 || hasOldDemo) {
       console.log('Syncing all 101 official Barista outlets to Firestore with writeBatch...');
 
-      // Batch delete existing
-      if (!snap.empty) {
+      // Delete only old demo records if found
+      if (hasOldDemo) {
         let delBatch = writeBatch(db);
-        let delCount = 0;
-        const delPromises = [];
         for (const d of snap.docs) {
-          delBatch.delete(d.ref);
-          delCount++;
-          if (delCount >= 400) {
-            delPromises.push(delBatch.commit());
-            delBatch = writeBatch(db);
-            delCount = 0;
+          const data = d.data();
+          if (data.name?.includes('Colombo Fort Branch') || data.name?.includes('Havelock Town') || data.name?.includes('Galle Face Mall')) {
+            delBatch.delete(d.ref);
           }
         }
-        if (delCount > 0) {
-          delPromises.push(delBatch.commit());
-        }
-        await Promise.all(delPromises);
+        await delBatch.commit();
       }
 
-      // Batch insert all 101 official outlets
+      // Upsert all 101 official outlets without deleting custom user additions
       const insertBatch = writeBatch(db);
       for (const o of INITIAL_OUTLETS) {
-        insertBatch.set(doc(db, OUTLETS_COL, o.id), o);
+        insertBatch.set(doc(db, OUTLETS_COL, o.id), o, { merge: true });
       }
       await insertBatch.commit();
       console.log(`Successfully synced ${INITIAL_OUTLETS.length} official Barista outlets.`);
@@ -492,7 +484,7 @@ export async function addProduct(product: {
       category: product.category?.trim() || 'Pastry Kitchen Items',
       dispatchTemp: Number(product.dispatchTemp),
       shelfLifeDays: product.shelfLifeDays ? Number(product.shelfLifeDays) : 5,
-      unit: product.unit?.trim() || 'Slices',
+      unit: 'NoS',
       active: product.active !== undefined ? product.active : true,
       createdAt: new Date().toISOString()
     };
@@ -519,7 +511,8 @@ export async function updateProduct(
 ): Promise<void> {
   try {
     const safeUpdates: Partial<Product> = {
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      unit: 'NoS'
     };
     if (updates.name !== undefined) {
       const trimmed = updates.name.trim();
@@ -538,9 +531,6 @@ export async function updateProduct(
     }
     if (updates.shelfLifeDays !== undefined) {
       safeUpdates.shelfLifeDays = Number(updates.shelfLifeDays);
-    }
-    if (updates.unit !== undefined) {
-      safeUpdates.unit = updates.unit.trim() || 'Slices';
     }
     if (updates.active !== undefined) {
       safeUpdates.active = updates.active;
@@ -597,28 +587,10 @@ export async function syncOfficialProducts(force = false): Promise<number> {
     if (force || snap.empty) {
       console.log('Syncing official Barista product catalog to Firestore...');
 
-      if (!snap.empty) {
-        let delBatch = writeBatch(db);
-        let delCount = 0;
-        const delPromises = [];
-        for (const d of snap.docs) {
-          delBatch.delete(d.ref);
-          delCount++;
-          if (delCount >= 400) {
-            delPromises.push(delBatch.commit());
-            delBatch = writeBatch(db);
-            delCount = 0;
-          }
-        }
-        if (delCount > 0) {
-          delPromises.push(delBatch.commit());
-        }
-        await Promise.all(delPromises);
-      }
-
+      // Upsert all official products without deleting custom user-added products
       const insertBatch = writeBatch(db);
       for (const p of INITIAL_PRODUCT_CATALOG) {
-        insertBatch.set(doc(db, PRODUCTS_COL, p.id), p);
+        insertBatch.set(doc(db, PRODUCTS_COL, p.id), { ...p, unit: 'NoS' }, { merge: true });
       }
       await insertBatch.commit();
       console.log(`Successfully synced ${INITIAL_PRODUCT_CATALOG.length} official products.`);
@@ -667,7 +639,7 @@ export async function bulkAddProducts(
         category: item.category?.trim() || 'Pastry Kitchen Items',
         dispatchTemp: Number(temp),
         shelfLifeDays: item.shelfLifeDays || 5,
-        unit: item.unit?.trim() || 'Slices',
+        unit: 'NoS',
         active: true,
         createdAt: new Date().toISOString()
       });

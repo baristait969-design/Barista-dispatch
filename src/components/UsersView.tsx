@@ -25,6 +25,7 @@ import {
   updateUserPassword, 
   deleteUserRecord 
 } from '../services/dataService';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface UsersViewProps {
   usersList: UserProfile[];
@@ -38,6 +39,8 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [passwordModalUser, setPasswordModalUser] = useState<UserProfile | null>(null);
+  const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Password reset state
   const [newPassword, setNewPassword] = useState('');
@@ -51,7 +54,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
 
   // System-generated automatic User ID generator
   const generateSystemUserId = (targetRole: UserRole = 'editor', list: UserProfile[] = usersList) => {
-    const rolePrefix = targetRole === 'admin' ? 'ADM' : targetRole === 'editor' ? 'EDT' : 'VIW';
+    const rolePrefix = targetRole === 'admin' ? 'ADM' : targetRole === 'editor' ? 'EDT' : targetRole === 'driver' ? 'DRV' : 'VIW';
     const numbers = list
       .map(u => {
         const match = u.userIdCode?.match(/\d+/g);
@@ -106,11 +109,22 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
         dashboard: { view: true, edit: false },
         inventory: { view: true, edit: true },
         forms: { view: true, edit: true },
-        outlets: { view: true, edit: false }, // Only admin can edit/add/delete/suspend outlets
-        products: { view: true, edit: false }, // Only admin can edit/add/delete/suspend products
+        outlets: { view: true, edit: false },
+        products: { view: true, edit: false },
         users: { view: true, edit: false },
         roles: { view: true, edit: false },
         reports: { view: true, edit: false }
+      };
+    } else if (newRole === 'driver') {
+      perms = {
+        dashboard: { view: false, edit: false },
+        inventory: { view: false, edit: false },
+        forms: { view: false, edit: false },
+        outlets: { view: false, edit: false },
+        products: { view: false, edit: false },
+        users: { view: false, edit: false },
+        roles: { view: false, edit: false },
+        reports: { view: true, edit: false } // Driver: report only visible
       };
     } else {
       perms = {
@@ -130,7 +144,8 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
       role: newRole,
       userIdCode: generateSystemUserId(newRole, usersList),
       permissions: perms,
-      designation: newRole === 'admin' ? 'QA Executive / Admin' : newRole === 'editor' ? 'Pastry Kitchen Supervisor' : 'Store Auditor'
+      designation: newRole === 'admin' ? 'QA Executive / Admin' : newRole === 'editor' ? 'Pastry Kitchen Supervisor' : newRole === 'driver' ? 'Refrigerated Logistics Driver' : 'Store Auditor',
+      department: newRole === 'driver' ? 'Central Kitchen Logistics & Distribution' : prev.department
     }));
   };
 
@@ -270,18 +285,17 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
     }
   };
 
-  const handleDeleteUser = async (id: string, name: string) => {
-    if (!isAdmin) {
-      alert('Security violation: Only Administrators can remove users.');
-      return;
-    }
-    if (confirm(`Are you sure you want to remove user "${name}"?`)) {
-      try {
-        await deleteUserRecord(id);
-        setActionSuccess(`User "${name}" has been removed from the system.`);
-      } catch (err: any) {
-        alert('Error removing user: ' + err.message);
-      }
+  const handleConfirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteUserRecord(userToDelete.id);
+      setActionSuccess(`User "${userToDelete.displayName}" has been removed from the system.`);
+      setUserToDelete(null);
+    } catch (err: any) {
+      alert('Error removing user: ' + err.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -475,6 +489,8 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                           ? 'bg-amber-950/80 text-amber-300 border-amber-800'
                           : userRole === 'editor'
                           ? 'bg-blue-950/80 text-blue-300 border-blue-800'
+                          : userRole === 'driver'
+                          ? 'bg-purple-950/80 text-purple-300 border-purple-800'
                           : 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
                       }`}>
                         {userRole}
@@ -548,7 +564,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleDeleteUser(user.id, user.displayName)}
+                              onClick={() => setUserToDelete(user)}
                               className="p-1.5 text-stone-400 hover:text-red-400 hover:bg-stone-800 rounded transition cursor-pointer"
                               title="Delete User"
                             >
@@ -714,6 +730,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                   >
                     <option value="admin">Admin (Full Control & User Management)</option>
                     <option value="editor">Editor (Kitchen & Forms Creation)</option>
+                    <option value="driver">Driver (Assigned Logistics Driver - Report Only)</option>
                     <option value="viewer">Viewer (Read-Only Audit)</option>
                   </select>
                 </div>
@@ -890,11 +907,28 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                   </label>
                   <select
                     value={editingUser.role}
-                    onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value as UserRole })}
+                    onChange={(e) => {
+                      const newRole = e.target.value as UserRole;
+                      let updatedPerms = { ...(editingUser.permissions || {}) };
+                      if (newRole === 'driver') {
+                        updatedPerms = {
+                          dashboard: { view: false, edit: false },
+                          inventory: { view: false, edit: false },
+                          forms: { view: false, edit: false },
+                          outlets: { view: false, edit: false },
+                          products: { view: false, edit: false },
+                          users: { view: false, edit: false },
+                          roles: { view: false, edit: false },
+                          reports: { view: true, edit: false }
+                        };
+                      }
+                      setEditingUser({ ...editingUser, role: newRole, permissions: updatedPerms });
+                    }}
                     className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 font-bold focus:outline-none"
                   >
                     <option value="admin">Admin (Full Control)</option>
                     <option value="editor">Editor (Kitchen & Forms)</option>
+                    <option value="driver">Driver (Assigned Logistics Driver - Report Only)</option>
                     <option value="viewer">Viewer (Read-only)</option>
                   </select>
                 </div>
@@ -971,6 +1005,18 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
           </div>
         </div>
       )}
+
+      {/* CONFIRM DELETE MODAL */}
+      <ConfirmDeleteModal
+        isOpen={!!userToDelete}
+        title="Delete User Account"
+        itemName={userToDelete ? `${userToDelete.displayName} (${userToDelete.email})` : ''}
+        itemType="User Account"
+        description="Are you sure you want to permanently delete this user account from Barista Central Kitchen? This action cannot be undone."
+        isDeleting={isDeleting}
+        onConfirm={handleConfirmDeleteUser}
+        onClose={() => setUserToDelete(null)}
+      />
     </div>
   );
 };

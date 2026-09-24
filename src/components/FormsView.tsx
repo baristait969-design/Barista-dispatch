@@ -27,11 +27,12 @@ import {
   Lock,
   X
 } from 'lucide-react';
-import { InventoryBatch, Outlet, Driver, DispatchLog, DispatchLineItem, Product } from '../types';
+import { InventoryBatch, Outlet, Driver, DispatchLog, DispatchLineItem, Product, UserProfile } from '../types';
 import { INITIAL_PRODUCTS } from '../data/seedData';
 import { createDispatchLogWithDeduction, updateDispatchLog } from '../services/dataService';
 import { PrintableDispatchSheet } from './PrintableDispatchSheet';
 import { BaristaLogo } from './BaristaLogo';
+import { getAvailableFIFOBatches } from '../utils/batchUtils';
 
 interface FormsViewProps {
   batches: InventoryBatch[];
@@ -39,6 +40,7 @@ interface FormsViewProps {
   drivers: Driver[];
   dispatchLogs: DispatchLog[];
   products?: Product[];
+  usersList?: UserProfile[];
 }
 
 export const FormsView: React.FC<FormsViewProps> = ({
@@ -46,7 +48,8 @@ export const FormsView: React.FC<FormsViewProps> = ({
   outlets,
   drivers,
   dispatchLogs,
-  products
+  products,
+  usersList
 }) => {
   const { userProfile, role, hasAccess } = useAuth();
   const canEdit = hasAccess('forms', 'edit');
@@ -74,10 +77,34 @@ export const FormsView: React.FC<FormsViewProps> = ({
 
   const getTodayDate = () => new Date().toISOString().split('T')[0];
 
-  // Selected Outlets (Single or Multiple)
-  const [selectedOutletIds, setSelectedOutletIds] = useState<string[]>(
-    outlets.length > 0 ? [outlets[0].id] : []
-  );
+  // Centralized Drivers from Users & Access plus Seed Drivers
+  const allDriversList = useMemo(() => {
+    const list: Array<{ id: string; name: string; designation?: string }> = [];
+    const seen = new Set<string>();
+
+    // 1. Centralized users with driver role
+    if (usersList && usersList.length > 0) {
+      usersList.filter(u => u.role === 'driver').forEach(u => {
+        if (!seen.has(u.displayName)) {
+          seen.add(u.displayName);
+          list.push({ id: u.id, name: u.displayName, designation: u.designation || 'Driver' });
+        }
+      });
+    }
+
+    // 2. Existing registered drivers
+    drivers.forEach(d => {
+      if (!seen.has(d.name)) {
+        seen.add(d.name);
+        list.push({ id: d.id, name: d.name, designation: 'Delivery Driver' });
+      }
+    });
+
+    return list;
+  }, [usersList, drivers]);
+
+  // Selected Outlets (Compulsory - starts empty so user must explicitly choose)
+  const [selectedOutletIds, setSelectedOutletIds] = useState<string[]>([]);
   const [outletSearch, setOutletSearch] = useState('');
 
   const [date, setDate] = useState<string>(getTodayDate());
@@ -85,38 +112,101 @@ export const FormsView: React.FC<FormsViewProps> = ({
   const [syncTimeToRows, setSyncTimeToRows] = useState<boolean>(true);
   const [timeSyncedNotice, setTimeSyncedNotice] = useState<string | null>(null);
 
-  const [selectedDriverName, setSelectedDriverName] = useState<string>(
-    drivers.length > 0 ? drivers[0].name : 'Kamal Perera'
-  );
-  const [vehicleNo, setVehicleNo] = useState<string>(
-    drivers.length > 0 ? drivers[0].vehicleNo : 'WP CAD-4291'
-  );
+  const [selectedDriverName, setSelectedDriverName] = useState<string>(() => {
+    if (allDriversList.length > 0) return allDriversList[0].name;
+    return 'Kamal Perera';
+  });
+  const [vehicleNo, setVehicleNo] = useState<string>('Refrigerated Van');
   const [notes, setNotes] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
-  // Line Items state - default prodDate and useByDate to TODAY
+  useEffect(() => {
+    if (allDriversList.length > 0 && !allDriversList.some(d => d.name === selectedDriverName)) {
+      setSelectedDriverName(allDriversList[0].name);
+    }
+  }, [allDriversList, selectedDriverName]);
+
+  // Line Items state - default prodDate and useByDate to TODAY, auto-select oldest available batch with stock > 0
   const [lineItems, setLineItems] = useState<DispatchLineItem[]>(() => {
     const today = getTodayDate();
-    return INITIAL_PRODUCTS.slice(0, 5).map((prod, idx) => {
-      const matchingBatches = batches.filter(b => b.productName === prod.name);
-      const latestBatch = matchingBatches.length > 0 ? matchingBatches[0] : null;
+    const usedBatches = new Set<string>();
+    const catalog = (products && products.length > 0 ? products : INITIAL_PRODUCTS);
+
+    return catalog.slice(0, 5).map((prod, idx) => {
+      const availableBatches = getAvailableFIFOBatches(prod.name, batches).filter(
+        b => !usedBatches.has(b.batchNo)
+      );
+      const oldestBatchWithStock = availableBatches.length > 0 ? availableBatches[0] : null;
+      if (oldestBatchWithStock) usedBatches.add(oldestBatchWithStock.batchNo);
+      const defTemp = 'dispatchTemp' in prod ? prod.dispatchTemp : (prod as any).defaultTemp;
 
       return {
         id: `row-${idx}-${Date.now()}`,
         productName: prod.name,
-        batchNo: latestBatch ? latestBatch.batchNo : '',
-        batchId: latestBatch ? latestBatch.id : undefined,
+        batchNo: oldestBatchWithStock ? oldestBatchWithStock.batchNo : '',
+        batchId: oldestBatchWithStock ? oldestBatchWithStock.id : undefined,
         dispatchTime: getCurrentTime(),
-        prodDate: today,
-        useByDate: today,
-        dispatchTemp: latestBatch ? latestBatch.dispatchTemp : prod.defaultTemp,
+        prodDate: oldestBatchWithStock?.prodDate || today,
+        useByDate: oldestBatchWithStock?.useByDate || today,
+        dispatchTemp: oldestBatchWithStock ? oldestBatchWithStock.dispatchTemp : (defTemp || 3.5),
         quantity: 0,
-        availableStock: latestBatch ? latestBatch.quantity : 0,
+        availableStock: oldestBatchWithStock ? oldestBatchWithStock.quantity : 0,
         isCustom: false
       };
     });
   });
+
+  // Auto-sync batches when inventory stock changes (e.g. after submitting dispatches or adding batches)
+  // Ensures exhausted batches (quantity = 0) are automatically replaced by the next oldest batch with stock
+  useEffect(() => {
+    if (editingLogId) return; // Don't override while loading a specific historical log
+
+    setLineItems(prev => {
+      const usedBatchesInForm = new Set<string>();
+
+      return prev.map(row => {
+        if (!row.productName) return row;
+        const availableBatches = getAvailableFIFOBatches(row.productName, batches);
+        const currentBatch = batches.find(b => b.batchNo === row.batchNo);
+
+        // Check if current batch is still valid and has stock > 0
+        if (currentBatch && (currentBatch.quantity || 0) > 0) {
+          usedBatchesInForm.add(currentBatch.batchNo);
+          return {
+            ...row,
+            availableStock: currentBatch.quantity,
+            quantity: Math.min(row.quantity, currentBatch.quantity)
+          };
+        }
+
+        // Current batch is depleted (0 stock) or missing -> automatically pick next available FIFO batch
+        const nextBatch = availableBatches.find(b => !usedBatchesInForm.has(b.batchNo)) || availableBatches[0] || null;
+        if (nextBatch) {
+          usedBatchesInForm.add(nextBatch.batchNo);
+          return {
+            ...row,
+            batchNo: nextBatch.batchNo,
+            batchId: nextBatch.id,
+            availableStock: nextBatch.quantity,
+            prodDate: nextBatch.prodDate || row.prodDate,
+            useByDate: nextBatch.useByDate || row.useByDate,
+            dispatchTemp: nextBatch.dispatchTemp || row.dispatchTemp,
+            quantity: Math.min(row.quantity, nextBatch.quantity)
+          };
+        }
+
+        // No batches with stock available for this product
+        return {
+          ...row,
+          batchNo: '',
+          batchId: undefined,
+          availableStock: 0,
+          quantity: 0
+        };
+      });
+    });
+  }, [batches, editingLogId]);
 
   // Handler: Top dispatch time change with auto-fill option
   const handleTopDispatchTimeChange = (newTime: string, applyToAll = syncTimeToRows) => {
@@ -204,10 +294,10 @@ export const FormsView: React.FC<FormsViewProps> = ({
 
     setLineItems(
       catalog.slice(0, 5).map((prod, idx) => {
-        const matchingBatches = batches.filter(
-          b => b.productName.trim().toLowerCase() === prod.name.trim().toLowerCase() && !usedBatches.has(b.batchNo)
+        const availableBatches = getAvailableFIFOBatches(prod.name, batches).filter(
+          b => !usedBatches.has(b.batchNo)
         );
-        const chosenBatch = matchingBatches.length > 0 ? matchingBatches[0] : null;
+        const chosenBatch = availableBatches.length > 0 ? availableBatches[0] : null;
         if (chosenBatch) usedBatches.add(chosenBatch.batchNo);
         const defTemp = 'dispatchTemp' in prod ? prod.dispatchTemp : (prod as any).defaultTemp;
 
@@ -217,8 +307,8 @@ export const FormsView: React.FC<FormsViewProps> = ({
           batchNo: chosenBatch ? chosenBatch.batchNo : '',
           batchId: chosenBatch ? chosenBatch.id : undefined,
           dispatchTime: getCurrentTime(),
-          prodDate: today,
-          useByDate: today,
+          prodDate: chosenBatch?.prodDate || today,
+          useByDate: chosenBatch?.useByDate || today,
           dispatchTemp: chosenBatch ? chosenBatch.dispatchTemp : (defTemp || 3.5),
           quantity: 0,
           availableStock: chosenBatch ? chosenBatch.quantity : 0,
@@ -230,7 +320,7 @@ export const FormsView: React.FC<FormsViewProps> = ({
     triggerTimeToast('Reset form to default state (today dates & cleared selection)');
   };
 
-  // Handle product selection / change with automatic FIFO batch assignment and validation
+  // Handle product selection / change with automatic FIFO batch assignment (only batches with stock > 0)
   const handleProductNameChange = (rowId: string, newProductName: string) => {
     const trimmed = newProductName.trim();
     if (!trimmed) {
@@ -254,18 +344,16 @@ export const FormsView: React.FC<FormsViewProps> = ({
       return;
     }
 
-    // Find all batches registered for this product
-    const matchingBatches = batches.filter(
-      b => b.productName.trim().toLowerCase() === trimmed.toLowerCase()
-    );
+    // Find all active batches registered for this product with stock > 0 in FIFO order
+    const availableBatches = getAvailableFIFOBatches(trimmed, batches);
 
     // Collect batches already selected on other rows for this same product
     const usedBatchNosInOtherRows = lineItems
       .filter(r => r.id !== rowId && r.productName.trim().toLowerCase() === trimmed.toLowerCase() && r.batchNo)
       .map(r => r.batchNo);
 
-    // Find first available batch that has not been selected yet (FIFO order)
-    const availableBatch = matchingBatches.find(b => !usedBatchNosInOtherRows.includes(b.batchNo));
+    // Find first available batch with stock > 0 that has not been selected yet (FIFO order)
+    const availableBatch = availableBatches.find(b => !usedBatchNosInOtherRows.includes(b.batchNo)) || availableBatches[0] || null;
     const prodDef = (products || []).find(p => p.name.trim().toLowerCase() === trimmed.toLowerCase()) ||
       INITIAL_PRODUCTS.find(p => p.name.trim().toLowerCase() === trimmed.toLowerCase());
     const fallbackTemp = prodDef ? ('dispatchTemp' in prodDef ? prodDef.dispatchTemp : prodDef.defaultTemp) : 3.5;
@@ -437,11 +525,6 @@ export const FormsView: React.FC<FormsViewProps> = ({
   };
 
   const removeRow = (rowId: string) => {
-    const rowToRemove = lineItems.find(r => r.id === rowId);
-    if (rowToRemove && !rowToRemove.isCustom) {
-      alert('Standard product rows are protected and cannot be deleted.');
-      return;
-    }
     if (lineItems.length <= 1) {
       alert('At least one product line is required on the dispatch log.');
       return;
@@ -663,15 +746,6 @@ export const FormsView: React.FC<FormsViewProps> = ({
               <span>Submitted Archive ({dispatchLogs.length})</span>
             </button>
           </div>
-
-          <button
-            onClick={handlePrintCurrentDispatches}
-            className="px-3.5 py-1.5 bg-stone-800 hover:bg-stone-750 text-stone-200 border border-stone-700 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5 cursor-pointer shadow-sm"
-            title="Print Official HACCP Paper Dispatch Log (Selected Items Only)"
-          >
-            <Printer className="w-4 h-4 text-amber-400" />
-            <span className="hidden sm:inline">Print Dispatched Sheet</span>
-          </button>
         </div>
       </div>
 
@@ -917,15 +991,22 @@ export const FormsView: React.FC<FormsViewProps> = ({
             <div className="bg-stone-850/70 print:bg-white border border-stone-800 print:border-black rounded-xl p-4 sm:p-5 mb-6 space-y-4">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                 
-                {/* Outlets Selection (6 columns) */}
+                {/* Outlets Selection (6 columns) - Compulsory Selection */}
                 <div className="lg:col-span-6 space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-white print:text-black flex items-center space-x-1.5">
                       <Building2 className="w-4 h-4 text-amber-400 print:text-black" />
                       <span>Destination Outlets</span>
-                      <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded border border-amber-500/30">
-                        {selectedOutletIds.length} Selected
-                      </span>
+                      <span className="text-red-400 font-extrabold text-xs">*</span>
+                      {selectedOutletIds.length > 0 ? (
+                        <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded border border-amber-500/30 font-bold">
+                          {selectedOutletIds.length} Selected
+                        </span>
+                      ) : (
+                        <span className="text-[10px] bg-red-950/80 text-red-300 px-1.5 py-0.2 rounded border border-red-800 font-bold animate-pulse">
+                          Compulsory: Select Outlet
+                        </span>
+                      )}
                     </label>
                     <div className="flex items-center space-x-2 print:hidden text-[11px]">
                       <button
@@ -964,11 +1045,15 @@ export const FormsView: React.FC<FormsViewProps> = ({
                     <div className="p-3 text-center text-xs text-stone-400 bg-stone-900 border border-stone-800 rounded-xl space-y-1">
                       <p className="text-amber-400 font-semibold">No outlets registered in system yet.</p>
                       <p className="text-[11px] text-stone-400">
-                        Please go to the <strong>Retail Outlets</strong> tab to quick-paste or add your branch list.
+                        Please go to the <strong>Retail Outlets</strong> tab to sync or add your branch list.
                       </p>
                     </div>
                   ) : (
-                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2.5 bg-stone-900 print:bg-white border border-stone-700 print:border-black rounded-xl">
+                    <div className={`flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2.5 bg-stone-900 print:bg-white border rounded-xl transition ${
+                      selectedOutletIds.length === 0 
+                        ? 'border-amber-500/70 ring-1 ring-amber-500/30' 
+                        : 'border-stone-700 print:border-black'
+                    }`}>
                       {displayOutlets.map((outlet) => {
                         const isSelected = selectedOutletIds.includes(outlet.id);
                         return (
@@ -989,6 +1074,12 @@ export const FormsView: React.FC<FormsViewProps> = ({
                         );
                       })}
                     </div>
+                  )}
+                  {selectedOutletIds.length === 0 && (
+                    <p className="text-[11px] text-amber-400 font-semibold flex items-center space-x-1 print:hidden">
+                      <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
+                      <span>Please click on an outlet above to assign dispatch destination (Compulsory).</span>
+                    </p>
                   )}
                 </div>
 
@@ -1091,19 +1182,19 @@ export const FormsView: React.FC<FormsViewProps> = ({
                     </label>
                   </div>
 
-                  {/* Driver (Vehicle plate removed as requested) */}
+                  {/* Centralized Driver Select */}
                   <div>
                     <label className="block text-xs font-bold text-white print:text-black mb-1">
-                      Assigned Driver
+                      Assigned Driver (Centralized Users)
                     </label>
                     <select
                       value={selectedDriverName}
                       onChange={(e) => handleDriverChange(e.target.value)}
                       className="w-full px-3 py-2 bg-stone-900 print:bg-white border border-stone-700 print:border-black rounded-lg text-xs text-stone-100 print:text-black font-semibold focus:outline-none focus:border-amber-500"
                     >
-                      {drivers.map((drv) => (
+                      {allDriversList.map((drv) => (
                         <option key={drv.id} value={drv.name}>
-                          {drv.name}
+                          {drv.name} ({drv.designation || 'Driver'})
                         </option>
                       ))}
                     </select>
@@ -1125,16 +1216,6 @@ export const FormsView: React.FC<FormsViewProps> = ({
                 </div>
                 
                 <div className="flex items-center space-x-2 print:hidden">
-                  <button
-                    type="button"
-                    onClick={handlePrintCurrentDispatches}
-                    className="px-2.5 py-1 bg-stone-750 hover:bg-stone-700 text-amber-400 border border-amber-500/40 rounded-lg text-[11px] font-bold transition flex items-center space-x-1 cursor-pointer shadow-sm"
-                    title="Print only items with quantity > 0"
-                  >
-                    <Printer className="w-3 h-3" />
-                    <span>Print Dispatched Only</span>
-                  </button>
-
                   <button
                     type="button"
                     onClick={handleSyncAllRowsToTopTime}
@@ -1180,9 +1261,7 @@ export const FormsView: React.FC<FormsViewProps> = ({
                   <tbody className="divide-y divide-stone-800 print:divide-black">
                     {lineItems.map((item) => {
                       const itemNorm = item.productName.trim().toLowerCase();
-                      const productBatches = batches.filter(
-                        b => b.productName.trim().toLowerCase() === itemNorm
-                      );
+                      const availableBatches = getAvailableFIFOBatches(item.productName, batches);
                       // Collect batches already selected on other rows for this same product
                       const otherRowBatchNos = lineItems
                         .filter(r => r.id !== item.id && r.productName.trim().toLowerCase() === itemNorm && r.batchNo)
@@ -1252,9 +1331,9 @@ export const FormsView: React.FC<FormsViewProps> = ({
                                         Exceeds stock!
                                       </span>
                                     )}
-                                    {productBatches.length > 1 && (
+                                    {availableBatches.length > 1 && (
                                       <span className="text-[10px] text-amber-400/90 font-mono">
-                                        {productBatches.length} batches available
+                                        {availableBatches.length} batches available
                                       </span>
                                     )}
                                   </div>
@@ -1266,14 +1345,8 @@ export const FormsView: React.FC<FormsViewProps> = ({
                               </div>
                             ) : (
                               <div className="py-1">
-                                <div className="flex items-center space-x-2">
-                                  <span className="font-bold text-white print:text-black text-xs tracking-wide">
-                                    {item.productName}
-                                  </span>
-                                  <span className="text-[9px] px-1.5 py-0.5 bg-stone-800 text-amber-300/90 border border-stone-700 rounded font-semibold uppercase tracking-wider select-none print:hidden flex items-center space-x-1">
-                                    <Lock className="w-2.5 h-2.5 text-amber-400" />
-                                    <span>Core Item</span>
-                                  </span>
+                                <div className="font-bold text-white print:text-black text-xs tracking-wide">
+                                  {item.productName}
                                 </div>
 
                                 <div className="flex items-center space-x-1.5 mt-1 print:hidden">
@@ -1289,9 +1362,9 @@ export const FormsView: React.FC<FormsViewProps> = ({
                                       Exceeds stock!
                                     </span>
                                   )}
-                                  {productBatches.length > 1 && (
+                                  {availableBatches.length > 1 && (
                                     <span className="text-[10px] text-amber-400/90 font-mono">
-                                      {productBatches.length} batches available
+                                      {availableBatches.length} batches available
                                     </span>
                                   )}
                                 </div>
@@ -1320,15 +1393,15 @@ export const FormsView: React.FC<FormsViewProps> = ({
                             </div>
                           </td>
 
-                          {/* Batch No (FIFO) - Auto-assigned, cannot be typed, only distinct batches selectable */}
+                          {/* Batch No (FIFO) - Auto-assigned oldest available batch with stock, only available batches in dropdown */}
                           <td className="py-2 px-3 min-w-[240px]">
                             {!item.productName ? (
                               <div className="px-2.5 py-1.5 bg-stone-900/60 border border-stone-800 rounded-lg text-stone-500 font-mono text-xs italic">
                                 Select product first
                               </div>
-                            ) : productBatches.length === 0 ? (
-                              <div className="px-2.5 py-1.5 bg-red-950/40 border border-red-900/50 rounded-lg text-red-400 font-mono text-xs">
-                                No batches registered
+                            ) : availableBatches.length === 0 ? (
+                              <div className="px-2.5 py-1.5 bg-red-950/40 border border-red-900/50 rounded-lg text-red-400 font-mono text-xs font-semibold">
+                                Out of Stock (0 available)
                               </div>
                             ) : (
                               <div>
@@ -1338,10 +1411,8 @@ export const FormsView: React.FC<FormsViewProps> = ({
                                   className="w-full px-2.5 py-1.5 bg-stone-800 print:bg-white border border-stone-700 print:border-black rounded-lg text-xs text-amber-400 print:text-black font-mono font-bold focus:outline-none focus:border-amber-500 cursor-pointer shadow-sm"
                                 >
                                   <option value="">-- Select Batch --</option>
-                                  {productBatches.map((b, bIdx) => {
+                                  {availableBatches.map((b) => {
                                     const isUsedInOther = otherRowBatchNos.includes(b.batchNo);
-                                    const otherRowNumber = lineItems.findIndex(r => r.id !== item.id && r.batchNo === b.batchNo) + 1;
-
                                     return (
                                       <option 
                                         key={b.id} 
@@ -1349,20 +1420,16 @@ export const FormsView: React.FC<FormsViewProps> = ({
                                         disabled={isUsedInOther}
                                         className={isUsedInOther ? 'text-stone-500 bg-stone-900' : 'text-stone-100 bg-stone-800 font-bold'}
                                       >
-                                        {b.batchNo} (Qty: {b.quantity}) {isUsedInOther ? `[In use on Row #${otherRowNumber}]` : bIdx === 0 ? '(FIFO 1st)' : `(Batch #${bIdx + 1})`}
+                                        {b.batchNo} (Stock: {b.quantity})
                                       </option>
                                     );
                                   })}
-                                  {item.batchNo && !productBatches.some(b => b.batchNo === item.batchNo) && (
+                                  {item.batchNo && !availableBatches.some(b => b.batchNo === item.batchNo) && (
                                     <option value={item.batchNo}>
-                                      {item.batchNo} (Prior Batch)
+                                      {item.batchNo} (Depleted / Prior Batch)
                                     </option>
                                   )}
                                 </select>
-                                <div className="flex items-center space-x-1 mt-0.5 text-[10px] text-stone-400 print:hidden font-mono">
-                                  <Lock className="w-2.5 h-2.5 text-amber-400 shrink-0" />
-                                  <span>System batch • Cannot be manually typed</span>
-                                </div>
                               </div>
                             )}
                           </td>
@@ -1505,52 +1572,18 @@ export const FormsView: React.FC<FormsViewProps> = ({
               </div>
             </div>
 
-            {/* Bottom Sign-off and Supervisor Locked Box */}
+            {/* Transit & Quality Notes */}
             <div className="border border-stone-700 print:border-black rounded-xl p-4 bg-stone-850/60 print:bg-white">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Delivery Notes */}
-                <div>
-                  <label className="block text-xs font-bold text-white print:text-black mb-1">
-                    Transit & Quality Notes
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="e.g. Insulated transit containers sealed with ice packs. Maximum 2-hour transit maintained."
-                    className="w-full p-2.5 bg-stone-900 print:bg-white border border-stone-700 print:border-black rounded-lg text-xs text-stone-200 print:text-black focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                {/* Supervisor / QA Sign (STRICTLY LOCKED) */}
-                <div className="bg-stone-900 print:bg-gray-100 p-3.5 rounded-xl border border-stone-700 print:border-black flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center space-x-1.5 mb-1">
-                      <UserCheck className="w-4 h-4 text-emerald-400 print:text-black" />
-                      <span className="text-xs font-bold text-white print:text-black uppercase">
-                        Supervisor / QA Sign Off (Locked)
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-stone-400 print:text-gray-600 mb-2">
-                      Automatically linked to authenticated user session. This field is non-modifiable per HACCP audit requirements.
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-2 border-t border-stone-800 print:border-black">
-                    <div>
-                      <div className="text-xs font-bold text-amber-400 print:text-black font-mono">
-                        {supervisorName}
-                      </div>
-                      <div className="text-[10px] text-stone-400 print:text-gray-600">
-                        Designation: {userProfile?.designation || 'Central Kitchen Administrator'} • {userProfile?.userIdCode || 'USR-ADM-01'}
-                      </div>
-                    </div>
-                    <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 print:border-black px-2 py-0.5 rounded font-mono font-bold">
-                      VERIFIED SIGNATURE
-                    </span>
-                  </div>
-                </div>
-              </div>
+              <label className="block text-xs font-bold text-white print:text-black mb-1.5">
+                Transit & Quality Notes
+              </label>
+              <textarea
+                rows={2}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="e.g. Insulated transit containers sealed with ice packs. Maximum 2-hour transit maintained."
+                className="w-full p-2.5 bg-stone-900 print:bg-white border border-stone-700 print:border-black rounded-lg text-xs text-stone-200 print:text-black placeholder-stone-500 focus:outline-none focus:border-amber-500"
+              />
             </div>
 
             {/* Print Footer Notice */}

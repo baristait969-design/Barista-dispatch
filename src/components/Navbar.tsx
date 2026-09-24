@@ -44,6 +44,8 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
         return 'bg-amber-500/20 text-amber-300 border-amber-500/40';
       case 'editor':
         return 'bg-blue-500/20 text-blue-300 border-blue-500/40';
+      case 'driver':
+        return 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40';
       case 'viewer':
         return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
     }

@@ -25,6 +25,7 @@ import {
   syncOfficialOutlets,
   getNextOutletCode
 } from '../services/dataService';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface OutletsViewProps {
   outlets: Outlet[];
@@ -32,14 +33,16 @@ interface OutletsViewProps {
 
 export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
   const { role } = useAuth();
-  // Strictly enforce: ONLY admin can edit, add, delete, activate, or suspend outlets
-  const isAdmin = role === 'admin';
+  // Administrators and editors can manage outlets
+  const isAdmin = role === 'admin' || role === 'editor';
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [editingOutlet, setEditingOutlet] = useState<Outlet | null>(null);
+  const [outletToDelete, setOutletToDelete] = useState<Outlet | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
@@ -143,17 +146,16 @@ export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
     }
   };
 
-  const handleDeleteOutlet = async (outlet: Outlet) => {
-    if (!isAdmin) {
-      alert('Security Policy: Only Administrators have permission to delete retail outlets.');
-      return;
-    }
-    if (confirm(`Are you sure you want to remove outlet "${outlet.name}" (${outlet.outletId})? This will remove it from the dispatch system.`)) {
-      try {
-        await deleteOutlet(outlet.id);
-      } catch (err: any) {
-        alert('Error removing outlet: ' + err.message);
-      }
+  const handleConfirmDeleteOutlet = async () => {
+    if (!outletToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteOutlet(outletToDelete.id);
+      setOutletToDelete(null);
+    } catch (err: any) {
+      alert('Error removing outlet: ' + err.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -264,10 +266,10 @@ export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
                 onClick={handleResyncAllOfficial}
                 disabled={syncing}
                 className="px-3.5 py-2 bg-stone-800 hover:bg-stone-750 text-stone-200 border border-stone-700 font-semibold rounded-xl text-xs transition flex items-center space-x-1.5 shadow-sm cursor-pointer disabled:opacity-50"
-                title="Reset/Restore all 101 official Barista outlets"
+                title="Synchronize official Barista outlets"
               >
                 <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${syncing ? 'animate-spin' : ''}`} />
-                <span>{syncing ? 'Syncing...' : 'Sync 101 Official Outlets'}</span>
+                <span>{syncing ? 'Syncing...' : 'Sync Outlets'}</span>
               </button>
 
               {outlets.length > 0 && (
@@ -455,20 +457,20 @@ export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
                     )}
                   </div>
 
-                  {/* Edit & Delete Actions: Strictly ONLY Admin */}
+                  {/* Edit & Delete Actions: Admin / Editor */}
                   {isAdmin && (
                     <div className="flex items-center space-x-1">
                       <button
                         onClick={() => setEditingOutlet(outlet)}
                         className="p-1 text-stone-400 hover:text-amber-400 hover:bg-stone-800 rounded transition cursor-pointer"
-                        title="Admin: Edit Outlet Name"
+                        title="Edit Outlet Name"
                       >
                         <Edit className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => handleDeleteOutlet(outlet)}
+                        onClick={() => setOutletToDelete(outlet)}
                         className="p-1 text-stone-400 hover:text-rose-400 hover:bg-stone-800 rounded transition cursor-pointer"
-                        title="Admin: Delete Outlet"
+                        title="Delete Outlet"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -737,6 +739,18 @@ export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
           </div>
         </div>
       )}
+
+      {/* CONFIRM DELETE MODAL */}
+      <ConfirmDeleteModal
+        isOpen={!!outletToDelete}
+        title="Delete Retail Outlet"
+        itemName={outletToDelete ? `${outletToDelete.name} (${outletToDelete.outletId})` : ''}
+        itemType="Retail Outlet"
+        description="Are you sure you want to permanently remove this retail branch from the dispatch network? This action cannot be undone."
+        isDeleting={isDeleting}
+        onConfirm={handleConfirmDeleteOutlet}
+        onClose={() => setOutletToDelete(null)}
+      />
     </div>
   );
 };

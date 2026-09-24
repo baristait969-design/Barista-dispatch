@@ -23,21 +23,25 @@ import {
   Layers,
   Sparkles
 } from 'lucide-react';
-import { DispatchLog, InventoryBatch, Outlet, Driver } from '../types';
+import { DispatchLog, InventoryBatch, Outlet, Driver, UserProfile } from '../types';
 import { PrintableDispatchSheet } from './PrintableDispatchSheet';
+import { PrintableExecutiveReportModal } from './PrintableExecutiveReportModal';
+import { generateExecutiveReportPDF, generateSingleDispatchPDF } from '../utils/pdfExport';
 
 interface ReportsViewProps {
   dispatchLogs: DispatchLog[];
   batches: InventoryBatch[];
   outlets?: Outlet[];
   drivers?: Driver[];
+  usersList?: UserProfile[];
 }
 
 export const ReportsView: React.FC<ReportsViewProps> = ({ 
   dispatchLogs, 
   batches,
   outlets = [],
-  drivers = []
+  drivers = [],
+  usersList = []
 }) => {
   const { userProfile, role, hasAccess } = useAuth();
   
@@ -45,8 +49,32 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const canViewReports = hasAccess('reports', 'view');
   const canExport = hasAccess('reports', 'edit') || role === 'admin';
 
+  // Drivers List (Clean, without vehicle number plates)
+  const allDriversList = useMemo(() => {
+    const list: Array<{ id: string; name: string; designation?: string }> = [];
+    const seen = new Set<string>();
+
+    if (usersList && usersList.length > 0) {
+      usersList.filter(u => u.role === 'driver').forEach(u => {
+        if (!seen.has(u.displayName)) {
+          seen.add(u.displayName);
+          list.push({ id: u.id, name: u.displayName, designation: u.designation || 'Driver' });
+        }
+      });
+    }
+
+    drivers.forEach(d => {
+      if (!seen.has(d.name)) {
+        seen.add(d.name);
+        list.push({ id: d.id, name: d.name, designation: 'Driver' });
+      }
+    });
+
+    return list;
+  }, [usersList, drivers]);
+
   // Sub-tabs
-  const [activeReportTab, setActiveReportTab] = useState<'dispatch_log' | 'outlets' | 'products' | 'haccp_audit'>('dispatch_log');
+  const [activeReportTab, setActiveReportTab] = useState<'dispatch_log' | 'outlets' | 'products'>('dispatch_log');
 
   // Filters state
   const [datePreset, setDatePreset] = useState<'today' | '7days' | '30days' | 'all' | 'custom'>('all');
@@ -59,6 +87,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
   // Selected Dispatch for Printable Sheet Modal
   const [selectedLogForPrint, setSelectedLogForPrint] = useState<DispatchLog | null>(null);
+  const [showExecutiveReportModal, setShowExecutiveReportModal] = useState<boolean>(false);
   const [isExecutiveReportPrinting, setIsExecutiveReportPrinting] = useState<boolean>(false);
 
   // Helper date calculations
@@ -279,13 +308,31 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     document.body.removeChild(link);
   };
 
+  // Download Executive Summary PDF
+  const handleDownloadExecutivePDF = () => {
+    if (filteredLogs.length === 0) {
+      alert('No dispatch records available for the selected filters to generate PDF.');
+      return;
+    }
+    generateExecutiveReportPDF(
+      filteredLogs,
+      {
+        totalDispatches,
+        totalUnitsDispatched,
+        haccpComplianceRate,
+        averageTemp,
+        compliantLogsCount,
+        deviationCount,
+        outletsCount: outletStats.length
+      },
+      userProfile?.displayName || userProfile?.email || 'Central Kitchen QA Executive',
+      datePreset === 'today' ? `Today (${todayStr})` : datePreset === '7days' ? 'Last 7 Days' : datePreset === '30days' ? 'Last 30 Days' : 'Full Historical Dataset'
+    );
+  };
+
   // Print Executive Summary Report
   const handlePrintExecutiveReport = () => {
-    setIsExecutiveReportPrinting(true);
-    setTimeout(() => {
-      window.print();
-      setIsExecutiveReportPrinting(false);
-    }, 400);
+    setShowExecutiveReportModal(true);
   };
 
   // Unauthorized view check
@@ -313,7 +360,26 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         <PrintableDispatchSheet
           dispatchLog={selectedLogForPrint}
           onClose={() => setSelectedLogForPrint(null)}
-          autoPrint={true}
+          autoPrint={false}
+        />
+      )}
+
+      {/* Modal for Executive Summary QA Report */}
+      {showExecutiveReportModal && (
+        <PrintableExecutiveReportModal
+          logs={filteredLogs}
+          stats={{
+            totalDispatches,
+            totalUnitsDispatched,
+            haccpComplianceRate,
+            averageTemp,
+            compliantLogsCount,
+            deviationCount,
+            outletsCount: outletStats.length
+          }}
+          generatedBy={userProfile?.displayName || userProfile?.email || 'Central Kitchen QA Executive'}
+          filterPeriod={datePreset === 'today' ? `Today (${todayStr})` : datePreset === '7days' ? 'Last 7 Days' : datePreset === '30days' ? 'Last 30 Days' : 'Full Historical Dataset'}
+          onClose={() => setShowExecutiveReportModal(false)}
         />
       )}
 
@@ -341,19 +407,28 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           )}
 
           <button
+            onClick={handleDownloadExecutivePDF}
+            className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl text-xs transition flex items-center space-x-1.5 cursor-pointer shadow-md"
+            title="Download Executive QA & Dispatch Report in PDF format (.pdf)"
+          >
+            <Download className="w-4 h-4" />
+            <span>Download PDF (.pdf)</span>
+          </button>
+
+          <button
             onClick={handlePrintExecutiveReport}
             className="px-3.5 py-2 bg-stone-800 hover:bg-stone-750 text-stone-200 border border-stone-700 font-semibold rounded-xl text-xs transition flex items-center space-x-1.5 cursor-pointer shadow-sm"
             title="Print Executive QA & Dispatch Summary Sheet"
           >
             <Printer className="w-4 h-4 text-amber-400" />
-            <span>Print Executive Report</span>
+            <span>Print Report</span>
           </button>
 
           {role !== 'viewer' && canExport && (
             <button
               onClick={exportAllDispatchesCSV}
               disabled={filteredLogs.length === 0}
-              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-xl text-xs transition flex items-center space-x-1.5 cursor-pointer shadow-md disabled:opacity-50"
+              className="px-3.5 py-2 bg-stone-800 hover:bg-stone-750 text-amber-400 border border-amber-500/40 font-bold rounded-xl text-xs transition flex items-center space-x-1.5 cursor-pointer shadow-sm disabled:opacity-50"
               title="Download CSV for Excel / ERP integration"
             >
               <Download className="w-4 h-4" />
@@ -465,85 +540,85 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           
           {/* Date Presets */}
           <div>
-            <label className="block text-[10px] font-semibold uppercase text-stone-400 mb-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-300 mb-1">
               Time Period
             </label>
             <select
               value={datePreset}
               onChange={(e) => setDatePreset(e.target.value as any)}
-              className="w-full px-2.5 py-1.5 bg-stone-850 border border-stone-700 rounded-lg text-xs text-stone-200 focus:outline-none focus:border-amber-500"
+              className="w-full px-2.5 py-2 bg-stone-950 border border-stone-700 rounded-lg text-xs text-stone-100 font-medium focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer"
             >
-              <option value="all">All Available Records</option>
-              <option value="today">Today Only ({todayStr})</option>
-              <option value="7days">Last 7 Days</option>
-              <option value="30days">Last 30 Days</option>
-              <option value="custom">Custom Date Range...</option>
+              <option value="all" className="bg-stone-900 text-stone-100">All Available Records</option>
+              <option value="today" className="bg-stone-900 text-stone-100">Today Only ({todayStr})</option>
+              <option value="7days" className="bg-stone-900 text-stone-100">Last 7 Days</option>
+              <option value="30days" className="bg-stone-900 text-stone-100">Last 30 Days</option>
+              <option value="custom" className="bg-stone-900 text-stone-100">Custom Date Range...</option>
             </select>
           </div>
 
           {/* Outlet Filter */}
           <div>
-            <label className="block text-[10px] font-semibold uppercase text-stone-400 mb-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-300 mb-1">
               Destination Outlet
             </label>
             <select
               value={selectedOutletFilter}
               onChange={(e) => setSelectedOutletFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-stone-850 border border-stone-700 rounded-lg text-xs text-stone-200 focus:outline-none focus:border-amber-500"
+              className="w-full px-2.5 py-2 bg-stone-950 border border-stone-700 rounded-lg text-xs text-stone-100 font-medium focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer"
             >
-              <option value="all">All Retail Branches</option>
+              <option value="all" className="bg-stone-900 text-stone-100">All Retail Branches</option>
               {outlets.map(o => (
-                <option key={o.id} value={o.name}>{o.name}</option>
+                <option key={o.id} value={o.name} className="bg-stone-900 text-stone-100">{o.name}</option>
               ))}
             </select>
           </div>
 
           {/* Driver Filter */}
           <div>
-            <label className="block text-[10px] font-semibold uppercase text-stone-400 mb-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-300 mb-1">
               Cold-Chain Driver
             </label>
             <select
               value={selectedDriverFilter}
               onChange={(e) => setSelectedDriverFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-stone-850 border border-stone-700 rounded-lg text-xs text-stone-200 focus:outline-none focus:border-amber-500"
+              className="w-full px-2.5 py-2 bg-stone-950 border border-stone-700 rounded-lg text-xs text-stone-100 font-medium focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer"
             >
-              <option value="all">All Fleet Drivers</option>
-              {drivers.map(d => (
-                <option key={d.id} value={d.name}>{d.name} ({d.vehicleNo})</option>
+              <option value="all" className="bg-stone-900 text-stone-100">All Fleet Drivers</option>
+              {allDriversList.map(d => (
+                <option key={d.id} value={d.name} className="bg-stone-900 text-stone-100">{d.name} ({d.designation || 'Driver'})</option>
               ))}
             </select>
           </div>
 
           {/* HACCP Compliance Filter */}
           <div>
-            <label className="block text-[10px] font-semibold uppercase text-stone-400 mb-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-300 mb-1">
               Cold-Chain Status
             </label>
             <select
               value={haccpFilter}
               onChange={(e) => setHaccpFilter(e.target.value as any)}
-              className="w-full px-2.5 py-1.5 bg-stone-850 border border-stone-700 rounded-lg text-xs text-stone-200 focus:outline-none focus:border-amber-500"
+              className="w-full px-2.5 py-2 bg-stone-950 border border-stone-700 rounded-lg text-xs text-stone-100 font-medium focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer"
             >
-              <option value="all">All Dispatches</option>
-              <option value="compliant">Compliant Only (≤5.0°C)</option>
-              <option value="warning">Deviations (&gt;5.0°C)</option>
+              <option value="all" className="bg-stone-900 text-stone-100">All Dispatches</option>
+              <option value="compliant" className="bg-stone-900 text-stone-100">Compliant Only (≤5.0°C)</option>
+              <option value="warning" className="bg-stone-900 text-stone-100">Deviations (&gt;5.0°C)</option>
             </select>
           </div>
 
           {/* Keyword Search */}
           <div>
-            <label className="block text-[10px] font-semibold uppercase text-stone-400 mb-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-300 mb-1">
               Search Products / Logs
             </label>
             <div className="relative">
-              <Search className="w-3.5 h-3.5 text-stone-500 absolute left-2.5 top-2" />
+              <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-2.5" />
               <input
                 type="text"
                 placeholder="Product, Batch, Outlet..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-2.5 py-1.5 bg-stone-850 border border-stone-700 rounded-lg text-xs text-stone-200 placeholder-stone-500 focus:outline-none focus:border-amber-500"
+                className="w-full pl-8 pr-2.5 py-2 bg-stone-950 border border-stone-700 rounded-lg text-xs text-stone-100 placeholder-stone-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
               />
             </div>
           </div>
@@ -551,73 +626,61 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
         {/* Custom date range picker if 'custom' is active */}
         {datePreset === 'custom' && (
-          <div className="pt-2 border-t border-stone-800 flex items-center space-x-3 text-xs">
-            <span className="text-stone-400">From Date:</span>
+          <div className="pt-2.5 border-t border-stone-800 flex items-center space-x-3 text-xs">
+            <span className="text-stone-300 font-medium">From Date:</span>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="px-2 py-1 bg-stone-850 border border-stone-700 rounded text-stone-200 text-xs font-mono"
+              className="px-2.5 py-1.5 bg-stone-950 border border-stone-700 rounded-lg text-stone-100 text-xs font-mono focus:outline-none focus:border-amber-500"
             />
-            <span className="text-stone-400">To Date:</span>
+            <span className="text-stone-300 font-medium">To Date:</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="px-2 py-1 bg-stone-850 border border-stone-700 rounded text-stone-200 text-xs font-mono"
+              className="px-2.5 py-1.5 bg-stone-950 border border-stone-700 rounded-lg text-stone-100 text-xs font-mono focus:outline-none focus:border-amber-500"
             />
           </div>
         )}
       </div>
 
       {/* REPORT SUB-NAV TABS */}
-      <div className="flex border-b border-stone-800 space-x-2 print:hidden overflow-x-auto">
+      <div className="flex bg-stone-950/80 p-1.5 rounded-2xl border border-stone-800 space-x-1.5 print:hidden overflow-x-auto shadow-inner">
         <button
           onClick={() => setActiveReportTab('dispatch_log')}
-          className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition cursor-pointer flex items-center space-x-2 border-b-2 ${
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center space-x-2 shrink-0 ${
             activeReportTab === 'dispatch_log'
-              ? 'bg-stone-900 text-amber-400 border-amber-500'
-              : 'text-stone-400 hover:text-stone-200 border-transparent hover:bg-stone-900/40'
+              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-sm'
+              : 'text-stone-300 hover:text-white hover:bg-stone-800/70 border border-transparent'
           }`}
         >
-          <FileText className="w-4 h-4" />
+          <FileText className="w-4 h-4 text-amber-400" />
           <span>Dispatch Records & Print Archive ({filteredLogs.length})</span>
         </button>
 
         <button
           onClick={() => setActiveReportTab('outlets')}
-          className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition cursor-pointer flex items-center space-x-2 border-b-2 ${
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center space-x-2 shrink-0 ${
             activeReportTab === 'outlets'
-              ? 'bg-stone-900 text-amber-400 border-amber-500'
-              : 'text-stone-400 hover:text-stone-200 border-transparent hover:bg-stone-900/40'
+              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-sm'
+              : 'text-stone-300 hover:text-white hover:bg-stone-800/70 border border-transparent'
           }`}
         >
-          <Building2 className="w-4 h-4" />
+          <Building2 className="w-4 h-4 text-amber-400" />
           <span>Outlet Distribution Breakdown ({outletStats.length})</span>
         </button>
 
         <button
           onClick={() => setActiveReportTab('products')}
-          className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition cursor-pointer flex items-center space-x-2 border-b-2 ${
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center space-x-2 shrink-0 ${
             activeReportTab === 'products'
-              ? 'bg-stone-900 text-amber-400 border-amber-500'
-              : 'text-stone-400 hover:text-stone-200 border-transparent hover:bg-stone-900/40'
+              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-sm'
+              : 'text-stone-300 hover:text-white hover:bg-stone-800/70 border border-transparent'
           }`}
         >
-          <Package className="w-4 h-4" />
+          <Package className="w-4 h-4 text-amber-400" />
           <span>Product Performance Matrix ({productStats.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveReportTab('haccp_audit')}
-          className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition cursor-pointer flex items-center space-x-2 border-b-2 ${
-            activeReportTab === 'haccp_audit'
-              ? 'bg-stone-900 text-amber-400 border-amber-500'
-              : 'text-stone-400 hover:text-stone-200 border-transparent hover:bg-stone-900/40'
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4" />
-          <span>HACCP Cold-Chain & OPRP-2 Audit Log</span>
         </button>
       </div>
 
@@ -701,17 +764,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
                         {/* Cold-Chain Temp */}
                         <td className="py-3 px-4 text-center">
-                          {log.haccpCompliant ? (
-                            <span className="inline-flex items-center space-x-1 text-[10px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded font-mono">
-                              <CheckCircle2 className="w-3 h-3" />
-                              <span>≤5°C PASS</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center space-x-1 text-[10px] font-bold text-red-400 bg-red-950/60 border border-red-800 px-2 py-0.5 rounded font-mono animate-pulse">
-                              <AlertTriangle className="w-3 h-3" />
-                              <span>DEVIATION</span>
-                            </span>
-                          )}
+                          <span className="font-mono font-bold text-xs text-stone-200">
+                            {activeItems.length > 0 
+                              ? Array.from(new Set(activeItems.map(i => `${Number(i.dispatchTemp || 0).toFixed(1)}°C`))).join(', ') 
+                              : 'N/A'}
+                          </span>
                         </td>
 
                         {/* QA Supervisor */}
@@ -720,16 +777,27 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                           <span className="text-[10px] text-stone-500 font-mono">QA Verified</span>
                         </td>
 
-                        {/* Action: Print Dispatched Items */}
+                        {/* Action: Print & PDF Dispatched Items */}
                         <td className="py-3 px-4 text-right">
-                          <button
-                            onClick={() => setSelectedLogForPrint(log)}
-                            className="px-3 py-1.5 bg-stone-800 hover:bg-stone-750 text-amber-400 hover:text-amber-300 border border-stone-700 hover:border-amber-500/50 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ml-auto cursor-pointer shadow-sm"
-                            title="Print this dispatch sheet with only dispatched items and official Barista header"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                            <span>Print Sheet</span>
-                          </button>
+                          <div className="flex items-center justify-end space-x-1.5">
+                            <button
+                              onClick={() => generateSingleDispatchPDF(log as any)}
+                              className="px-2.5 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 hover:text-white border border-emerald-800 rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer shadow-sm"
+                              title="Download PDF (.pdf) for this dispatch record"
+                            >
+                              <Download className="w-3 h-3 text-emerald-400" />
+                              <span>PDF</span>
+                            </button>
+
+                            <button
+                              onClick={() => setSelectedLogForPrint(log)}
+                              className="px-2.5 py-1.5 bg-stone-800 hover:bg-stone-750 text-amber-400 hover:text-amber-300 border border-stone-700 hover:border-amber-500/50 rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer shadow-sm"
+                              title="Print this dispatch sheet with official Barista header"
+                            >
+                              <Printer className="w-3 h-3" />
+                              <span>Print</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -861,11 +929,20 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 Standard: Product core temperature must be ≤ 5.0°C at central kitchen dispatch loading.
               </p>
             </div>
-            <div className="flex items-center space-x-2 font-mono text-xs">
-              <span className="text-stone-400">Total Audits:</span>
-              <strong className="text-white">{filteredLogs.length}</strong>
-              <span className="text-stone-400">• Compliance:</span>
-              <strong className="text-emerald-400">{haccpComplianceRate}%</strong>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center space-x-2 font-mono text-xs bg-stone-850 px-3 py-1.5 rounded-xl border border-stone-800">
+                <span className="text-stone-400">Total Audits:</span>
+                <strong className="text-white">{filteredLogs.length}</strong>
+                <span className="text-stone-400">• Compliance:</span>
+                <strong className="text-emerald-400">{haccpComplianceRate}%</strong>
+              </div>
+              <button
+                onClick={handleDownloadExecutivePDF}
+                className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl text-xs transition flex items-center space-x-1.5 cursor-pointer shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download HACCP PDF</span>
+              </button>
             </div>
           </div>
 
@@ -927,69 +1004,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           </div>
         </div>
       )}
-
-      {/* PRINT-ONLY EXECUTIVE AUDIT REPORT LAYOUT */}
-      <div className="hidden print:block text-black bg-white p-6">
-        <div className="border-2 border-black p-4 mb-4">
-          <div className="flex justify-between items-center border-b-2 border-black pb-3 mb-3">
-            <div>
-              <h1 className="text-xl font-bold font-serif">BARISTA COFFEE LANKA (PVT) LTD</h1>
-              <p className="text-xs font-bold">CENTRAL KITCHEN DISPATCH & HACCP AUDIT EXECUTIVE STATEMENT</p>
-            </div>
-            <div className="text-right text-xs font-mono">
-              <p>Doc Ref: BCL/REC/HACCP/32</p>
-              <p>HACCP Link: OPRP-2</p>
-              <p>Date: {todayStr}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-4 gap-2 text-xs mb-4">
-            <div>Total Dispatches: <strong>{totalDispatches}</strong></div>
-            <div>Total Units: <strong>{totalUnitsDispatched}</strong></div>
-            <div>Cold-Chain Compliance: <strong>{haccpComplianceRate}%</strong></div>
-            <div>Avg Dispatch Temp: <strong>{averageTemp}°C</strong></div>
-          </div>
-
-          <h3 className="font-bold text-xs uppercase mb-2 border-b border-black">Dispatches in this Period</h3>
-          <table className="w-full text-left text-[10px] border border-black mb-4">
-            <thead>
-              <tr className="border-b border-black bg-gray-100">
-                <th className="p-1">Doc No</th>
-                <th className="p-1">Date/Time</th>
-                <th className="p-1">Outlets</th>
-                <th className="p-1">Driver & Vehicle</th>
-                <th className="p-1">Items</th>
-                <th className="p-1">Units</th>
-                <th className="p-1">HACCP (≤5°C)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredLogs.map(log => (
-                <tr key={log.id} className="border-b border-gray-300">
-                  <td className="p-1 font-mono">{log.docNo}</td>
-                  <td className="p-1">{log.date} @ {log.dispatchTime}</td>
-                  <td className="p-1">{log.outletNames.join(', ')}</td>
-                  <td className="p-1">{log.driverName} ({log.vehicleNo || 'Van'})</td>
-                  <td className="p-1">{log.items.length}</td>
-                  <td className="p-1 font-bold">{log.items.reduce((s, i) => s + i.quantity, 0)}</td>
-                  <td className="p-1">{log.haccpCompliant ? 'PASS' : 'DEV'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div className="grid grid-cols-2 gap-8 pt-8 mt-4 border-t-2 border-black text-xs">
-            <div>
-              <p>Prepared by: _______________________</p>
-              <p className="text-[10px] text-gray-600 mt-1">Central Kitchen Dispatch QA Officer</p>
-            </div>
-            <div>
-              <p>Approved by: _______________________</p>
-              <p className="text-[10px] text-gray-600 mt-1">Head of Quality Assurance / Operations</p>
-            </div>
-          </div>
-        </div>
-      </div>
 
     </div>
   );

@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'editor' | 'viewer';
+export type UserRole = 'admin' | 'editor' | 'viewer' | 'driver';
 
 export interface ModulePermissions {
   dashboard: { view: boolean; edit: boolean };

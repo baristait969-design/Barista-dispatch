@@ -21,6 +21,7 @@ import { InventoryBatch, BatchLog, Product } from '../types';
 import { INITIAL_PRODUCTS } from '../data/seedData';
 import { addInventoryBatch, updateInventoryBatch, deleteInventoryBatch } from '../services/dataService';
 import { getNextBatchNumberForProduct, getProductKeyCode } from '../utils/batchUtils';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface InventoryViewProps {
   batches: InventoryBatch[];
@@ -44,6 +45,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingBatch, setEditingBatch] = useState<InventoryBatch | null>(null);
   const [selectedBatchForLogs, setSelectedBatchForLogs] = useState<InventoryBatch | null>(null);
+  const [batchToDelete, setBatchToDelete] = useState<InventoryBatch | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Product-specific unique batch sequence generator
@@ -62,7 +65,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     prodDate: new Date().toISOString().split('T')[0],
     useByDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 5 days in future
     dispatchTemp: 3.5,
-    unit: 'Slices'
+    unit: 'NoS'
   }));
 
   // Calculate stats
@@ -94,7 +97,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         productName: found.name,
         category: found.category,
         dispatchTemp: defTemp,
-        unit: found.unit || 'Slices',
+        unit: found.unit || 'NoS',
         useByDate: futureDate
       }));
     } else {
@@ -166,17 +169,16 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     }
   };
 
-  const handleDeleteBatch = async (id: string, batchNo: string) => {
-    if (role !== 'admin') {
-      alert('Only Admins can permanently delete batch records from Central Kitchen inventory.');
-      return;
-    }
-    if (confirm(`Are you sure you want to permanently delete Batch ${batchNo}?`)) {
-      try {
-        await deleteInventoryBatch(id);
-      } catch (err) {
-        alert('Error deleting batch: ' + (err as any)?.message);
-      }
+  const handleConfirmDeleteBatch = async () => {
+    if (!batchToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteInventoryBatch(batchToDelete.id);
+      setBatchToDelete(null);
+    } catch (err) {
+      alert('Error deleting batch: ' + (err as any)?.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -283,16 +285,16 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         </div>
 
         <div className="flex items-center space-x-2 w-full sm:w-auto">
-          <Filter className="w-3.5 h-3.5 text-stone-400" />
-          <span className="text-xs text-stone-400">Category:</span>
+          <Filter className="w-3.5 h-3.5 text-amber-400" />
+          <span className="text-xs text-stone-300 font-medium">Category:</span>
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="px-2.5 py-1.5 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-200 focus:outline-none"
+            className="px-2.5 py-1.5 bg-stone-950 border border-stone-700 rounded-lg text-xs text-stone-100 font-medium focus:outline-none focus:border-amber-500 cursor-pointer"
           >
-            <option value="all">All Categories</option>
+            <option value="all" className="bg-stone-900 text-stone-100">All Categories</option>
             {categories.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
+              <option key={cat} value={cat} className="bg-stone-900 text-stone-100">{cat}</option>
             ))}
           </select>
         </div>
@@ -405,11 +407,11 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                             </button>
                           )}
 
-                          {role === 'admin' && (
+                          {canEdit && (
                             <button
-                              onClick={() => handleDeleteBatch(batch.id, batch.batchNo)}
+                              onClick={() => setBatchToDelete(batch)}
                               className="p-1.5 text-stone-400 hover:text-red-400 hover:bg-stone-800 rounded transition cursor-pointer"
-                              title="Delete Batch (Admin only)"
+                              title="Delete Batch Record"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -424,6 +426,18 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           </table>
         </div>
       </div>
+
+      {/* CONFIRM DELETE MODAL */}
+      <ConfirmDeleteModal
+        isOpen={!!batchToDelete}
+        title="Delete Central Kitchen Batch"
+        itemName={batchToDelete ? `${batchToDelete.batchNo} (${batchToDelete.productName})` : ''}
+        itemType="Inventory Batch"
+        description="Are you sure you want to permanently delete this batch from Central Kitchen inventory records? This action cannot be undone."
+        isDeleting={isDeleting}
+        onConfirm={handleConfirmDeleteBatch}
+        onClose={() => setBatchToDelete(null)}
+      />
 
       {/* CREATE BATCH MODAL */}
       {showAddModal && (
@@ -461,20 +475,18 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
                     <span>Batch Number</span>
-                    <span className="text-[10px] text-amber-400 font-semibold flex items-center gap-1 bg-amber-950/60 border border-amber-800/60 px-1.5 py-0.5 rounded font-mono">
-                      Key: {getProductKeyCode(formData.productName, products)}
+                    <span className="text-[10px] text-amber-400 font-semibold flex items-center gap-1 font-mono">
+                      <Lock className="w-3 h-3" /> System Generated
                     </span>
                   </label>
                   <input
                     type="text"
-                    required
+                    readOnly
+                    disabled
                     value={formData.batchNo}
-                    onChange={(e) => setFormData({ ...formData, batchNo: e.target.value.toUpperCase() })}
-                    className="w-full px-3 py-2 bg-stone-900 border border-stone-700 focus:border-amber-500 rounded-lg text-xs text-amber-400 font-mono font-bold focus:outline-none"
-                    placeholder={`e.g. ${getProductKeyCode(formData.productName, products)}-01`}
-                    title="Unique batch number for this product. Automatically follows sequence."
+                    className="w-full px-3 py-2 bg-stone-950 border border-stone-800 rounded-lg text-xs text-amber-400 font-mono font-bold cursor-not-allowed select-none opacity-90 shadow-inner"
+                    title="Batch number is system-generated and automatically follows sequential codes per product item."
                   />
-                  <p className="text-[10px] text-stone-500 mt-1">Short unique code. Subsequent batches follow this sequence.</p>
                 </div>
 
                 <div>

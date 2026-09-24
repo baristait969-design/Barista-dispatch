@@ -1,18 +1,18 @@
 import { InventoryBatch, Outlet, Driver, UserProfile, Product } from '../types';
 
 export const INITIAL_PRODUCTS = [
-  { name: 'Blueberry Cold Cheesecake Slices', keyCode: 'BCC', category: 'Pastry Kitchen Items', defaultTemp: 3.5, shelfLifeDays: 5, unit: 'Slices' },
-  { name: 'Brownies Cheesecake Slices', keyCode: 'BCS', category: 'Pastry Kitchen Items', defaultTemp: 3.8, shelfLifeDays: 5, unit: 'Slices' },
-  { name: 'Death By Chocolate Cake (1500gm)', keyCode: 'DBC', category: 'Pastry Kitchen Items', defaultTemp: 4.0, shelfLifeDays: 6, unit: 'Cakes' },
-  { name: 'Red velvet cake (1500gm)', keyCode: 'RVC', category: 'Pastry Kitchen Items', defaultTemp: 3.6, shelfLifeDays: 6, unit: 'Cakes' },
-  { name: 'Mocha Cake', keyCode: 'MC', category: 'Pastry Kitchen Items', defaultTemp: 4.1, shelfLifeDays: 6, unit: 'Cakes' },
-  { name: 'Caramel Macchiato Tart', keyCode: 'CMT', category: 'Pastry Kitchen Items', defaultTemp: 3.4, shelfLifeDays: 4, unit: 'Packs' },
-  { name: 'Almond Croissant Slices', keyCode: 'ACS', category: 'Bakery & Pastry', defaultTemp: 4.5, shelfLifeDays: 3, unit: 'Packs' },
-  { name: 'Tiramisu Cold Cups', keyCode: 'TCC', category: 'Pastry Kitchen Items', defaultTemp: 3.2, shelfLifeDays: 4, unit: 'Cups' },
-  { name: 'Classic Dark Chocolate Mousse', keyCode: 'CDM', category: 'Pastry Kitchen Items', defaultTemp: 3.2, shelfLifeDays: 4, unit: 'Cups' },
-  { name: 'Iced Latte Mix Cold Base', keyCode: 'ILM', category: 'Beverage Bases', defaultTemp: 2.8, shelfLifeDays: 7, unit: 'Bottles' },
-  { name: 'Chicken & Mushroom Savory Pie', keyCode: 'CMS', category: 'Savory Kitchen', defaultTemp: 4.2, shelfLifeDays: 3, unit: 'Packs' },
-  { name: 'Butter Croissants 4-Pack', keyCode: 'BCP', category: 'Bakery & Pastry', defaultTemp: 4.5, shelfLifeDays: 3, unit: 'Packs' }
+  { name: 'Blueberry Cold Cheesecake Slices', keyCode: 'BCC', category: 'Pastry Kitchen Items', defaultTemp: 3.5, shelfLifeDays: 5, unit: 'NoS' },
+  { name: 'Brownies Cheesecake Slices', keyCode: 'BCS', category: 'Pastry Kitchen Items', defaultTemp: 3.8, shelfLifeDays: 5, unit: 'NoS' },
+  { name: 'Death By Chocolate Cake (1500gm)', keyCode: 'DBC', category: 'Pastry Kitchen Items', defaultTemp: 4.0, shelfLifeDays: 6, unit: 'NoS' },
+  { name: 'Red velvet cake (1500gm)', keyCode: 'RVC', category: 'Pastry Kitchen Items', defaultTemp: 3.6, shelfLifeDays: 6, unit: 'NoS' },
+  { name: 'Mocha Cake', keyCode: 'MC', category: 'Pastry Kitchen Items', defaultTemp: 4.1, shelfLifeDays: 6, unit: 'NoS' },
+  { name: 'Caramel Macchiato Tart', keyCode: 'CMT', category: 'Pastry Kitchen Items', defaultTemp: 3.4, shelfLifeDays: 4, unit: 'NoS' },
+  { name: 'Almond Croissant Slices', keyCode: 'ACS', category: 'Bakery & Pastry', defaultTemp: 4.5, shelfLifeDays: 3, unit: 'NoS' },
+  { name: 'Tiramisu Cold Cups', keyCode: 'TCC', category: 'Pastry Kitchen Items', defaultTemp: 3.2, shelfLifeDays: 4, unit: 'NoS' },
+  { name: 'Classic Dark Chocolate Mousse', keyCode: 'CDM', category: 'Pastry Kitchen Items', defaultTemp: 3.2, shelfLifeDays: 4, unit: 'NoS' },
+  { name: 'Iced Latte Mix Cold Base', keyCode: 'ILM', category: 'Beverage Bases', defaultTemp: 2.8, shelfLifeDays: 7, unit: 'NoS' },
+  { name: 'Chicken & Mushroom Savory Pie', keyCode: 'CMS', category: 'Savory Kitchen', defaultTemp: 4.2, shelfLifeDays: 3, unit: 'NoS' },
+  { name: 'Butter Croissants 4-Pack', keyCode: 'BCP', category: 'Bakery & Pastry', defaultTemp: 4.5, shelfLifeDays: 3, unit: 'NoS' }
 ];
 
 export const INITIAL_PRODUCT_CATALOG: Product[] = INITIAL_PRODUCTS.map((p, idx) => ({
@@ -23,7 +23,7 @@ export const INITIAL_PRODUCT_CATALOG: Product[] = INITIAL_PRODUCTS.map((p, idx) 
   category: p.category,
   dispatchTemp: p.defaultTemp,
   shelfLifeDays: p.shelfLifeDays,
-  unit: p.unit,
+  unit: 'NoS',
   active: true,
   createdAt: '2025-01-01T00:00:00.000Z'
 }));
@@ -41,7 +41,7 @@ export const INITIAL_BATCHES: InventoryBatch[] = [
     prodDate: getTodayDateStr(),
     useByDate: getTodayDateStr(),
     dispatchTemp: 3.5,
-    unit: 'Slices',
+    unit: 'NoS',
     createdAt: new Date().toISOString()
   },
   {
@@ -54,7 +54,7 @@ export const INITIAL_BATCHES: InventoryBatch[] = [
     prodDate: getTodayDateStr(),
     useByDate: getTodayDateStr(),
     dispatchTemp: 3.8,
-    unit: 'Slices',
+    unit: 'NoS',
     createdAt: new Date().toISOString()
   },
   {
@@ -67,7 +67,7 @@ export const INITIAL_BATCHES: InventoryBatch[] = [
     prodDate: getTodayDateStr(),
     useByDate: getTodayDateStr(),
     dispatchTemp: 4.0,
-    unit: 'Cakes',
+    unit: 'NoS',
     createdAt: new Date().toISOString()
   },
   {
@@ -80,7 +80,7 @@ export const INITIAL_BATCHES: InventoryBatch[] = [
     prodDate: getTodayDateStr(),
     useByDate: getTodayDateStr(),
     dispatchTemp: 3.6,
-    unit: 'Cakes',
+    unit: 'NoS',
     createdAt: new Date().toISOString()
   },
   {
@@ -93,7 +93,7 @@ export const INITIAL_BATCHES: InventoryBatch[] = [
     prodDate: getTodayDateStr(),
     useByDate: getTodayDateStr(),
     dispatchTemp: 4.1,
-    unit: 'Cakes',
+    unit: 'NoS',
     createdAt: new Date().toISOString()
   },
   {
@@ -106,7 +106,7 @@ export const INITIAL_BATCHES: InventoryBatch[] = [
     prodDate: getTodayDateStr(),
     useByDate: getTodayDateStr(),
     dispatchTemp: 3.5,
-    unit: 'Slices',
+    unit: 'NoS',
     createdAt: new Date().toISOString()
   }
 ];
@@ -301,9 +301,76 @@ export const INITIAL_USERS: UserProfile[] = [
       inventory: { view: false, edit: false },
       forms: { view: false, edit: false },
       outlets: { view: false, edit: false },
+      products: { view: false, edit: false },
       users: { view: false, edit: false },
       roles: { view: false, edit: false },
       reports: { view: true, edit: false } // Viewer section only report visible and printable
+    },
+    createdAt: '2025-01-01T00:00:00.000Z'
+  },
+  {
+    id: 'user-drv-01',
+    uid: 'driver-barista-01',
+    userIdCode: 'USR-DRV-01',
+    email: 'kamal.driver@barista.lk',
+    password: '123',
+    displayName: 'Kamal Perera',
+    role: 'driver',
+    designation: 'Refrigerated Logistics Driver',
+    department: 'Central Kitchen Logistics & Distribution',
+    permissions: {
+      dashboard: { view: false, edit: false },
+      inventory: { view: false, edit: false },
+      forms: { view: false, edit: false },
+      outlets: { view: false, edit: false },
+      products: { view: false, edit: false },
+      users: { view: false, edit: false },
+      roles: { view: false, edit: false },
+      reports: { view: true, edit: false }
+    },
+    createdAt: '2025-01-01T00:00:00.000Z'
+  },
+  {
+    id: 'user-drv-02',
+    uid: 'driver-barista-02',
+    userIdCode: 'USR-DRV-02',
+    email: 'nimal.driver@barista.lk',
+    password: '123',
+    displayName: 'Nimal Silva',
+    role: 'driver',
+    designation: 'Refrigerated Logistics Driver',
+    department: 'Central Kitchen Logistics & Distribution',
+    permissions: {
+      dashboard: { view: false, edit: false },
+      inventory: { view: false, edit: false },
+      forms: { view: false, edit: false },
+      outlets: { view: false, edit: false },
+      products: { view: false, edit: false },
+      users: { view: false, edit: false },
+      roles: { view: false, edit: false },
+      reports: { view: true, edit: false }
+    },
+    createdAt: '2025-01-01T00:00:00.000Z'
+  },
+  {
+    id: 'user-drv-03',
+    uid: 'driver-barista-03',
+    userIdCode: 'USR-DRV-03',
+    email: 'sunil.driver@barista.lk',
+    password: '123',
+    displayName: 'Sunil Fernando',
+    role: 'driver',
+    designation: 'Refrigerated Logistics Driver',
+    department: 'Central Kitchen Logistics & Distribution',
+    permissions: {
+      dashboard: { view: false, edit: false },
+      inventory: { view: false, edit: false },
+      forms: { view: false, edit: false },
+      outlets: { view: false, edit: false },
+      products: { view: false, edit: false },
+      users: { view: false, edit: false },
+      roles: { view: false, edit: false },
+      reports: { view: true, edit: false }
     },
     createdAt: '2025-01-01T00:00:00.000Z'
   }
