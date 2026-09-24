@@ -1,80 +1,112 @@
-import { InventoryBatch, Outlet, Driver, UserProfile } from '../types';
+import { InventoryBatch, Outlet, Driver, UserProfile, Product } from '../types';
 
 export const INITIAL_PRODUCTS = [
-  { name: 'Blueberry Cold Cheesecake Slices', category: 'Pastry Kitchen Items', defaultTemp: 3.5, shelfLifeDays: 5, unit: 'Slices' },
-  { name: 'Brownies Cheesecake Slices', category: 'Pastry Kitchen Items', defaultTemp: 3.8, shelfLifeDays: 5, unit: 'Slices' },
-  { name: 'Death By Chocolate Cake (1500gm)', category: 'Pastry Kitchen Items', defaultTemp: 4.0, shelfLifeDays: 6, unit: 'Cakes' },
-  { name: 'Red velvet cake (1500gm)', category: 'Pastry Kitchen Items', defaultTemp: 3.6, shelfLifeDays: 6, unit: 'Cakes' },
-  { name: 'Mocha Cake', category: 'Pastry Kitchen Items', defaultTemp: 4.1, shelfLifeDays: 6, unit: 'Cakes' },
-  { name: 'Caramel Macchiato Tart', category: 'Pastry Kitchen Items', defaultTemp: 3.4, shelfLifeDays: 4, unit: 'Packs' },
-  { name: 'Almond Croissant Slices', category: 'Bakery & Pastry', defaultTemp: 4.5, shelfLifeDays: 3, unit: 'Packs' },
-  { name: 'Tiramisu Cold Cups', category: 'Pastry Kitchen Items', defaultTemp: 3.2, shelfLifeDays: 4, unit: 'Cups' }
+  { name: 'Blueberry Cold Cheesecake Slices', keyCode: 'BCC', category: 'Pastry Kitchen Items', defaultTemp: 3.5, shelfLifeDays: 5, unit: 'Slices' },
+  { name: 'Brownies Cheesecake Slices', keyCode: 'BCS', category: 'Pastry Kitchen Items', defaultTemp: 3.8, shelfLifeDays: 5, unit: 'Slices' },
+  { name: 'Death By Chocolate Cake (1500gm)', keyCode: 'DBC', category: 'Pastry Kitchen Items', defaultTemp: 4.0, shelfLifeDays: 6, unit: 'Cakes' },
+  { name: 'Red velvet cake (1500gm)', keyCode: 'RVC', category: 'Pastry Kitchen Items', defaultTemp: 3.6, shelfLifeDays: 6, unit: 'Cakes' },
+  { name: 'Mocha Cake', keyCode: 'MC', category: 'Pastry Kitchen Items', defaultTemp: 4.1, shelfLifeDays: 6, unit: 'Cakes' },
+  { name: 'Caramel Macchiato Tart', keyCode: 'CMT', category: 'Pastry Kitchen Items', defaultTemp: 3.4, shelfLifeDays: 4, unit: 'Packs' },
+  { name: 'Almond Croissant Slices', keyCode: 'ACS', category: 'Bakery & Pastry', defaultTemp: 4.5, shelfLifeDays: 3, unit: 'Packs' },
+  { name: 'Tiramisu Cold Cups', keyCode: 'TCC', category: 'Pastry Kitchen Items', defaultTemp: 3.2, shelfLifeDays: 4, unit: 'Cups' },
+  { name: 'Classic Dark Chocolate Mousse', keyCode: 'CDM', category: 'Pastry Kitchen Items', defaultTemp: 3.2, shelfLifeDays: 4, unit: 'Cups' },
+  { name: 'Iced Latte Mix Cold Base', keyCode: 'ILM', category: 'Beverage Bases', defaultTemp: 2.8, shelfLifeDays: 7, unit: 'Bottles' },
+  { name: 'Chicken & Mushroom Savory Pie', keyCode: 'CMS', category: 'Savory Kitchen', defaultTemp: 4.2, shelfLifeDays: 3, unit: 'Packs' },
+  { name: 'Butter Croissants 4-Pack', keyCode: 'BCP', category: 'Bakery & Pastry', defaultTemp: 4.5, shelfLifeDays: 3, unit: 'Packs' }
 ];
+
+export const INITIAL_PRODUCT_CATALOG: Product[] = INITIAL_PRODUCTS.map((p, idx) => ({
+  id: `prd-${String(idx + 1).padStart(3, '0')}`,
+  productId: `PRD-${String(idx + 1).padStart(2, '0')}`,
+  name: p.name,
+  keyCode: p.keyCode,
+  category: p.category,
+  dispatchTemp: p.defaultTemp,
+  shelfLifeDays: p.shelfLifeDays,
+  unit: p.unit,
+  active: true,
+  createdAt: '2025-01-01T00:00:00.000Z'
+}));
+
+const getTodayDateStr = () => new Date().toISOString().split('T')[0];
 
 export const INITIAL_BATCHES: InventoryBatch[] = [
   {
     id: 'batch-001',
-    batchNo: 'B-2025-0101',
+    batchNo: 'BCC-01',
     productName: 'Blueberry Cold Cheesecake Slices',
     category: 'Pastry Kitchen Items',
     initialQuantity: 120,
     quantity: 94,
-    prodDate: '2025-01-01',
-    useByDate: '2025-01-06',
+    prodDate: getTodayDateStr(),
+    useByDate: getTodayDateStr(),
     dispatchTemp: 3.5,
     unit: 'Slices',
     createdAt: new Date().toISOString()
   },
   {
     id: 'batch-002',
-    batchNo: 'B-2025-0102',
+    batchNo: 'BCS-01',
     productName: 'Brownies Cheesecake Slices',
     category: 'Pastry Kitchen Items',
     initialQuantity: 80,
     quantity: 65,
-    prodDate: '2025-01-01',
-    useByDate: '2025-01-06',
+    prodDate: getTodayDateStr(),
+    useByDate: getTodayDateStr(),
     dispatchTemp: 3.8,
     unit: 'Slices',
     createdAt: new Date().toISOString()
   },
   {
     id: 'batch-003',
-    batchNo: 'B-2025-0103',
+    batchNo: 'DBC-01',
     productName: 'Death By Chocolate Cake (1500gm)',
     category: 'Pastry Kitchen Items',
     initialQuantity: 30,
     quantity: 18,
-    prodDate: '2025-01-02',
-    useByDate: '2025-01-08',
+    prodDate: getTodayDateStr(),
+    useByDate: getTodayDateStr(),
     dispatchTemp: 4.0,
     unit: 'Cakes',
     createdAt: new Date().toISOString()
   },
   {
     id: 'batch-004',
-    batchNo: 'B-2025-0104',
+    batchNo: 'RVC-01',
     productName: 'Red velvet cake (1500gm)',
     category: 'Pastry Kitchen Items',
     initialQuantity: 25,
     quantity: 20,
-    prodDate: '2025-01-02',
-    useByDate: '2025-01-08',
+    prodDate: getTodayDateStr(),
+    useByDate: getTodayDateStr(),
     dispatchTemp: 3.6,
     unit: 'Cakes',
     createdAt: new Date().toISOString()
   },
   {
     id: 'batch-005',
-    batchNo: 'B-2025-0105',
+    batchNo: 'MC-01',
     productName: 'Mocha Cake',
     category: 'Pastry Kitchen Items',
     initialQuantity: 40,
     quantity: 32,
-    prodDate: '2025-01-03',
-    useByDate: '2025-01-09',
+    prodDate: getTodayDateStr(),
+    useByDate: getTodayDateStr(),
     dispatchTemp: 4.1,
     unit: 'Cakes',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'batch-006',
+    batchNo: 'BCC-02',
+    productName: 'Blueberry Cold Cheesecake Slices',
+    category: 'Pastry Kitchen Items',
+    initialQuantity: 60,
+    quantity: 50,
+    prodDate: getTodayDateStr(),
+    useByDate: getTodayDateStr(),
+    dispatchTemp: 3.5,
+    unit: 'Slices',
     createdAt: new Date().toISOString()
   }
 ];
