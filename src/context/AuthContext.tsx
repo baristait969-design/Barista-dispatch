@@ -7,7 +7,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, getDocs, query, where, collection } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, getDocs, query, where, collection, onSnapshot } from 'firebase/firestore';
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from '../lib/firebase';
 import { UserProfile, UserRole, ModulePermissions } from '../types';
 import { INITIAL_USERS } from '../data/seedData';
@@ -19,11 +19,9 @@ interface AuthContextType {
   role: UserRole;
   loading: boolean;
   isSimulated: boolean;
-  signInWithGoogle: () => Promise<void>;
-  loginDemoRole: (role: UserRole) => void;
-  loginWithEmail: (email: string, pass: string) => Promise<void>;
+  loginWithUsername: (username: string, pass: string) => Promise<void>;
+  loginWithEmail: (emailOrUser: string, pass: string) => Promise<void>;
   updateCurrentUserPassword: (newPassword: string) => Promise<void>;
-  registerWithEmail: (email: string, pass: string, name: string, role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
   hasAccess: (module: keyof ModulePermissions, action?: 'view' | 'edit') => boolean;
   refreshProfile: () => Promise<void>;
@@ -36,9 +34,8 @@ const DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     forms: { view: true, edit: true },
     outlets: { view: true, edit: true },
     products: { view: true, edit: true },
-    users: { view: true, edit: true },
-    roles: { view: true, edit: true },
-    reports: { view: true, edit: true }
+    reports: { view: true, edit: true },
+    users: { view: true, edit: true }
   },
   editor: {
     dashboard: { view: true, edit: false },
@@ -46,31 +43,26 @@ const DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     forms: { view: true, edit: true },
     outlets: { view: true, edit: false }, // Only admin can edit, add, delete, or suspend outlets
     products: { view: true, edit: false }, // Admin manages product master catalog; Editor has view
-    users: { view: true, edit: false },
-    roles: { view: true, edit: false },
-    reports: { view: true, edit: false }
+    reports: { view: true, edit: false },
+    users: { view: true, edit: false }
   },
   viewer: {
-    // In viewer section, only reports would be visible, no other stuff
     dashboard: { view: false, edit: false },
     inventory: { view: false, edit: false },
     forms: { view: false, edit: false },
     outlets: { view: false, edit: false },
     products: { view: false, edit: false },
-    users: { view: false, edit: false },
-    roles: { view: false, edit: false },
-    reports: { view: true, edit: false }
+    reports: { view: true, edit: false },
+    users: { view: false, edit: false }
   },
   driver: {
-    // Assigned Logistics Driver: Report only visible
     dashboard: { view: false, edit: false },
     inventory: { view: false, edit: false },
     forms: { view: false, edit: false },
     outlets: { view: false, edit: false },
     products: { view: false, edit: false },
-    users: { view: false, edit: false },
-    roles: { view: false, edit: false },
-    reports: { view: true, edit: false }
+    reports: { view: true, edit: false },
+    users: { view: false, edit: false }
   }
 };
 
@@ -116,6 +108,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
+  // Real-time synchronization of active user's profile and permissions from Firestore
+  useEffect(() => {
+    if (!userProfile?.id) return;
+    const unsub = onSnapshot(doc(db, 'users', userProfile.id), (docSnap) => {
+      if (docSnap.exists()) {
+        const latest = { ...docSnap.data(), id: docSnap.id } as UserProfile;
+        // Check if account was suspended by admin
+        if (latest.status === 'suspended') {
+          setUserProfile(null);
+          setRole('viewer');
+          setIsSimulated(false);
+          localStorage.removeItem('barista_simulated_user');
+          alert('Your user account has been suspended by an Administrator. You have been signed out.');
+          return;
+        }
+        setUserProfile(latest);
+        setRole(latest.role || 'viewer');
+        localStorage.setItem('barista_simulated_user', JSON.stringify(latest));
+      }
+    }, (error) => {
+      console.warn('Real-time profile listener error:', error);
+    });
+    return () => unsub();
+  }, [userProfile?.id]);
+
   const loadOrCreateUserProfile = async (user: User) => {
     try {
       const userRef = doc(db, 'users', user.uid);
@@ -126,19 +143,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserProfile(data);
         setRole(data.role || 'viewer');
       } else {
-        // Auto-assign admin if owner email
-        const isOwnerAdmin = user.email === 'baristait969@gmail.com' || (user.email && user.email.includes('admin'));
+        const uName = user.email ? user.email.split('@')[0] : 'admin';
+        const isOwnerAdmin = uName === 'admin' || user.email?.includes('admin');
         const assignedRole: UserRole = isOwnerAdmin ? 'admin' : 'editor';
         const newProfile: UserProfile = {
           id: user.uid,
           uid: user.uid,
+          username: uName,
           userIdCode: `USR-${user.uid.slice(0, 5).toUpperCase()}`,
-          email: user.email || 'user@barista.lk',
-          displayName: user.displayName || user.email?.split('@')[0] || 'Kitchen Staff',
+          email: user.email || `${uName}@barista.lk`,
+          displayName: user.displayName || uName,
           role: assignedRole,
           designation: isOwnerAdmin ? 'QA Executive / System Admin' : 'Pastry Central Kitchen Supervisor',
           department: 'Pastry Kitchen & Central Logistics',
           permissions: DEFAULT_PERMISSIONS[assignedRole],
+          mustResetPassword: false,
           createdAt: new Date().toISOString()
         };
 
@@ -149,16 +168,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.warn('Could not sync user profile with Firestore, using fallback profile:', err);
       // Fallback
-      const isOwnerAdmin = user.email === 'baristait969@gmail.com';
+      const isOwnerAdmin = user.email?.includes('admin') || false;
       const fallbackRole: UserRole = isOwnerAdmin ? 'admin' : 'editor';
+      const uName = user.email ? user.email.split('@')[0] : 'admin';
       const profile: UserProfile = {
         id: user.uid,
         uid: user.uid,
+        username: uName,
         userIdCode: `USR-${user.uid.slice(0, 5).toUpperCase()}`,
-        email: user.email || 'user@barista.lk',
+        email: user.email || `${uName}@barista.lk`,
         displayName: user.displayName || 'Authorized User',
         role: fallbackRole,
         permissions: DEFAULT_PERMISSIONS[fallbackRole],
+        mustResetPassword: false,
         createdAt: new Date().toISOString()
       };
       setUserProfile(profile);
@@ -166,136 +188,102 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signInWithGoogle = async () => {
+  const loginWithUsername = async (usernameInput: string, pass: string) => {
     setLoading(true);
+    const cleanUser = usernameInput.trim().toLowerCase();
+    const cleanPass = pass.trim();
+
+    if (!cleanUser) {
+      setLoading(false);
+      throw new Error('Please enter your staff username or ID.');
+    }
+    if (!cleanPass) {
+      setLoading(false);
+      throw new Error('Please enter your password.');
+    }
+
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      if (result.user) {
-        setIsSimulated(false);
-        localStorage.removeItem('barista_simulated_user');
-        await loadOrCreateUserProfile(result.user);
+      let matchedUser: UserProfile | null = null;
+
+      // 1. Direct query against Firestore 'users' collection
+      try {
+        const usersSnap = await getDocs(collection(db, 'users'));
+        if (!usersSnap.empty) {
+          for (const docSnap of usersSnap.docs) {
+            const data = { ...docSnap.data(), id: docSnap.id } as UserProfile;
+            const uName = (data.username || '').toLowerCase();
+            const uCode = (data.userIdCode || '').toLowerCase();
+            const uMail = (data.email || '').toLowerCase();
+
+            if (uName === cleanUser || uCode === cleanUser || uMail === cleanUser) {
+              matchedUser = data;
+              break;
+            }
+          }
+        }
+      } catch (dbErr: any) {
+        console.warn('Could not query users collection in Firestore:', dbErr);
       }
-    } catch (error) {
-      handleFirestoreError(error, OperationType.GET, 'users');
+
+      // 2. Direct check in INITIAL_USERS fallback
+      if (!matchedUser) {
+        const demoMatch = INITIAL_USERS.find(u => 
+          (u.username && u.username.toLowerCase() === cleanUser) ||
+          (u.userIdCode && u.userIdCode.toLowerCase() === cleanUser) ||
+          (u.email && u.email.toLowerCase() === cleanUser)
+        );
+        if (demoMatch) {
+          matchedUser = demoMatch;
+        }
+      }
+
+      if (!matchedUser) {
+        throw new Error(`User account "${usernameInput}" was not found. Please verify your username or contact the Administrator.`);
+      }
+
+      // 3. Check account active status
+      if (matchedUser.status === 'suspended') {
+        throw new Error('This user account has been suspended by an Administrator. Please contact IT.');
+      }
+
+      // 4. Password verification
+      if (matchedUser.password && matchedUser.password !== cleanPass) {
+        throw new Error('Incorrect password. If you forgot your password, an Administrator can reset it for you.');
+      }
+
+      setUserProfile(matchedUser);
+      setRole(matchedUser.role || 'viewer');
+      setIsSimulated(true);
+      localStorage.setItem('barista_simulated_user', JSON.stringify(matchedUser));
+      return;
     } finally {
       setLoading(false);
     }
   };
 
-  const loginWithEmail = async (email: string, pass: string) => {
-    setLoading(true);
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanPass = pass.trim();
-
-    try {
-      // 1. Direct check in Firestore 'users' collection
-      try {
-        const userQ = query(collection(db, 'users'), where('email', '==', cleanEmail));
-        const userSnapshot = await getDocs(userQ);
-        if (!userSnapshot.empty) {
-          const userDoc = userSnapshot.docs[0];
-          const userData = { ...userDoc.data(), id: userDoc.id } as UserProfile;
-          
-          // Verify password if one is configured
-          if (userData.password && userData.password !== cleanPass) {
-            throw new Error('Incorrect password. Please verify your credentials or contact your Administrator.');
-          }
-
-          setUserProfile(userData);
-          setRole(userData.role || 'viewer');
-          setIsSimulated(true);
-          localStorage.setItem('barista_simulated_user', JSON.stringify(userData));
-          setLoading(false);
-          return;
-        }
-      } catch (dbErr: any) {
-        if (dbErr.message && dbErr.message.includes('Incorrect password')) {
-          throw dbErr;
-        }
-        console.warn('Could not query users collection fallback:', dbErr);
-      }
-
-      // 2. Direct check in INITIAL_USERS (especially baristait969@gmail.com / 123)
-      const demoMatch = INITIAL_USERS.find(u => u.email.toLowerCase() === cleanEmail);
-      if (demoMatch) {
-        if (demoMatch.password && demoMatch.password !== cleanPass) {
-          throw new Error('Incorrect password. Please verify your credentials or contact your Administrator.');
-        }
-        setUserProfile(demoMatch);
-        setRole(demoMatch.role);
-        setIsSimulated(true);
-        localStorage.setItem('barista_simulated_user', JSON.stringify(demoMatch));
-        setLoading(false);
-        return;
-      }
-
-      // 3. Fallback to Firebase Auth signInWithEmailAndPassword
-      try {
-        const cred = await signInWithEmailAndPassword(auth, email, pass);
-        if (cred.user) {
-          setIsSimulated(false);
-          localStorage.removeItem('barista_simulated_user');
-          await loadOrCreateUserProfile(cred.user);
-          return;
-        }
-      } catch (fbErr: any) {
-        throw new Error('Authentication failed. No user found with this email or password.');
-      }
-    } finally {
-      setLoading(false);
-    }
+  const loginWithEmail = async (emailOrUser: string, pass: string) => {
+    return loginWithUsername(emailOrUser, pass);
   };
 
   const updateCurrentUserPassword = async (newPassword: string) => {
     if (!userProfile) return;
+    const cleanPass = newPassword.trim();
+    if (!cleanPass) {
+      throw new Error('New password cannot be empty.');
+    }
     try {
-      await updateUserPassword(userProfile.id, newPassword);
-      const updated = { ...userProfile, password: newPassword.trim() };
+      await updateUserPassword(userProfile.id, cleanPass, true);
+      const updated: UserProfile = { 
+        ...userProfile, 
+        password: cleanPass, 
+        mustResetPassword: false 
+      };
       setUserProfile(updated);
       localStorage.setItem('barista_simulated_user', JSON.stringify(updated));
     } catch (err: any) {
       console.error('Error updating current user password:', err);
       throw err;
     }
-  };
-
-  const registerWithEmail = async (email: string, pass: string, name: string, selectedRole: UserRole) => {
-    setLoading(true);
-    try {
-      const cred = await createUserWithEmailAndPassword(auth, email, pass);
-      const newProfile: UserProfile = {
-        id: cred.user.uid,
-        uid: cred.user.uid,
-        userIdCode: `USR-${Math.floor(100 + Math.random() * 900)}`,
-        email,
-        displayName: name,
-        role: selectedRole,
-        designation: selectedRole === 'admin' ? 'QA Executive / Admin' : selectedRole === 'editor' ? 'Pastry Supervisor' : 'Store Auditor',
-        department: 'Central Kitchen & Outlets',
-        permissions: DEFAULT_PERMISSIONS[selectedRole],
-        createdAt: new Date().toISOString()
-      };
-      await setDoc(doc(db, 'users', cred.user.uid), newProfile);
-      setUserProfile(newProfile);
-      setRole(selectedRole);
-      setIsSimulated(false);
-    } catch (err) {
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loginDemoRole = (targetRole: UserRole) => {
-    const demoUser = INITIAL_USERS.find(u => u.role === targetRole) || INITIAL_USERS[0];
-    const customizedUser: UserProfile = {
-      ...demoUser,
-      permissions: DEFAULT_PERMISSIONS[targetRole]
-    };
-    setUserProfile(customizedUser);
-    setRole(targetRole);
-    setIsSimulated(true);
-    localStorage.setItem('barista_simulated_user', JSON.stringify(customizedUser));
   };
 
   const logout = async () => {
@@ -320,9 +308,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const hasAccess = (module: keyof ModulePermissions, action: 'view' | 'edit' = 'view'): boolean => {
     if (!userProfile) return false;
+    if (userProfile.status === 'suspended') return false;
+
+    // Granular permissions assigned to this user always take primary precedence
+    if (userProfile.permissions && userProfile.permissions[module] !== undefined) {
+      // Outlets edit is strictly restricted to administrator role for system safety
+      if (module === 'outlets' && action === 'edit' && userProfile.role !== 'admin') {
+        return false;
+      }
+      return !!userProfile.permissions[module]?.[action];
+    }
+
+    // Role-based defaults when no granular override is set
     if (userProfile.role === 'admin') return true;
 
-    // Strict rule: in viewer section only report would be visible not other stuff
     if (userProfile.role === 'viewer') {
       return module === 'reports' && action === 'view';
     }
@@ -332,12 +331,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
 
-    // Check custom permissions first if assigned
-    if (userProfile.permissions && userProfile.permissions[module]) {
-      return !!userProfile.permissions[module]?.[action];
-    }
-
-    // Role-based defaults
     const defaults = DEFAULT_PERMISSIONS[userProfile.role];
     if (defaults && defaults[module]) {
       return !!defaults[module][action];
@@ -354,11 +347,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role,
         loading,
         isSimulated,
-        signInWithGoogle,
-        loginDemoRole,
+        loginWithUsername,
         loginWithEmail,
         updateCurrentUserPassword,
-        registerWithEmail,
         logout,
         hasAccess,
         refreshProfile

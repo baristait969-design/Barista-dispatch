@@ -55,7 +55,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       desc: 'Batch tracking, quantities, prod & future expiration dates, dispatch temp (°C), and CSV export.',
       icon: Package,
       badge: `${batches.length} Batches`,
-      color: 'from-amber-600 to-amber-700',
+      color: 'from-[#ED5338] to-[#B02812]',
       visible: hasAccess('inventory', 'view')
     },
     {
@@ -64,7 +64,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       desc: 'Issue dispatches with multi-outlet selection, auto-time, FIFO batches, real-time inventory deduction & driver logs.',
       icon: FileText,
       badge: 'HACCP Standard',
-      color: 'from-blue-600 to-blue-700',
+      color: 'from-[#3E1812] to-[#200B07]',
       visible: hasAccess('forms', 'view')
     },
     {
@@ -73,7 +73,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       desc: 'Manage Barista branch locations, outlet IDs, contacts, and delivery destinations.',
       icon: Store,
       badge: `${outlets.length} Branches`,
-      color: 'from-emerald-600 to-emerald-700',
+      color: 'from-[#2D201C] to-[#1A1210]',
       visible: hasAccess('outlets', 'view')
     },
     {
@@ -82,26 +82,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       desc: 'Master product catalog with system-generated IDs (PRD-XX), categories, and cold-chain dispatch temperatures.',
       icon: UtensilsCrossed,
       badge: `${(products || []).length} Products`,
-      color: 'from-amber-600 to-amber-700',
+      color: 'from-[#ED5338] to-[#99220E]',
       visible: hasAccess('products', 'view')
     },
     {
       id: 'users',
       title: 'Users & Access Control',
-      desc: 'Create users with ID codes, assign roles (Admin, Editor, Viewer), and manage granular module visibility.',
+      desc: 'Create users with ID codes, assign roles (Admin, Editor, Driver, Viewer), and manage granular module visibility.',
       icon: Users,
       badge: 'User Settings',
-      color: 'from-purple-600 to-purple-700',
+      color: 'from-[#3E1812] to-[#1C0A06]',
       visible: hasAccess('users', 'view')
-    },
-    {
-      id: 'roles',
-      title: 'Roles & Permissions',
-      desc: 'View RBAC access matrix, visibility levels for each module, and security hierarchy.',
-      icon: ShieldCheck,
-      badge: 'RBAC Security',
-      color: 'from-rose-600 to-rose-700',
-      visible: hasAccess('roles', 'view')
     },
     {
       id: 'reports',
@@ -109,7 +100,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       desc: 'View submitted dispatch logs, export archives, and print official QA compliance records.',
       icon: BarChart3,
       badge: 'QA Compliance',
-      color: 'from-indigo-600 to-indigo-700',
+      color: 'from-[#D84228] to-[#781807]',
       visible: hasAccess('reports', 'view')
     }
   ];
@@ -117,12 +108,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Personalized Welcome & Account Profile Card */}
-      <div className="bg-gradient-to-r from-stone-900 via-stone-850 to-stone-900 border border-stone-800 rounded-2xl p-6 shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-80 h-full bg-amber-500/5 blur-2xl pointer-events-none" />
+      <div className="bg-gradient-to-r from-[#171311] via-[#1E1714] to-[#171311] border border-[#2E221E] rounded-2xl p-6 shadow-xl relative overflow-hidden">
+        <div className="absolute right-0 top-0 w-80 h-full bg-[#ED5338]/5 blur-2xl pointer-events-none" />
         
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div className="flex items-start space-x-4">
-            <div className="w-16 h-16 rounded-2xl bg-amber-600 flex items-center justify-center text-stone-950 font-serif font-black text-2xl shadow-lg shrink-0">
+            <div className="w-16 h-16 rounded-2xl bg-[#ED5338] flex items-center justify-center text-white font-serif font-black text-2xl shadow-lg shrink-0">
               {userProfile?.displayName ? userProfile.displayName.charAt(0).toUpperCase() : 'B'}
             </div>
             <div>
@@ -132,7 +123,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </h2>
                 <span className={`px-2 py-0.5 text-xs font-bold rounded border uppercase ${
                   role === 'admin' 
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' 
+                    ? 'bg-[#ED5338]/20 text-[#FFA594] border-[#ED5338]/40' 
                     : role === 'editor' 
                     ? 'bg-blue-500/20 text-blue-300 border-blue-500/40' 
                     : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
@@ -145,16 +136,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </p>
 
               <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-stone-300">
-                <span className="inline-flex items-center space-x-1 bg-stone-800 px-2.5 py-1 rounded-md border border-stone-700 font-mono">
+                <span className="inline-flex items-center space-x-1 bg-[#1A1412] px-2.5 py-1 rounded-md border border-[#382B25] font-mono">
                   <span className="text-stone-400">User ID:</span>
-                  <span className="text-amber-400 font-semibold">{userProfile?.userIdCode || 'USR-AUTH'}</span>
+                  <span className="text-[#FFA594] font-semibold">{userProfile?.userIdCode || 'USR-AUTH'}</span>
                 </span>
-                <span className="inline-flex items-center space-x-1 bg-stone-800 px-2.5 py-1 rounded-md border border-stone-700">
+                <span className="inline-flex items-center space-x-1 bg-[#1A1412] px-2.5 py-1 rounded-md border border-[#382B25]">
                   <span className="text-stone-400">Email:</span>
                   <span>{userProfile?.email}</span>
                 </span>
-                <span className="inline-flex items-center space-x-1 bg-stone-800 px-2.5 py-1 rounded-md border border-stone-700">
-                  <ThermometerSnowflake className="w-3.5 h-3.5 text-blue-400" />
+                <span className="inline-flex items-center space-x-1 bg-[#1A1412] px-2.5 py-1 rounded-md border border-[#382B25]">
+                  <ThermometerSnowflake className="w-3.5 h-3.5 text-[#ED5338]" />
                   <span>OPRP-2 Compliance: Active</span>
                 </span>
               </div>
@@ -164,14 +155,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex flex-col sm:flex-row gap-2 shrink-0">
             <button
               onClick={() => onNavigate('forms')}
-              className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-lg text-sm shadow-md transition flex items-center justify-center space-x-2 cursor-pointer"
+              className="px-4 py-2 bg-[#ED5338] hover:bg-[#D84228] text-white font-bold rounded-lg text-sm shadow-md shadow-[#ED5338]/25 transition flex items-center justify-center space-x-2 cursor-pointer"
             >
               <FileText className="w-4 h-4" />
               <span>New Dispatch Log</span>
             </button>
             <button
               onClick={() => onNavigate('inventory')}
-              className="px-4 py-2 bg-stone-800 hover:bg-stone-750 text-stone-200 border border-stone-700 font-medium rounded-lg text-sm transition flex items-center justify-center space-x-2 cursor-pointer"
+              className="px-4 py-2 bg-[#221B18] hover:bg-[#2F2420] text-stone-200 border border-[#382B25] font-medium rounded-lg text-sm transition flex items-center justify-center space-x-2 cursor-pointer"
             >
               <Package className="w-4 h-4" />
               <span>Stock Overview</span>
@@ -251,7 +242,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
               <button
                 onClick={() => onNavigate('inventory')}
-                className="text-xs bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold px-3 py-1.5 rounded-lg transition"
+                className="text-xs bg-[#ED5338] hover:bg-[#D84228] text-white font-bold px-3 py-1.5 rounded-lg shadow-sm transition"
               >
                 Inspect
               </button>
@@ -294,25 +285,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className="bg-stone-900 border border-stone-800 hover:border-amber-600/60 rounded-xl p-5 shadow-sm transition hover:shadow-md cursor-pointer group flex flex-col justify-between"
+                className="bg-[#171311] border border-[#2E221E] hover:border-[#ED5338]/60 rounded-xl p-5 shadow-sm transition-all hover:shadow-lg hover:shadow-[#ED5338]/5 cursor-pointer group flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <div className="w-10 h-10 rounded-lg bg-stone-800 flex items-center justify-center text-amber-400 group-hover:scale-105 transition">
+                    <div className="w-10 h-10 rounded-lg bg-[#221A17] border border-[#382B25] flex items-center justify-center text-[#ED5338] group-hover:scale-105 group-hover:bg-[#ED5338] group-hover:text-white transition-all">
                       <Icon className="w-5 h-5" />
                     </div>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-stone-800 text-stone-300 font-mono">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[#221A17] text-[#FFA594] border border-[#382B25] font-mono">
                       {item.badge}
                     </span>
                   </div>
-                  <h4 className="font-bold text-white text-base group-hover:text-amber-400 transition">
+                  <h4 className="font-bold text-white text-base group-hover:text-[#FFA594] transition">
                     {item.title}
                   </h4>
                   <p className="text-xs text-stone-400 mt-1 leading-relaxed">
                     {item.desc}
                   </p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-stone-800 flex items-center justify-between text-xs text-amber-400 font-medium">
+                <div className="mt-4 pt-3 border-t border-[#261D1A] flex items-center justify-between text-xs text-[#ED5338] font-semibold">
                   <span>Open Module</span>
                   <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition" />
                 </div>
@@ -324,15 +315,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* Recent Dispatches & HACCP OPRP-2 Protocol Card */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-stone-900 border border-stone-800 rounded-xl p-5">
+        <div className="lg:col-span-2 bg-[#171311] border border-[#2E221E] rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-white text-sm flex items-center space-x-2">
-              <FileText className="w-4 h-4 text-amber-400" />
+              <FileText className="w-4 h-4 text-[#ED5338]" />
               <span>Recent Kitchen Dispatch Logs</span>
             </h3>
             <button
               onClick={() => onNavigate('forms')}
-              className="text-xs text-amber-400 hover:underline"
+              className="text-xs text-[#FFA594] hover:text-[#ED5338] transition font-semibold"
             >
               View All ({dispatchLogs.length})
             </button>
@@ -343,16 +334,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               No dispatch logs recorded yet. Use the "Dispatch Forms" button to issue the first delivery.
             </div>
           ) : (
-            <div className="divide-y divide-stone-800">
+            <div className="divide-y divide-[#261D1A]">
               {dispatchLogs.slice(0, 4).map((log) => (
                 <div key={log.id} className="py-3 flex items-center justify-between">
                   <div>
                     <div className="flex items-center space-x-2">
                       <span className="font-bold text-white text-xs">{log.docNo}</span>
-                      <span className="text-[10px] bg-stone-800 px-1.5 py-0.2 rounded text-stone-300">
+                      <span className="text-[10px] bg-[#221A17] border border-[#382B25] px-1.5 py-0.2 rounded text-stone-300">
                         {log.date} @ {log.dispatchTime}
                       </span>
-                      <span className="text-[10px] text-amber-400 font-semibold">
+                      <span className="text-[10px] text-[#FFA594] font-semibold">
                         {log.outletNames.join(', ')}
                       </span>
                     </div>
@@ -362,7 +353,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </div>
                   <button
                     onClick={() => onNavigate('forms')}
-                    className="text-xs bg-stone-800 hover:bg-stone-750 text-stone-300 px-2.5 py-1 rounded transition"
+                    className="text-xs bg-[#221A17] hover:bg-[#2C211D] border border-[#382B25] text-stone-300 hover:text-white px-2.5 py-1 rounded transition"
                   >
                     Details
                   </button>

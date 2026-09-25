@@ -131,7 +131,8 @@ export const FormsView: React.FC<FormsViewProps> = ({
   const [lineItems, setLineItems] = useState<DispatchLineItem[]>(() => {
     const today = getTodayDate();
     const usedBatches = new Set<string>();
-    const catalog = (products && products.length > 0 ? products : INITIAL_PRODUCTS);
+    const catalog = (products && products.length > 0 ? products : INITIAL_PRODUCTS)
+      .filter(p => p.active !== false); // Exclude suspended products
 
     return catalog.slice(0, 5).map((prod, idx) => {
       const availableBatches = getAvailableFIFOBatches(prod.name, batches).filter(
@@ -157,16 +158,73 @@ export const FormsView: React.FC<FormsViewProps> = ({
     });
   });
 
+  // Automatically remove suspended products from current dispatch form when creating new dispatch
+  useEffect(() => {
+    if (editingLogId) return; // Do not alter historical logs being edited
+    const suspendedNames = new Set(
+      (products || [])
+        .filter(p => p.active === false)
+        .map(p => p.name.trim().toLowerCase())
+    );
+    if (suspendedNames.size === 0) return;
+
+    setLineItems(prev => {
+      const hasSuspended = prev.some(r => r.productName && suspendedNames.has(r.productName.trim().toLowerCase()));
+      if (!hasSuspended) return prev;
+
+      const remaining = prev.filter(r => !r.productName || !suspendedNames.has(r.productName.trim().toLowerCase()));
+      if (remaining.length === 0) {
+        return [{
+          id: `row-0-${Date.now()}`,
+          productName: '',
+          batchNo: '',
+          batchId: undefined,
+          dispatchTime: getCurrentTime(),
+          prodDate: getTodayDate(),
+          useByDate: getTodayDate(),
+          dispatchTemp: 3.5,
+          quantity: 0,
+          availableStock: 0,
+          isCustom: true
+        }];
+      }
+      return remaining;
+    });
+  }, [products, editingLogId]);
+
+  // Automatically remove suspended outlets from selected outlets when creating a new dispatch
+  useEffect(() => {
+    if (editingLogId) return; // Do not alter historical logs being edited
+    const suspendedOutletIds = new Set(
+      outlets.filter(o => o.active === false).map(o => o.id)
+    );
+    if (suspendedOutletIds.size === 0) return;
+
+    setSelectedOutletIds(prev => {
+      const remaining = prev.filter(id => !suspendedOutletIds.has(id));
+      if (remaining.length !== prev.length) {
+        return remaining;
+      }
+      return prev;
+    });
+  }, [outlets, editingLogId]);
+
   // Auto-sync batches when inventory stock changes (e.g. after submitting dispatches or adding batches)
   // Ensures exhausted batches (quantity = 0) are automatically replaced by the next oldest batch with stock
   useEffect(() => {
     if (editingLogId) return; // Don't override while loading a specific historical log
 
+    const suspendedNames = new Set(
+      (products || [])
+        .filter(p => p.active === false)
+        .map(p => p.name.trim().toLowerCase())
+    );
+
     setLineItems(prev => {
       const usedBatchesInForm = new Set<string>();
 
       return prev.map(row => {
-        if (!row.productName) return row;
+        if (!row.productName || suspendedNames.has(row.productName.trim().toLowerCase())) return row;
         const availableBatches = getAvailableFIFOBatches(row.productName, batches);
         const currentBatch = batches.find(b => b.batchNo === row.batchNo);
 
@@ -206,7 +264,7 @@ export const FormsView: React.FC<FormsViewProps> = ({
         };
       });
     });
-  }, [batches, editingLogId]);
+  }, [batches, products, editingLogId]);
 
   // Handler: Top dispatch time change with auto-fill option
   const handleTopDispatchTimeChange = (newTime: string, applyToAll = syncTimeToRows) => {
@@ -247,8 +305,13 @@ export const FormsView: React.FC<FormsViewProps> = ({
     }
   };
 
-  // Toggle Outlet in Multi-select (allows deselecting all)
+  // Toggle Outlet in Multi-select (strictly blocks suspended outlets when creating dispatch)
   const toggleOutlet = (outletId: string) => {
+    const targetOutlet = outlets.find(o => o.id === outletId);
+    if (!editingLogId && targetOutlet && targetOutlet.active === false) {
+      alert(`Outlet "${targetOutlet.name}" is currently suspended and cannot receive dispatches.`);
+      return;
+    }
     if (selectedOutletIds.includes(outletId)) {
       setSelectedOutletIds(selectedOutletIds.filter(id => id !== outletId));
     } else {
@@ -257,7 +320,9 @@ export const FormsView: React.FC<FormsViewProps> = ({
   };
 
   const selectAllOutlets = () => {
-    setSelectedOutletIds(outlets.map(o => o.id));
+    // Only select active operational outlets, strictly excluding suspended outlets
+    const activeOutlets = outlets.filter(o => o.active !== false);
+    setSelectedOutletIds(activeOutlets.map(o => o.id));
   };
 
   // Reset Outlet Selection completely clears selected outlets
@@ -266,22 +331,42 @@ export const FormsView: React.FC<FormsViewProps> = ({
     setOutletSearch('');
   };
 
-  // Unique list of all available products from seed and existing inventory batches
+  // Unique list of all available active products (strictly excluding any suspended products)
   const allAvailableProducts = useMemo(() => {
+    const suspendedNames = new Set(
+      (products || [])
+        .filter(p => p.active === false)
+        .map(p => p.name.trim().toLowerCase())
+    );
+
     const set = new Set<string>();
-    if (products && products.length > 0) {
-      products.forEach(p => {
-        if (p.active) set.add(p.name);
-      });
-    }
-    INITIAL_PRODUCTS.forEach(p => set.add(p.name));
-    batches.forEach(b => {
-      if (b.productName) set.add(b.productName);
+    const sourceList = (products && products.length > 0 ? products : INITIAL_PRODUCTS);
+    sourceList.forEach(p => {
+      const trimmed = p.name.trim();
+      if (p.active !== false && !suspendedNames.has(trimmed.toLowerCase())) {
+        set.add(trimmed);
+      }
     });
-    return Array.from(set);
+
+    // Also add from existing inventory batches ONLY IF not in suspended products
+    batches.forEach(b => {
+      if (b.productName) {
+        const trimmed = b.productName.trim();
+        if (!suspendedNames.has(trimmed.toLowerCase())) {
+          const prodInCatalog = (products || []).find(
+            p => p.name.trim().toLowerCase() === trimmed.toLowerCase()
+          );
+          if (!prodInCatalog || prodInCatalog.active !== false) {
+            set.add(trimmed);
+          }
+        }
+      }
+    });
+
+    return Array.from(set).sort();
   }, [products, batches]);
 
-  // Reset entire form back to defaults
+  // Reset entire form back to defaults (excluding suspended products and suspended outlets)
   const handleResetEntireForm = () => {
     setSelectedOutletIds([]);
     setOutletSearch('');
@@ -290,7 +375,13 @@ export const FormsView: React.FC<FormsViewProps> = ({
     setNotes('');
     const today = getTodayDate();
     const usedBatches = new Set<string>();
-    const catalog = (products && products.length > 0 ? products : INITIAL_PRODUCTS);
+    const suspendedNames = new Set(
+      (products || [])
+        .filter(p => p.active === false)
+        .map(p => p.name.trim().toLowerCase())
+    );
+    const catalog = (products && products.length > 0 ? products : INITIAL_PRODUCTS)
+      .filter(p => p.active !== false && !suspendedNames.has(p.name.trim().toLowerCase()));
 
     setLineItems(
       catalog.slice(0, 5).map((prod, idx) => {
@@ -341,6 +432,16 @@ export const FormsView: React.FC<FormsViewProps> = ({
           return row;
         })
       );
+      return;
+    }
+
+    // Strictly prevent selection of suspended products
+    const isSuspended = (products || []).some(
+      p => p.active === false && p.name.trim().toLowerCase() === trimmed.toLowerCase()
+    );
+    if (isSuspended) {
+      alert(`Product "${trimmed}" is currently suspended and cannot be dispatched.`);
+      handleClearProduct(rowId);
       return;
     }
 
@@ -540,11 +641,23 @@ export const FormsView: React.FC<FormsViewProps> = ({
     .filter(o => selectedOutletIds.includes(o.id))
     .map(o => o.name);
 
-  const filteredOutlets = outlets.filter(o => 
-    o.name.toLowerCase().includes(outletSearch.toLowerCase()) ||
-    o.outletId.toLowerCase().includes(outletSearch.toLowerCase()) ||
-    (o.location ? o.location.toLowerCase().includes(outletSearch.toLowerCase()) : false)
-  );
+  // Filter Outlets: When creating a new dispatch, strictly hide suspended outlets!
+  const filteredOutlets = outlets.filter(o => {
+    // When creating new dispatch, do not show suspended outlets
+    if (!editingLogId && o.active === false) {
+      return false;
+    }
+    // If editing a historical log, only show a suspended outlet if it was already selected in that log
+    if (editingLogId && o.active === false && !selectedOutletIds.includes(o.id)) {
+      return false;
+    }
+
+    return (
+      o.name.toLowerCase().includes(outletSearch.toLowerCase()) ||
+      o.outletId.toLowerCase().includes(outletSearch.toLowerCase()) ||
+      (o.location ? o.location.toLowerCase().includes(outletSearch.toLowerCase()) : false)
+    );
+  });
 
   // Dynamic sorting: selected outlets come up to the top, and when deselected return to their original sequential place
   const displayOutlets = useMemo(() => {
@@ -577,9 +690,28 @@ export const FormsView: React.FC<FormsViewProps> = ({
       return;
     }
 
+    // Safety check: ensure no suspended outlet was selected
+    const suspendedChosenOutlets = outlets.filter(
+      o => selectedOutletIds.includes(o.id) && o.active === false
+    );
+    if (suspendedChosenOutlets.length > 0) {
+      alert(`Cannot dispatch to suspended outlet(s): ${suspendedChosenOutlets.map(o => o.name).join(', ')}. Please deselect them before submitting.`);
+      return;
+    }
+
     const activeItems = lineItems.filter(i => i.quantity > 0);
     if (activeItems.length === 0) {
       alert('Please enter a quantity (> 0) for at least one product row to dispatch.');
+      return;
+    }
+
+    // Safety check: ensure no suspended product was included
+    const suspendedProdNames = new Set(
+      (products || []).filter(p => p.active === false).map(p => p.name.trim().toLowerCase())
+    );
+    const suspendedActiveItems = activeItems.filter(i => suspendedProdNames.has(i.productName.trim().toLowerCase()));
+    if (suspendedActiveItems.length > 0) {
+      alert(`Cannot dispatch suspended product(s): ${suspendedActiveItems.map(i => i.productName).join(', ')}. Please remove them from the dispatch form.`);
       return;
     }
 
@@ -1007,6 +1139,11 @@ export const FormsView: React.FC<FormsViewProps> = ({
                           Compulsory: Select Outlet
                         </span>
                       )}
+                      {outlets.some(o => o.active === false) && (
+                        <span className="text-[10px] text-stone-400 font-mono hidden sm:inline">
+                          ({outlets.filter(o => o.active === false).length} suspended excluded)
+                        </span>
+                      )}
                     </label>
                     <div className="flex items-center space-x-2 print:hidden text-[11px]">
                       <button
@@ -1046,6 +1183,13 @@ export const FormsView: React.FC<FormsViewProps> = ({
                       <p className="text-amber-400 font-semibold">No outlets registered in system yet.</p>
                       <p className="text-[11px] text-stone-400">
                         Please go to the <strong>Retail Outlets</strong> tab to sync or add your branch list.
+                      </p>
+                    </div>
+                  ) : displayOutlets.length === 0 ? (
+                    <div className="p-3 text-center text-xs text-stone-400 bg-stone-900 border border-stone-800 rounded-xl space-y-1">
+                      <p className="text-amber-400 font-semibold">No active operational outlets available.</p>
+                      <p className="text-[11px] text-stone-400">
+                        {outletSearch ? 'No active outlets match your search query.' : 'All registered outlets are currently suspended. Please reactivate in the Retail Outlets tab.'}
                       </p>
                     </div>
                   ) : (

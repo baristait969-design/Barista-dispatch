@@ -1,24 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
-  <defs>
-    <radialGradient id="bgGrad" cx="35%" cy="30%" r="70%">
-      <stop offset="0%" stop-color="#2c1a11"/>
-      <stop offset="100%" stop-color="#120a06"/>
-    </radialGradient>
-    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fbbf24"/>
-      <stop offset="50%" stop-color="#d97706"/>
-      <stop offset="100%" stop-color="#b45309"/>
-    </linearGradient>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000">
+  <!-- Barista Signature Coral Orange Circular Base (#ED5338) -->
+  <circle cx="500" cy="500" r="500" fill="#ED5338" />
 
-  <!-- Outer Dark Circle Badge -->
-  <circle cx="50" cy="50" r="48" fill="url(#bgGrad)" stroke="url(#goldGrad)" stroke-width="3"/>
-  <circle cx="50" cy="50" r="44" fill="none" stroke="#d97706" stroke-width="0.75" stroke-dasharray="2,2" opacity="0.6"/>
+  <!-- Letter 'B' -->
+  <path d="M 125 330 H 202 C 235 330 252 350 252 385 C 252 414 235 432 208 443 C 241 454 258 474 258 510 C 258 558 228 588 192 588 H 125 V 330 Z M 167 369 V 433 H 194 C 213 433 222 422 222 402 C 222 381 213 369 194 369 H 167 Z M 167 468 V 549 H 197 C 217 549 228 537 228 508 C 228 480 217 468 197 468 H 167 Z" fill="#FFFFFF" />
 
-  <!-- Coffee Swirl / Bean Stylized Emblem (Barista signature) -->
-  <path d="M 50 20 C 35 20, 24 31, 24 46 C 24 64, 38 78, 50 80 C 47 70, 48 58, 53 50 C 58 42, 67 36, 68 28 C 65 23, 58 20, 50 20 Z" fill="url(#goldGrad)"/>
-  <path d="M 50 80 C 65 80, 76 69, 76 54 C 76 36, 62 22, 50 20 C 53 30, 52 42, 47 50 C 42 58, 33 64, 32 72 C 35 77, 42 80, 50 80 Z" fill="#fbbf24" opacity="0.9"/>
-  
-  <!-- Central Espresso Flow Curve -->
-  <path d="M 49 23 C 51 35, 43 45, 45 57 C 47 67, 53 74, 51 77" fill="none" stroke="#120a06" stroke-width="3" stroke-linecap="round"/>
+  <!-- Letter 'A' -->
+  <path d="M 292 330 H 332 L 398 588 H 356 L 343 529 H 277 L 264 588 H 225 L 292 330 Z M 335 491 L 312 386 L 289 491 H 335 Z" fill="#FFFFFF" />
+
+  <!-- Letter 'R' -->
+  <path d="M 412 330 H 488 C 522 330 539 350 539 392 C 539 427 523 448 497 457 L 546 588 H 504 L 460 467 H 452 V 588 H 412 V 330 Z M 452 368 V 435 H 482 C 500 435 510 424 510 402 C 510 380 500 368 482 368 H 452 Z" fill="#FFFFFF" />
+
+  <!-- Letter 'I' -->
+  <path d="M 552 330 H 591 V 588 H 552 V 330 Z" fill="#FFFFFF" />
+
+  <!-- Letter 'S' (Raised compact glyph) -->
+  <path d="M 608 376 C 608 344 626 330 659 330 C 692 330 710 346 710 378 C 710 406 692 419 668 429 C 639 441 628 451 628 471 C 628 490 641 501 661 501 C 681 501 695 489 696 466 H 725 C 723 506 703 526 661 526 C 622 526 601 505 601 469 C 601 439 619 424 643 414 C 672 402 681 392 681 376 C 681 359 670 351 657 351 C 641 351 634 362 634 376 H 608 Z" fill="#FFFFFF" />
+
+  <!-- Dark Espresso Underline Bar under IS (#3E1812) -->
+  <rect x="552" y="544" width="170" height="24" rx="3" fill="#3E1812" />
+
+  <!-- Letter 'T' -->
+  <path d="M 726 330 H 832 V 368 H 799 V 588 H 759 V 368 H 726 V 330 Z" fill="#FFFFFF" />
+
+  <!-- Letter 'A' (Final) -->
+  <path d="M 855 330 H 895 L 961 588 H 919 L 906 529 H 840 L 827 588 H 788 L 855 330 Z M 898 491 L 875 386 L 852 491 H 898 Z" fill="#FFFFFF" />
 </svg>

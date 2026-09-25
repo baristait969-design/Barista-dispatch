@@ -6,17 +6,20 @@ export interface ModulePermissions {
   forms: { view: boolean; edit: boolean };
   outlets: { view: boolean; edit: boolean };
   products: { view: boolean; edit: boolean };
-  users: { view: boolean; edit: boolean };
-  roles: { view: boolean; edit: boolean };
   reports: { view: boolean; edit: boolean };
+  users: { view: boolean; edit: boolean };
 }
 
 export interface UserProfile {
   id: string;
   uid: string;
-  userIdCode?: string; // Custom employee / user ID (e.g. EMP-101)
-  email: string;
+  username: string; // Staff username for authentication (e.g. 'admin', 'kamal', 'dineth')
+  userIdCode?: string; // Custom employee / user ID (e.g. USR-ADM-01)
+  email?: string;
   password?: string;
+  mustResetPassword?: boolean; // Flag if one-time temporary password was set by admin
+  tempPasswordSetAt?: string;
+  status?: 'active' | 'suspended'; // Account access status - suspended users cannot log in
   displayName: string;
   role: UserRole;
   permissions?: Partial<ModulePermissions>;

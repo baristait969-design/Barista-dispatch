@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   Users, 
@@ -6,34 +6,43 @@ import {
   ShieldCheck, 
   Edit, 
   Trash2, 
-  Key, 
   Check, 
   X, 
   Sliders, 
   CheckCircle2, 
   Lock, 
   AlertCircle,
-  Eye,
-  EyeOff,
-  KeyRound,
-  ShieldAlert
+  KeyRound, 
+  ShieldAlert, 
+  Sparkles,
+  Search,
+  UserCheck,
+  UserX,
+  Filter
 } from 'lucide-react';
 import { UserProfile, UserRole, ModulePermissions } from '../types';
 import { 
   createNewUser, 
   updateUserRoleAndPermissions, 
-  updateUserPassword, 
-  deleteUserRecord 
+  deleteUserRecord,
+  toggleUserStatus
 } from '../services/dataService';
+import { INITIAL_USERS } from '../data/seedData';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { UserPasswordResetModal } from './UserPasswordResetModal';
 
 interface UsersViewProps {
   usersList: UserProfile[];
 }
 
 export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
-  const { role, userProfile, updateCurrentUserPassword } = useAuth();
+  const { role, userProfile } = useAuth();
   const isAdmin = role === 'admin';
+
+  // Search & Filters State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -41,12 +50,6 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
   const [passwordModalUser, setPasswordModalUser] = useState<UserProfile | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // Password reset state
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPass, setShowPass] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   // General feedback
   const [submitting, setSubmitting] = useState(false);
@@ -67,78 +70,87 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
     return `USR-${rolePrefix}-${String(nextNum).padStart(2, '0')}`;
   };
 
+  // Helper to generate a friendly one-time password
+  const generateRandomTempPass = () => {
+    const digits = Math.floor(1000 + Math.random() * 9000);
+    return `Barista#${digits}`;
+  };
+
+  // Default permissions factory
+  const getDefaultPermissionsForRole = (r: UserRole): ModulePermissions => {
+    switch (r) {
+      case 'admin':
+        return {
+          dashboard: { view: true, edit: true },
+          inventory: { view: true, edit: true },
+          forms: { view: true, edit: true },
+          outlets: { view: true, edit: true },
+          products: { view: true, edit: true },
+          reports: { view: true, edit: true },
+          users: { view: true, edit: true }
+        };
+      case 'editor':
+        return {
+          dashboard: { view: true, edit: false },
+          inventory: { view: true, edit: true },
+          forms: { view: true, edit: true },
+          outlets: { view: true, edit: false },
+          products: { view: true, edit: false },
+          reports: { view: true, edit: false },
+          users: { view: false, edit: false }
+        };
+      case 'driver':
+        return {
+          dashboard: { view: false, edit: false },
+          inventory: { view: false, edit: false },
+          forms: { view: false, edit: false },
+          outlets: { view: false, edit: false },
+          products: { view: false, edit: false },
+          reports: { view: true, edit: false },
+          users: { view: false, edit: false }
+        };
+      case 'viewer':
+      default:
+        return {
+          dashboard: { view: false, edit: false },
+          inventory: { view: false, edit: false },
+          forms: { view: false, edit: false },
+          outlets: { view: false, edit: false },
+          products: { view: false, edit: false },
+          reports: { view: true, edit: false },
+          users: { view: false, edit: false }
+        };
+    }
+  };
+
   // New User Form State
   const [formData, setFormData] = useState(() => ({
     userIdCode: `USR-EDT-${String(Math.max(4, usersList.length + 1)).padStart(2, '0')}`,
+    username: '',
     displayName: '',
     email: '',
-    password: '123',
+    password: generateRandomTempPass(),
     role: 'editor' as UserRole,
     designation: 'Pastry Kitchen Supervisor',
     department: 'Central Kitchen & Logistics',
-    permissions: {
-      dashboard: { view: true, edit: false },
-      inventory: { view: true, edit: true },
-      forms: { view: true, edit: true },
-      outlets: { view: true, edit: false }, // Only admin can edit outlets
-      products: { view: true, edit: false }, // Only admin can edit products
-      users: { view: false, edit: false },
-      roles: { view: false, edit: false },
-      reports: { view: true, edit: false }
-    }
+    permissions: getDefaultPermissionsForRole('editor')
   }));
 
-  // Edit User optional password field
-  const [editUserPassword, setEditUserPassword] = useState('');
+  // Edit User status (password input removed per request)
+  const [editUserStatus, setEditUserStatus] = useState<'active' | 'suspended'>('active');
+
+  // Real-time username collision check against both current users list and initial seed users
+  const isUsernameTaken = useMemo(() => {
+    const clean = formData.username.trim().toLowerCase().replace(/\s+/g, '_');
+    if (!clean) return false;
+    return (
+      usersList.some((u) => (u.username || '').toLowerCase() === clean || (u.userIdCode || '').toLowerCase() === clean) ||
+      INITIAL_USERS.some((u) => (u.username || '').toLowerCase() === clean || (u.userIdCode || '').toLowerCase() === clean)
+    );
+  }, [formData.username, usersList]);
 
   const handleRoleChangeInForm = (newRole: UserRole) => {
-    let perms: ModulePermissions;
-    if (newRole === 'admin') {
-      perms = {
-        dashboard: { view: true, edit: true },
-        inventory: { view: true, edit: true },
-        forms: { view: true, edit: true },
-        outlets: { view: true, edit: true },
-        products: { view: true, edit: true },
-        users: { view: true, edit: true },
-        roles: { view: true, edit: true },
-        reports: { view: true, edit: true }
-      };
-    } else if (newRole === 'editor') {
-      perms = {
-        dashboard: { view: true, edit: false },
-        inventory: { view: true, edit: true },
-        forms: { view: true, edit: true },
-        outlets: { view: true, edit: false },
-        products: { view: true, edit: false },
-        users: { view: true, edit: false },
-        roles: { view: true, edit: false },
-        reports: { view: true, edit: false }
-      };
-    } else if (newRole === 'driver') {
-      perms = {
-        dashboard: { view: false, edit: false },
-        inventory: { view: false, edit: false },
-        forms: { view: false, edit: false },
-        outlets: { view: false, edit: false },
-        products: { view: false, edit: false },
-        users: { view: false, edit: false },
-        roles: { view: false, edit: false },
-        reports: { view: true, edit: false } // Driver: report only visible
-      };
-    } else {
-      perms = {
-        dashboard: { view: false, edit: false },
-        inventory: { view: false, edit: false },
-        forms: { view: false, edit: false },
-        outlets: { view: false, edit: false },
-        products: { view: false, edit: false },
-        users: { view: false, edit: false },
-        roles: { view: false, edit: false },
-        reports: { view: true, edit: false } // Viewer section only report visible and printable
-      };
-    }
-
+    const perms = getDefaultPermissionsForRole(newRole);
     setFormData(prev => ({
       ...prev,
       role: newRole,
@@ -153,7 +165,12 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
     const nextCode = generateSystemUserId(formData.role, usersList);
     setFormData(prev => ({
       ...prev,
-      userIdCode: nextCode
+      userIdCode: nextCode,
+      username: '',
+      displayName: '',
+      email: '',
+      password: generateRandomTempPass(),
+      permissions: getDefaultPermissionsForRole(prev.role)
     }));
     setShowAddModal(true);
   };
@@ -164,17 +181,39 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
       alert('Security violation: Only Administrators can create staff users.');
       return;
     }
+
+    const cleanUsername = formData.username.trim().toLowerCase().replace(/\s+/g, '_');
+    if (!cleanUsername) {
+      alert('Please enter a valid staff username (no spaces).');
+      return;
+    }
+
+    // Check username uniqueness
+    if (isUsernameTaken) {
+      alert(`The username "${cleanUsername}" is already in use by another staff member. Please choose a different username.`);
+      return;
+    }
+
+    const userPassword = formData.password.trim();
+    if (!userPassword) {
+      alert('Please provide a password for the user.');
+      return;
+    }
+
     setSubmitting(true);
     setActionSuccess(null);
     try {
-      // Ensure system generated User ID is always assigned
       const assignedUserIdCode = formData.userIdCode || generateSystemUserId(formData.role, usersList);
       await createNewUser({
         uid: `usr-${Date.now()}`,
+        username: cleanUsername,
         userIdCode: assignedUserIdCode,
-        displayName: formData.displayName,
-        email: formData.email.trim().toLowerCase(),
-        password: formData.password.trim() || '123',
+        displayName: formData.displayName.trim(),
+        email: formData.email.trim().toLowerCase() || `${cleanUsername}@barista.lk`,
+        password: userPassword,
+        mustResetPassword: false,
+        tempPasswordSetAt: new Date().toISOString(),
+        status: 'active',
         role: formData.role,
         designation: formData.designation,
         department: formData.department,
@@ -182,30 +221,22 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
         createdAt: new Date().toISOString()
       });
       
-      const createdMsg = `Staff account created! User ID: ${assignedUserIdCode} • Assigned Role: ${formData.role.toUpperCase()} • Password: ${formData.password || '123'}`;
+      const createdMsg = `Staff account created! Username: ${cleanUsername} • Password: "${userPassword}".`;
       setActionSuccess(createdMsg);
       setShowAddModal(false);
 
-      // Reset form with new system code for next user
+      // Reset form for next user
       const nextRole = 'editor';
       setFormData({
         userIdCode: generateSystemUserId(nextRole, [...usersList, { id: 'temp', userIdCode: assignedUserIdCode } as any]),
+        username: '',
         displayName: '',
         email: '',
-        password: '123',
+        password: generateRandomTempPass(),
         role: nextRole,
         designation: 'Pastry Kitchen Supervisor',
         department: 'Central Kitchen & Logistics',
-        permissions: {
-          dashboard: { view: true, edit: false },
-          inventory: { view: true, edit: true },
-          forms: { view: true, edit: true },
-          outlets: { view: true, edit: false },
-          products: { view: true, edit: false },
-          users: { view: false, edit: false },
-          roles: { view: false, edit: false },
-          reports: { view: true, edit: false }
-        }
+        permissions: getDefaultPermissionsForRole(nextRole)
       });
     } catch (err: any) {
       alert('Error creating user: ' + err.message);
@@ -227,17 +258,17 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
         editingUser.role,
         editingUser.permissions,
         editingUser.userIdCode,
-        editUserPassword.trim().length > 0 ? editUserPassword.trim() : undefined
+        undefined,
+        {
+          displayName: editingUser.displayName,
+          designation: editingUser.designation,
+          department: editingUser.department,
+          status: editUserStatus
+        }
       );
 
-      // If current user's password was updated
-      if (editUserPassword.trim().length > 0 && userProfile?.id === editingUser.id) {
-        await updateCurrentUserPassword(editUserPassword.trim());
-      }
-
-      setActionSuccess(`Permissions and details updated successfully for ${editingUser.displayName}!`);
+      setActionSuccess(`Permissions and account details updated successfully for ${editingUser.displayName}!`);
       setEditingUser(null);
-      setEditUserPassword('');
     } catch (err: any) {
       alert('Error updating user: ' + err.message);
     } finally {
@@ -245,52 +276,38 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
     }
   };
 
-  const handleSavePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!passwordModalUser) return;
+  // Direct, working suspend / reactivate action
+  const handleToggleUserActiveStatus = async (user: UserProfile) => {
     if (!isAdmin) {
-      alert('Security violation: Only Administrators can change staff passwords.');
+      alert('Security violation: Only Administrators can change staff account status.');
       return;
     }
-
-    if (newPassword.trim().length === 0) {
-      setPasswordError('Please enter a valid password.');
+    if (userProfile?.id === user.id) {
+      alert('Safety Lock: You cannot suspend your own active Administrator session.');
       return;
     }
-
-    if (newPassword !== confirmPassword) {
-      setPasswordError('Passwords do not match. Please re-check.');
-      return;
-    }
-
-    setSubmitting(true);
-    setPasswordError(null);
+    const currentStatus = user.status || 'active';
+    const nextStatus = currentStatus === 'active' ? 'suspended' : 'active';
 
     try {
-      await updateUserPassword(passwordModalUser.id, newPassword.trim());
-
-      // If updating current logged in user's password
-      if (userProfile && (userProfile.id === passwordModalUser.id || userProfile.email === passwordModalUser.email)) {
-        await updateCurrentUserPassword(newPassword.trim());
-      }
-
-      setActionSuccess(`Password successfully changed for ${passwordModalUser.displayName} (${passwordModalUser.email})! New password is now active.`);
-      setPasswordModalUser(null);
-      setNewPassword('');
-      setConfirmPassword('');
+      await toggleUserStatus(user.id, nextStatus, user);
+      setActionSuccess(`Account for "${user.displayName}" is now ${nextStatus.toUpperCase()}. ${nextStatus === 'suspended' ? 'Access has been revoked immediately.' : 'User can now sign in.'}`);
     } catch (err: any) {
-      setPasswordError('Failed to change password: ' + err.message);
-    } finally {
-      setSubmitting(false);
+      alert('Error updating status: ' + err.message);
     }
   };
 
   const handleConfirmDeleteUser = async () => {
     if (!userToDelete) return;
+    if (userProfile?.id === userToDelete.id) {
+      alert('Safety Lock: You cannot delete your own active Administrator account.');
+      setUserToDelete(null);
+      return;
+    }
     setIsDeleting(true);
     try {
       await deleteUserRecord(userToDelete.id);
-      setActionSuccess(`User "${userToDelete.displayName}" has been removed from the system.`);
+      setActionSuccess(`User account "${userToDelete.displayName}" has been permanently removed.`);
       setUserToDelete(null);
     } catch (err: any) {
       alert('Error removing user: ' + err.message);
@@ -300,7 +317,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
   };
 
   const togglePermission = (module: keyof ModulePermissions, type: 'view' | 'edit') => {
-    if (!isAdmin) return; // Strictly Administrator only
+    if (!isAdmin) return;
 
     if (module === 'outlets' && type === 'edit') {
       alert('Security Policy: Only Administrators can create, edit, suspend, or delete retail outlets.');
@@ -312,13 +329,18 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
         if (!prev) return null;
         const currentPerms = (prev.permissions || {}) as any;
         const modulePerms = currentPerms[module] || { view: false, edit: false };
+        const updatedVal = !modulePerms[type];
+        
+        const newView = type === 'view' ? updatedVal : (updatedVal ? true : modulePerms.view);
+        const newEdit = type === 'edit' ? updatedVal : (updatedVal ? modulePerms.edit : false);
+
         return {
           ...prev,
           permissions: {
             ...currentPerms,
             [module]: {
-              ...modulePerms,
-              [type]: !modulePerms[type]
+              view: newView,
+              edit: newEdit
             }
           }
         };
@@ -327,13 +349,18 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
       setFormData(prev => {
         const currentPerms = prev.permissions as any;
         const modulePerms = currentPerms[module] || { view: false, edit: false };
+        const updatedVal = !modulePerms[type];
+
+        const newView = type === 'view' ? updatedVal : (updatedVal ? true : modulePerms.view);
+        const newEdit = type === 'edit' ? updatedVal : (updatedVal ? modulePerms.edit : false);
+
         return {
           ...prev,
           permissions: {
             ...currentPerms,
             [module]: {
-              ...modulePerms,
-              [type]: !modulePerms[type]
+              view: newView,
+              edit: newEdit
             }
           }
         };
@@ -341,16 +368,37 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
     }
   };
 
-  const modulesList: { key: keyof ModulePermissions; label: string }[] = [
-    { key: 'dashboard', label: 'Dashboard Module' },
-    { key: 'inventory', label: 'Inventory (Batches, Stock, Dates)' },
-    { key: 'forms', label: 'Dispatch Forms (BCL/REC/HACCP/32)' },
-    { key: 'outlets', label: 'Outlets Directory' },
-    { key: 'products', label: 'Products Master Catalog' },
-    { key: 'users', label: 'Users Settings & Creation' },
-    { key: 'roles', label: 'Roles Matrix & Security' },
-    { key: 'reports', label: 'QA Compliance Reports' },
+  const modulesList: { key: keyof ModulePermissions; label: string; desc: string }[] = [
+    { key: 'dashboard', label: 'Dashboard Module', desc: 'KPI summaries, quick navigation, daily metrics' },
+    { key: 'inventory', label: 'Inventory (Batches, Stock, Dates)', desc: 'Batches, stock levels, production & use-by dates' },
+    { key: 'forms', label: 'Dispatch Forms (BCL/REC/HACCP/32)', desc: 'Dispatch creation, cold-chain checks, driver assignment' },
+    { key: 'outlets', label: 'Outlets Directory', desc: 'Branch locations & destination management' },
+    { key: 'products', label: 'Products Master Catalog', desc: 'Master product records, shelf lives, standard temperatures' },
+    { key: 'reports', label: 'QA Compliance Reports', desc: 'Dispatched logs, temperature analytics, printable sheets' },
+    { key: 'users', label: 'Users Settings & Creation', desc: 'Staff account provisioning, passwords, and access control' },
   ];
+
+  // Filtered Users List
+  const filteredUsers = useMemo(() => {
+    return usersList.filter(u => {
+      const matchSearch = 
+        !searchTerm.trim() ||
+        (u.displayName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (u.username || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (u.userIdCode || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (u.designation || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (u.department || '').toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchRole = roleFilter === 'all' || u.role === roleFilter;
+      const status = u.status || 'active';
+      const matchStatus = statusFilter === 'all' || status === statusFilter;
+
+      return matchSearch && matchRole && matchStatus;
+    });
+  }, [usersList, searchTerm, roleFilter, statusFilter]);
+
+  const activeCount = usersList.filter(u => (u.status || 'active') === 'active').length;
+  const suspendedCount = usersList.filter(u => u.status === 'suspended').length;
 
   return (
     <div className="space-y-6">
@@ -358,33 +406,17 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-stone-900 border border-stone-800 rounded-2xl p-6">
         <div>
           <div className="flex items-center space-x-2">
-            <h2 className="text-xl sm:text-2xl font-bold text-white">Users & Role Access Control</h2>
-            <span className="text-xs bg-stone-800 px-2 py-0.5 rounded text-amber-400 font-mono">
+            <h2 className="text-xl sm:text-2xl font-bold text-white">Staff Users & Access Control</h2>
+            <span className="text-xs bg-stone-800 px-2.5 py-0.5 rounded-full text-amber-400 font-mono font-bold">
               {usersList.length} Accounts
             </span>
           </div>
           <p className="text-xs text-stone-400 mt-1">
-            Exclusive administration section: Provision accounts, change passwords, and configure role permissions.
+            Enterprise administration: Provision staff accounts, set passwords, suspend/reactivate access, and configure granular module visibility.
           </p>
         </div>
 
         <div className="flex items-center space-x-2">
-          {/* Quick password change for currently signed-in user / Administrator */}
-          {userProfile && (
-            <button
-              onClick={() => {
-                setPasswordModalUser(userProfile);
-                setNewPassword('');
-                setConfirmPassword('');
-                setPasswordError(null);
-              }}
-              className="px-3 py-2 bg-stone-800 hover:bg-stone-750 border border-stone-700 hover:border-amber-500/50 text-stone-200 font-medium rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer"
-            >
-              <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-              <span>Change My Password</span>
-            </button>
-          )}
-
           {isAdmin ? (
             <button
               onClick={handleOpenCreateModal}
@@ -417,19 +449,87 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
           <strong className="text-white">Access Governance:</strong>{' '}
           {isAdmin ? (
             <span>
-              You are signed in as <strong>Administrator ({userProfile?.email})</strong>. You have exclusive authority to create staff accounts, change/reset passwords for any user, and adjust granular module permissions.
+              You are signed in as <strong>Administrator ({userProfile?.username || 'admin'})</strong>. You have exclusive authority to create staff accounts, reset passwords, suspend/reactivate accounts, and control module visibility. Users cannot change passwords by themselves.
             </span>
           ) : (
             <span>
-              <strong>Read-Only View:</strong> You are signed in with the <strong>{role.toUpperCase()}</strong> role. Modifying user permissions, changing passwords, and creating accounts are strictly restricted to <strong>Administrator</strong> accounts.
+              <strong>Read-Only View:</strong> You are signed in with the <strong>{role.toUpperCase()}</strong> role. Modifying user permissions, resetting passwords, and creating accounts are strictly restricted to <strong>Administrator</strong> accounts.
             </span>
           )}
         </div>
       </div>
 
+      {/* Metrics & Filter Bar - Dark High-Contrast Color Scheme */}
+      <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4 space-y-4">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-stone-500 absolute left-3 top-3" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by staff name, username, ID, designation..."
+              className="w-full pl-9 pr-3 py-2 bg-stone-850 border border-stone-750 rounded-xl text-xs text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-500 transition"
+            />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm('')} 
+                className="absolute right-3 top-2.5 text-stone-400 hover:text-white text-xs cursor-pointer"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* Role Filter & Status Filter - High Contrast & Native Dark Dropdowns */}
+          <div className="flex items-center space-x-2">
+            <Filter className="w-3.5 h-3.5 text-stone-400" />
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value as any)}
+              style={{ colorScheme: 'dark' }}
+              className="bg-stone-850 border border-stone-750 rounded-xl px-3 py-2 text-xs text-stone-100 focus:outline-none focus:border-amber-500 cursor-pointer"
+            >
+              <option className="bg-stone-900 text-stone-100" value="all">All Roles ({usersList.length})</option>
+              <option className="bg-stone-900 text-stone-100" value="admin">Admins</option>
+              <option className="bg-stone-900 text-stone-100" value="editor">Editors</option>
+              <option className="bg-stone-900 text-stone-100" value="driver">Drivers</option>
+              <option className="bg-stone-900 text-stone-100" value="viewer">Viewers</option>
+            </select>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              style={{ colorScheme: 'dark' }}
+              className="bg-stone-850 border border-stone-750 rounded-xl px-3 py-2 text-xs text-stone-100 focus:outline-none focus:border-amber-500 cursor-pointer"
+            >
+              <option className="bg-stone-900 text-stone-100" value="all">All Statuses</option>
+              <option className="bg-stone-900 text-stone-100" value="active">Active Only ({activeCount})</option>
+              <option className="bg-stone-900 text-stone-100" value="suspended">Suspended Only ({suspendedCount})</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Quick status summary pills */}
+        <div className="flex items-center space-x-3 text-xs text-stone-400 pt-1 border-t border-stone-800/80">
+          <span>Showing <strong>{filteredUsers.length}</strong> of <strong>{usersList.length}</strong> staff accounts</span>
+          <span className="text-stone-600">•</span>
+          <span className="text-emerald-400 font-medium flex items-center space-x-1">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+            <span>{activeCount} Active</span>
+          </span>
+          <span className="text-stone-600">•</span>
+          <span className="text-rose-400 font-medium flex items-center space-x-1">
+            <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
+            <span>{suspendedCount} Suspended</span>
+          </span>
+        </div>
+      </div>
+
       {/* Success Notification Banner */}
       {actionSuccess && (
-        <div className="p-4 bg-emerald-950/70 border border-emerald-800 rounded-xl text-emerald-200 text-xs flex items-center justify-between">
+        <div className="p-4 bg-emerald-950/70 border border-emerald-800 rounded-xl text-emerald-200 text-xs flex items-center justify-between animate-in fade-in duration-150">
           <div className="flex items-center space-x-2">
             <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
             <span className="font-semibold">{actionSuccess}</span>
@@ -449,234 +549,225 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
           <table className="w-full text-left text-xs">
             <thead className="bg-stone-850 bg-stone-800/60 text-stone-400 uppercase tracking-wider font-semibold border-b border-stone-800">
               <tr>
-                <th className="py-3 px-4">User ID Code</th>
-                <th className="py-3 px-4">Name & Title</th>
-                <th className="py-3 px-4">Email Address</th>
+                <th className="py-3 px-4">User ID</th>
+                <th className="py-3 px-4">Staff Member</th>
+                <th className="py-3 px-4">Staff Username</th>
                 <th className="py-3 px-4">Assigned Role</th>
-                <th className="py-3 px-4">Password Status</th>
-                <th className="py-3 px-4">Accessible Modules</th>
+                <th className="py-3 px-4">Account Status</th>
+                <th className="py-3 px-4">Password</th>
+                <th className="py-3 px-4">Module Permissions</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-800">
-              {usersList.map((user) => {
-                const userRole = user.role || 'viewer';
-                const perms = user.permissions || {};
-                const isCurrentUser = userProfile?.id === user.id || userProfile?.email === user.email;
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-8 text-center text-stone-500 text-xs">
+                    No staff accounts match your search or filter criteria.
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map((user) => {
+                  const userRole = user.role || 'viewer';
+                  const perms = user.permissions || {};
+                  const isCurrentUser = userProfile?.id === user.id || userProfile?.username === user.username;
+                  const isSuspended = user.status === 'suspended';
 
-                return (
-                  <tr key={user.id} className="hover:bg-stone-800/40 transition">
-                    <td className="py-3.5 px-4 font-mono font-bold text-amber-400">
-                      {user.userIdCode || `USR-${user.id.slice(0, 5)}`}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="font-semibold text-white flex items-center space-x-1.5">
-                        <span>{user.displayName}</span>
-                        {isCurrentUser && (
-                          <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1 rounded font-normal">
-                            You
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-stone-400">{user.designation || 'Staff'}</div>
-                    </td>
-                    <td className="py-3.5 px-4 text-stone-300 font-mono text-[11px]">
-                      {user.email}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
-                        userRole === 'admin'
-                          ? 'bg-amber-950/80 text-amber-300 border-amber-800'
-                          : userRole === 'editor'
-                          ? 'bg-blue-950/80 text-blue-300 border-blue-800'
-                          : userRole === 'driver'
-                          ? 'bg-purple-950/80 text-purple-300 border-purple-800'
-                          : 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
-                      }`}>
-                        {userRole}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center space-x-1.5">
-                        <span className="text-stone-400 font-mono text-[11px]">••••••••</span>
-                        {isAdmin && (
-                          <button
-                            onClick={() => {
-                              setPasswordModalUser(user);
-                              setNewPassword('');
-                              setConfirmPassword('');
-                              setPasswordError(null);
-                            }}
-                            className="text-[10px] text-amber-400 hover:text-amber-300 underline font-medium cursor-pointer"
-                            title="Change password for this user"
-                          >
-                            Change
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="flex flex-wrap gap-1">
-                        {['inventory', 'forms', 'outlets', 'reports'].map((mod) => {
-                          const canView = userRole === 'admin' || (perms as any)[mod]?.view !== false;
-                          const canMod = userRole === 'admin' || (perms as any)[mod]?.edit === true;
-                          return (
-                            <span
-                              key={mod}
-                              className={`text-[9px] px-1.5 py-0.2 rounded font-mono ${
-                                canMod
-                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                                  : canView
-                                  ? 'bg-stone-800 text-stone-300'
-                                  : 'bg-stone-900 text-stone-600 line-through'
-                              }`}
-                            >
-                              {mod} {canMod ? '(E)' : canView ? '(V)' : ''}
+                  return (
+                    <tr key={user.id} className={`hover:bg-stone-800/40 transition ${isSuspended ? 'bg-rose-950/15' : ''}`}>
+                      <td className="py-3.5 px-4 font-mono font-bold text-amber-400">
+                        {user.userIdCode || `USR-${user.id.slice(0, 5)}`}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="font-semibold text-white flex items-center space-x-1.5">
+                          <span>{user.displayName}</span>
+                          {isCurrentUser && (
+                            <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-normal border border-amber-500/30">
+                              You
                             </span>
-                          );
-                        })}
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end space-x-1">
-                        {isAdmin ? (
-                          <>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-stone-400">
+                          {user.designation || 'Staff'} {user.department ? `• ${user.department}` : ''}
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="text-amber-300 font-mono font-bold text-xs bg-stone-850 px-2 py-0.5 rounded border border-stone-750">
+                          {user.username || user.userIdCode?.toLowerCase() || 'user'}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                          userRole === 'admin'
+                            ? 'bg-amber-950/80 text-amber-300 border-amber-800'
+                            : userRole === 'editor'
+                            ? 'bg-blue-950/80 text-blue-300 border-blue-800'
+                            : userRole === 'driver'
+                            ? 'bg-purple-950/80 text-purple-300 border-purple-800'
+                            : 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
+                        }`}>
+                          {userRole}
+                        </span>
+                      </td>
+
+                      {/* Account Status Column with working 1-click toggle */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center space-x-2">
+                          {isSuspended ? (
+                            <span className="inline-flex items-center space-x-1 text-[10px] font-bold px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40" title="Account is suspended. User cannot sign in.">
+                              <UserX className="w-3 h-3 text-rose-400 shrink-0" />
+                              <span>Suspended</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center space-x-1 text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" title="Account is active and permitted to sign in">
+                              <UserCheck className="w-3 h-3 text-emerald-400 shrink-0" />
+                              <span>Active</span>
+                            </span>
+                          )}
+
+                          {isAdmin && !isCurrentUser && (
                             <button
-                              onClick={() => {
-                                setPasswordModalUser(user);
-                                setNewPassword('');
-                                setConfirmPassword('');
-                                setPasswordError(null);
-                              }}
-                              className="p-1.5 text-stone-400 hover:text-amber-400 hover:bg-stone-800 rounded transition cursor-pointer"
-                              title="Change User Password"
+                              onClick={() => handleToggleUserActiveStatus(user)}
+                              className={`text-[10px] px-2 py-0.5 rounded font-semibold transition cursor-pointer border ${
+                                isSuspended
+                                  ? 'bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border-emerald-700/60'
+                                  : 'bg-rose-950/80 hover:bg-rose-900 text-rose-300 border-rose-700/60'
+                              }`}
+                              title={isSuspended ? "Reactivate user account" : "Suspend user access"}
                             >
-                              <Key className="w-4 h-4" />
+                              {isSuspended ? 'Reactivate' : 'Suspend'}
                             </button>
-                            <button
-                              onClick={() => {
-                                setEditingUser(user);
-                                setEditUserPassword('');
-                              }}
-                              className="p-1.5 text-stone-400 hover:text-blue-400 hover:bg-stone-800 rounded transition cursor-pointer"
-                              title="Edit User Role & Module Permissions"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => setUserToDelete(user)}
-                              className="p-1.5 text-stone-400 hover:text-red-400 hover:bg-stone-800 rounded transition cursor-pointer"
-                              title="Delete User"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </>
-                        ) : (
-                          <span className="text-[10px] text-stone-600 flex items-center space-x-1">
-                            <Lock className="w-3 h-3" />
-                            <span>Protected</span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Password Status & Admin Reset */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center space-x-2">
+                          <span className="inline-flex items-center space-x-1 text-[10px] font-bold px-2 py-0.5 rounded bg-stone-800 text-stone-300 border border-stone-700">
+                            <Check className="w-3 h-3 shrink-0 text-emerald-400" />
+                            <span>Active</span>
                           </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                          {isAdmin && (
+                            <button
+                              onClick={() => setPasswordModalUser(user)}
+                              className="text-[10px] text-amber-400 hover:text-amber-300 underline font-medium cursor-pointer"
+                              title="Administrator reset user password"
+                            >
+                              Reset
+                            </button>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Module Permissions */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex flex-wrap gap-1 max-w-[220px]">
+                          {(['dashboard', 'inventory', 'forms', 'outlets', 'products', 'reports', 'users'] as const).map((mod) => {
+                            const modPerm = (perms as any)[mod];
+                            const canView = modPerm !== undefined ? !!modPerm.view : (userRole === 'admin' || (userRole === 'editor' && ['dashboard', 'inventory', 'forms', 'outlets', 'products', 'reports'].includes(mod)) || (userRole === 'driver' && mod === 'reports') || (userRole === 'viewer' && mod === 'reports'));
+                            const canEdit = modPerm !== undefined ? !!modPerm.edit : (userRole === 'admin' || (userRole === 'editor' && ['inventory', 'forms'].includes(mod)));
+
+                            if (!canView) return null;
+
+                            return (
+                              <span
+                                key={mod}
+                                className={`text-[9px] px-1.5 py-0.2 rounded font-mono ${
+                                  canEdit
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                    : 'bg-stone-800 text-stone-300 border border-stone-700'
+                                }`}
+                                title={`${mod.toUpperCase()}: ${canEdit ? 'View & Edit' : 'View Only'}`}
+                              >
+                                {mod} {canEdit ? '(E)' : '(V)'}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </td>
+
+                      {/* Actions Column */}
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end space-x-1">
+                          {isAdmin ? (
+                            <>
+                              {/* Quick Toggle Status */}
+                              <button
+                                onClick={() => handleToggleUserActiveStatus(user)}
+                                disabled={isCurrentUser}
+                                className={`p-1.5 rounded transition cursor-pointer ${
+                                  isCurrentUser
+                                    ? 'opacity-30 cursor-not-allowed text-stone-600'
+                                    : isSuspended
+                                    ? 'text-emerald-400 hover:bg-emerald-950/60'
+                                    : 'text-rose-400 hover:bg-rose-950/60'
+                                }`}
+                                title={isCurrentUser ? "Cannot suspend own account" : isSuspended ? "Reactivate user account" : "Suspend user account"}
+                              >
+                                {isSuspended ? <UserCheck className="w-4 h-4" /> : <UserX className="w-4 h-4" />}
+                              </button>
+
+                              {/* Reset Password */}
+                              <button
+                                onClick={() => setPasswordModalUser(user)}
+                                className="p-1.5 text-stone-400 hover:text-amber-400 hover:bg-stone-800 rounded transition cursor-pointer"
+                                title="Reset Password"
+                              >
+                                <KeyRound className="w-4 h-4 text-amber-400" />
+                              </button>
+
+                              {/* Edit User & Permissions */}
+                              <button
+                                onClick={() => {
+                                  setEditingUser(user);
+                                  setEditUserStatus(user.status || 'active');
+                                }}
+                                className="p-1.5 text-stone-400 hover:text-blue-400 hover:bg-stone-800 rounded transition cursor-pointer"
+                                title="Edit User Details & Module Permissions"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+
+                              {/* Delete User */}
+                              <button
+                                onClick={() => setUserToDelete(user)}
+                                disabled={isCurrentUser}
+                                className={`p-1.5 rounded transition ${
+                                  isCurrentUser
+                                    ? 'opacity-30 cursor-not-allowed text-stone-600'
+                                    : 'text-stone-400 hover:text-red-400 hover:bg-stone-800 cursor-pointer'
+                                }`}
+                                title={isCurrentUser ? "Cannot delete own account" : "Delete User"}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <span className="text-[10px] text-stone-600 flex items-center space-x-1">
+                              <Lock className="w-3 h-3" />
+                              <span>Protected</span>
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* CHANGE PASSWORD MODAL */}
+      {/* ADMIN RESET PASSWORD MODAL */}
       {passwordModalUser && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-stone-900 border border-stone-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-800 mb-4">
-              <div className="flex items-center space-x-2">
-                <KeyRound className="w-5 h-5 text-amber-400" />
-                <div>
-                  <h3 className="font-bold text-white text-base">Change Staff Password</h3>
-                  <p className="text-[11px] text-stone-400">
-                    Target User: <strong className="text-amber-300">{passwordModalUser.displayName}</strong> ({passwordModalUser.email})
-                  </p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setPasswordModalUser(null)} 
-                className="text-stone-400 hover:text-white cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {passwordError && (
-              <div className="mb-4 p-3 bg-red-950/60 border border-red-800 rounded-lg text-red-200 text-xs flex items-start space-x-2">
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                <span>{passwordError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSavePasswordChange} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-stone-300 mb-1">
-                  New Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPass ? 'text' : 'password'}
-                    required
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Enter new password (e.g. 123)"
-                    className="w-full px-3 py-2 pr-9 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 font-mono focus:outline-none focus:border-amber-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPass(!showPass)}
-                    className="absolute right-2.5 top-2.5 text-stone-400 hover:text-stone-200 cursor-pointer"
-                  >
-                    {showPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-stone-300 mb-1">
-                  Confirm New Password
-                </label>
-                <input
-                  type={showPass ? 'text' : 'password'}
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Repeat new password"
-                  className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 font-mono focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div className="pt-2 text-[11px] text-stone-400 bg-stone-850 p-2.5 rounded-lg border border-stone-800">
-                The updated password will take effect immediately for staff portal login.
-              </div>
-
-              <div className="pt-3 border-t border-stone-800 flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setPasswordModalUser(null)}
-                  className="px-4 py-2 bg-stone-800 text-stone-300 rounded-lg text-xs font-medium cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-lg text-xs shadow-md transition cursor-pointer disabled:opacity-50"
-                >
-                  {submitting ? 'Updating Password...' : 'Save New Password'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <UserPasswordResetModal
+          user={passwordModalUser}
+          isOpen={!!passwordModalUser}
+          onClose={() => setPasswordModalUser(null)}
+          onSuccess={(msg) => setActionSuccess(msg)}
+        />
       )}
 
       {/* CREATE USER MODAL - ADMINISTRATOR ONLY */}
@@ -689,7 +780,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                 <div>
                   <h3 className="font-bold text-white text-base">Provision New Staff User</h3>
                   <p className="text-[11px] text-stone-400">
-                    Administrator authority: assign User ID code, password, & role
+                    Administrator authority: assign User ID, unique username, password, & module access
                   </p>
                 </div>
               </div>
@@ -716,22 +807,23 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                     className="w-full px-3 py-2 bg-stone-900 border border-stone-800 rounded-lg text-xs text-amber-400 font-mono font-bold cursor-not-allowed select-none opacity-90 shadow-inner"
                     title="User ID is automatically generated by the system and cannot be manually modified"
                   />
-                  <p className="text-[10px] text-stone-500 mt-1">Automatically assigned system identifier</p>
+                  <p className="text-[10px] text-stone-500 mt-1">Permanent unique system identifier</p>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 mb-1">
-                    System Role Assignment
+                    System Role Preset
                   </label>
                   <select
                     value={formData.role}
                     onChange={(e) => handleRoleChangeInForm(e.target.value as UserRole)}
-                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500 font-bold"
+                    style={{ colorScheme: 'dark' }}
+                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500 font-bold cursor-pointer"
                   >
-                    <option value="admin">Admin (Full Control & User Management)</option>
-                    <option value="editor">Editor (Kitchen & Forms Creation)</option>
-                    <option value="driver">Driver (Assigned Logistics Driver - Report Only)</option>
-                    <option value="viewer">Viewer (Read-Only Audit)</option>
+                    <option className="bg-stone-900 text-stone-100" value="admin">Admin (Full Control & User Management)</option>
+                    <option className="bg-stone-900 text-stone-100" value="editor">Editor (Kitchen & Forms Creation)</option>
+                    <option className="bg-stone-900 text-stone-100" value="driver">Driver (Logistics Driver - Report Only)</option>
+                    <option className="bg-stone-900 text-stone-100" value="viewer">Viewer (Read-Only Audit)</option>
                   </select>
                 </div>
               </div>
@@ -744,40 +836,89 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                   type="text"
                   required
                   value={formData.displayName}
-                  onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
-                  placeholder="e.g. Kasun Silva (Pastry Chef)"
+                  onChange={(e) => {
+                    const newName = e.target.value;
+                    setFormData(prev => ({
+                      ...prev,
+                      displayName: newName,
+                      username: prev.username ? prev.username : newName.trim().toLowerCase().replace(/\s+/g, '_')
+                    }));
+                  }}
+                  placeholder="e.g. Kasun Silva"
                   className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500"
                 />
               </div>
 
+              {/* Username Input - Strictly WITHOUT @ */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 mb-1">
-                    Staff Email Address (for Login)
+                    Staff Username (for Login)
                   </label>
                   <input
-                    type="email"
+                    type="text"
                     required
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="ksilva@barista.lk"
-                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500 font-mono"
+                    value={formData.username}
+                    onChange={(e) => {
+                      const clean = e.target.value.toLowerCase().replace(/[@\s]/g, '_');
+                      setFormData({ ...formData, username: clean });
+                    }}
+                    placeholder="e.g. kasun_s or dineth"
+                    className={`w-full px-3 py-2 bg-stone-800 border rounded-lg text-xs text-stone-100 focus:outline-none font-mono ${
+                      isUsernameTaken
+                        ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                        : 'border-stone-700 focus:border-amber-500'
+                    }`}
                   />
+                  {isUsernameTaken ? (
+                    <p className="text-[10px] text-red-400 mt-1 font-semibold flex items-center space-x-1">
+                      <AlertCircle className="w-3 h-3 shrink-0" />
+                      <span>Username is already taken!</span>
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-stone-500 mt-1">Unique login username (letters, numbers, underscores)</p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-stone-300 mb-1">
-                    Initial Password
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-stone-300">
+                      Staff Password
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, password: generateRandomTempPass() })}
+                      className="text-[10px] text-amber-400 hover:text-amber-300 font-medium flex items-center space-x-1 cursor-pointer"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>Generate</span>
+                    </button>
+                  </div>
                   <input
                     type="text"
                     required
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder="Default: 123"
+                    placeholder="e.g. Barista#4829"
                     className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500 font-mono"
                   />
+                  <p className="text-[10px] text-stone-500 mt-1">
+                    Assigned staff member password
+                  </p>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-300 mb-1">
+                  Contact Email Address (Optional)
+                </label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="ksilva@barista.lk (optional)"
+                  className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500 font-mono"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -809,32 +950,36 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
               <div className="pt-2">
                 <label className="block text-xs font-bold text-amber-400 mb-1.5 uppercase tracking-wider flex items-center space-x-1.5">
                   <Sliders className="w-3.5 h-3.5" />
-                  <span>Module Visibility & Edit Access Levels:</span>
+                  <span>Configured Module Visibility & Edit Levels:</span>
                 </label>
                 <div className="bg-stone-850 p-3 rounded-xl border border-stone-800 space-y-2">
                   {modulesList.map((m) => {
                     const currentPerm = (formData.permissions as any)[m.key] || { view: false, edit: false };
                     return (
-                      <div key={m.key} className="flex items-center justify-between text-xs py-1 border-b border-stone-800/60 last:border-b-0">
-                        <span className="text-stone-300 font-medium">{m.label}</span>
-                        <div className="flex items-center space-x-3">
+                      <div key={m.key} className="flex items-center justify-between text-xs py-1.5 border-b border-stone-800/60 last:border-b-0">
+                        <div>
+                          <div className="text-stone-200 font-semibold">{m.label}</div>
+                          <div className="text-[10px] text-stone-400">{m.desc}</div>
+                        </div>
+                        <div className="flex items-center space-x-3 shrink-0">
                           <label className="flex items-center space-x-1 cursor-pointer">
                             <input
                               type="checkbox"
-                              checked={currentPerm.view}
+                              checked={!!currentPerm.view}
                               onChange={() => togglePermission(m.key, 'view')}
                               className="rounded border-stone-700 bg-stone-800 text-amber-500"
                             />
-                            <span className="text-[11px] text-stone-400">View</span>
+                            <span className="text-[11px] text-stone-300">View</span>
                           </label>
                           <label className="flex items-center space-x-1 cursor-pointer">
                             <input
                               type="checkbox"
-                              checked={currentPerm.edit}
+                              checked={!!currentPerm.edit}
+                              disabled={!currentPerm.view || (m.key === 'outlets' && formData.role !== 'admin')}
                               onChange={() => togglePermission(m.key, 'edit')}
-                              className="rounded border-stone-700 bg-stone-800 text-amber-500"
+                              className="rounded border-stone-700 bg-stone-800 text-amber-500 disabled:opacity-30"
                             />
-                            <span className="text-[11px] text-stone-400">Edit</span>
+                            <span className={`text-[11px] ${!currentPerm.view ? 'text-stone-600' : 'text-stone-300'}`}>Edit</span>
                           </label>
                         </div>
                       </div>
@@ -853,8 +998,8 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-lg text-xs shadow-md transition cursor-pointer disabled:opacity-50"
+                  disabled={submitting || isUsernameTaken || !formData.username.trim()}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-lg text-xs shadow-md transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submitting ? 'Provisioning Account...' : 'Provision User Account'}
                 </button>
@@ -864,16 +1009,21 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
         </div>
       )}
 
-      {/* EDIT USER ROLE & PERMISSIONS MODAL */}
+      {/* EDIT USER ROLE & PERMISSIONS MODAL - Without redundant change password input */}
       {editingUser && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
           <div className="bg-stone-900 border border-stone-700 rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-stone-800 mb-4">
               <div className="flex items-center space-x-2">
                 <ShieldCheck className="w-5 h-5 text-blue-400" />
-                <h3 className="font-bold text-white text-base">
-                  Manage Access for {editingUser.displayName}
-                </h3>
+                <div>
+                  <h3 className="font-bold text-white text-base">
+                    Manage Access: {editingUser.displayName}
+                  </h3>
+                  <p className="text-[11px] text-stone-400">
+                    Username: <span className="text-amber-300 font-mono font-bold">{editingUser.username || editingUser.userIdCode}</span>
+                  </p>
+                </div>
               </div>
               <button onClick={() => setEditingUser(null)} className="text-stone-400 hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
@@ -887,7 +1037,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                     <span>User ID Code</span>
                     <span className="text-[10px] text-amber-400 font-medium flex items-center space-x-1">
                       <Lock className="w-3 h-3" />
-                      <span>Permanent & Locked</span>
+                      <span>Locked</span>
                     </span>
                   </label>
                   <input
@@ -896,70 +1046,93 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                     disabled
                     value={editingUser.userIdCode || `USR-${editingUser.id.slice(0, 5)}`}
                     className="w-full px-3 py-2 bg-stone-900 border border-stone-800 rounded-lg text-xs text-amber-400 font-mono font-bold cursor-not-allowed select-none opacity-90 shadow-inner"
-                    title="Once a user is created, their User ID cannot be changed by any person"
+                    title="Once a user is created, their User ID cannot be changed"
                   />
-                  <p className="text-[10px] text-stone-500 mt-1">Permanent ID cannot be modified after creation</p>
+                  <p className="text-[10px] text-stone-500 mt-1">Permanent system identifier</p>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 mb-1">
-                    Role Assignment
+                    Role Preset
                   </label>
                   <select
                     value={editingUser.role}
                     onChange={(e) => {
                       const newRole = e.target.value as UserRole;
-                      let updatedPerms = { ...(editingUser.permissions || {}) };
-                      if (newRole === 'driver') {
-                        updatedPerms = {
-                          dashboard: { view: false, edit: false },
-                          inventory: { view: false, edit: false },
-                          forms: { view: false, edit: false },
-                          outlets: { view: false, edit: false },
-                          products: { view: false, edit: false },
-                          users: { view: false, edit: false },
-                          roles: { view: false, edit: false },
-                          reports: { view: true, edit: false }
-                        };
-                      }
-                      setEditingUser({ ...editingUser, role: newRole, permissions: updatedPerms });
+                      const rolePerms = getDefaultPermissionsForRole(newRole);
+                      setEditingUser({ ...editingUser, role: newRole, permissions: rolePerms });
                     }}
-                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 font-bold focus:outline-none"
+                    style={{ colorScheme: 'dark' }}
+                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 font-bold focus:outline-none cursor-pointer"
                   >
-                    <option value="admin">Admin (Full Control)</option>
-                    <option value="editor">Editor (Kitchen & Forms)</option>
-                    <option value="driver">Driver (Assigned Logistics Driver - Report Only)</option>
-                    <option value="viewer">Viewer (Read-only)</option>
+                    <option className="bg-stone-900 text-stone-100" value="admin">Admin (Full Control)</option>
+                    <option className="bg-stone-900 text-stone-100" value="editor">Editor (Kitchen & Forms)</option>
+                    <option className="bg-stone-900 text-stone-100" value="driver">Driver (Logistics Driver - Report Only)</option>
+                    <option className="bg-stone-900 text-stone-100" value="viewer">Viewer (Read-only)</option>
                   </select>
                 </div>
               </div>
 
+              {/* Account Status Selection (Redundant Change Password Field Removed per Image 1) */}
               <div>
                 <label className="block text-xs font-semibold text-stone-300 mb-1">
-                  Change Password (Optional)
+                  Account Status
                 </label>
-                <input
-                  type="text"
-                  value={editUserPassword}
-                  onChange={(e) => setEditUserPassword(e.target.value)}
-                  placeholder="Leave empty to keep existing password, or enter new"
-                  className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 font-mono focus:outline-none"
-                />
+                <select
+                  value={editUserStatus}
+                  onChange={(e) => setEditUserStatus(e.target.value as any)}
+                  style={{ colorScheme: 'dark' }}
+                  className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 font-bold focus:outline-none focus:border-amber-500 cursor-pointer"
+                >
+                  <option className="bg-stone-900 text-stone-100" value="active">Active (Permitted to Log In)</option>
+                  <option className="bg-stone-900 text-stone-100" value="suspended">Suspended (Access Blocked & Session Revoked)</option>
+                </select>
+                <p className="text-[10px] text-stone-500 mt-1">
+                  Suspended accounts are locked and cannot sign into the system.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 mb-1">
+                    Staff Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editingUser.displayName}
+                    onChange={(e) => setEditingUser({ ...editingUser, displayName: e.target.value })}
+                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 mb-1">
+                    Designation
+                  </label>
+                  <input
+                    type="text"
+                    value={editingUser.designation || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, designation: e.target.value })}
+                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none"
+                  />
+                </div>
               </div>
 
               {/* Granular Module Visibility Configuration */}
               <div className="pt-2">
                 <label className="block text-xs font-bold text-amber-400 mb-1.5 uppercase tracking-wider flex items-center space-x-1.5">
                   <Sliders className="w-3.5 h-3.5" />
-                  <span>Custom Module Visibility & Edit Permissions:</span>
+                  <span>Module Visibility & Edit Permissions:</span>
                 </label>
                 <div className="bg-stone-850 p-3 rounded-xl border border-stone-800 space-y-2">
                   {modulesList.map((m) => {
                     const currentPerm = (editingUser.permissions as any)?.[m.key] || { view: false, edit: false };
                     return (
-                      <div key={m.key} className="flex items-center justify-between text-xs py-1 border-b border-stone-800/60 last:border-b-0">
-                        <span className="text-stone-300 font-medium">{m.label}</span>
-                        <div className="flex items-center space-x-3">
+                      <div key={m.key} className="flex items-center justify-between text-xs py-1.5 border-b border-stone-800/60 last:border-b-0">
+                        <div>
+                          <div className="text-stone-200 font-semibold">{m.label}</div>
+                          <div className="text-[10px] text-stone-400">{m.desc}</div>
+                        </div>
+                        <div className="flex items-center space-x-3 shrink-0">
                           <label className="flex items-center space-x-1 cursor-pointer">
                             <input
                               type="checkbox"
@@ -967,16 +1140,17 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                               onChange={() => togglePermission(m.key, 'view')}
                               className="rounded border-stone-700 bg-stone-800 text-amber-500"
                             />
-                            <span className="text-[11px] text-stone-400">View</span>
+                            <span className="text-[11px] text-stone-300">View</span>
                           </label>
                           <label className="flex items-center space-x-1 cursor-pointer">
                             <input
                               type="checkbox"
                               checked={!!currentPerm.edit}
+                              disabled={!currentPerm.view || (m.key === 'outlets' && editingUser.role !== 'admin')}
                               onChange={() => togglePermission(m.key, 'edit')}
-                              className="rounded border-stone-700 bg-stone-800 text-amber-500"
+                              className="rounded border-stone-700 bg-stone-800 text-amber-500 disabled:opacity-30"
                             />
-                            <span className="text-[11px] text-stone-400">Edit</span>
+                            <span className={`text-[11px] ${!currentPerm.view ? 'text-stone-600' : 'text-stone-300'}`}>Edit</span>
                           </label>
                         </div>
                       </div>
@@ -998,7 +1172,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                   disabled={submitting}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs shadow-md transition cursor-pointer disabled:opacity-50"
                 >
-                  {submitting ? 'Saving...' : 'Save Role & Permissions'}
+                  {submitting ? 'Saving...' : 'Save User Access'}
                 </button>
               </div>
             </form>
@@ -1010,7 +1184,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
       <ConfirmDeleteModal
         isOpen={!!userToDelete}
         title="Delete User Account"
-        itemName={userToDelete ? `${userToDelete.displayName} (${userToDelete.email})` : ''}
+        itemName={userToDelete ? `${userToDelete.displayName} (${userToDelete.username || userToDelete.userIdCode})` : ''}
         itemType="User Account"
         description="Are you sure you want to permanently delete this user account from Barista Central Kitchen? This action cannot be undone."
         isDeleting={isDeleting}

@@ -7,6 +7,7 @@ import {
   deleteDoc, 
   onSnapshot, 
   query, 
+  where,
   orderBy, 
   runTransaction,
   writeBatch
@@ -50,7 +51,7 @@ export async function seedInitialDataIfNeeded(): Promise<boolean> {
       }
       // Seed Users
       for (const u of INITIAL_USERS) {
-        await setDoc(doc(db, USERS_COL, u.id), u);
+        await setDoc(doc(db, USERS_COL, u.id), u, { merge: true });
       }
       return true;
     } else {
@@ -61,10 +62,9 @@ export async function seedInitialDataIfNeeded(): Promise<boolean> {
           await setDoc(doc(db, PRODUCTS_COL, p.id), p);
         }
       }
-      // Ensure primary Administrator account exists with password
-      const primaryAdmin = INITIAL_USERS.find(u => u.email === 'baristait969@gmail.com');
-      if (primaryAdmin) {
-        await setDoc(doc(db, USERS_COL, primaryAdmin.id), primaryAdmin, { merge: true });
+      // Ensure primary Administrator account exists with username 'admin' and password
+      for (const u of INITIAL_USERS) {
+        await setDoc(doc(db, USERS_COL, u.id), u, { merge: true });
       }
       // Sync official 101 outlets if needed
       await syncOfficialOutlets(false);
@@ -795,9 +795,39 @@ export function subscribeUsers(callback: (users: UserProfile[]) => void) {
 }
 
 export async function createNewUser(user: Omit<UserProfile, 'id'>): Promise<string> {
+  const cleanUsername = (user.username || '').trim().toLowerCase();
+  if (!cleanUsername) {
+    throw new Error('Username is compulsory and cannot be empty.');
+  }
+
+  // Enforce username uniqueness across all initial users and Firestore users
+  const initialMatch = INITIAL_USERS.find(
+    (u) => (u.username || '').toLowerCase() === cleanUsername || (u.userIdCode || '').toLowerCase() === cleanUsername
+  );
+  if (initialMatch) {
+    throw new Error(`Username "${cleanUsername}" is already in use by another account.`);
+  }
+
+  try {
+    const q = query(collection(db, USERS_COL), where('username', '==', cleanUsername));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      throw new Error(`Username "${cleanUsername}" is already in use by another account.`);
+    }
+  } catch (checkErr: any) {
+    if (checkErr.message?.includes('already in use')) throw checkErr;
+    console.warn('Could not verify username uniqueness in Firestore:', checkErr);
+  }
+
   const id = user.uid || `user-${Date.now()}`;
   try {
-    await setDoc(doc(db, USERS_COL, id), { ...user, id, uid: id });
+    await setDoc(doc(db, USERS_COL, id), {
+      ...user,
+      id,
+      uid: id,
+      username: cleanUsername,
+      status: user.status || 'active'
+    });
     return id;
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, `${USERS_COL}/${id}`);
@@ -810,7 +840,14 @@ export async function updateUserRoleAndPermissions(
   role: UserRole,
   permissions: any,
   _userIdCode?: string,
-  password?: string
+  password?: string,
+  extraUpdates?: {
+    username?: string;
+    displayName?: string;
+    designation?: string;
+    department?: string;
+    status?: 'active' | 'suspended';
+  }
 ): Promise<void> {
   try {
     const updateData: any = {
@@ -821,7 +858,36 @@ export async function updateUserRoleAndPermissions(
     if (password && password.trim().length > 0) {
       updateData.password = password.trim();
     }
-    await updateDoc(doc(db, USERS_COL, userId), updateData);
+    if (extraUpdates) {
+      if (extraUpdates.username) updateData.username = extraUpdates.username.trim().toLowerCase();
+      if (extraUpdates.displayName) updateData.displayName = extraUpdates.displayName.trim();
+      if (extraUpdates.designation) updateData.designation = extraUpdates.designation.trim();
+      if (extraUpdates.department) updateData.department = extraUpdates.department.trim();
+      if (extraUpdates.status) updateData.status = extraUpdates.status;
+    }
+    await setDoc(doc(db, USERS_COL, userId), updateData, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `${USERS_COL}/${userId}`);
+    throw error;
+  }
+}
+
+export async function toggleUserStatus(
+  userId: string,
+  status: 'active' | 'suspended',
+  fullUser?: UserProfile
+): Promise<void> {
+  try {
+    const userRef = doc(db, USERS_COL, userId);
+    const payload: any = {
+      status,
+      updatedAt: new Date().toISOString()
+    };
+    if (fullUser) {
+      await setDoc(userRef, { ...fullUser, ...payload }, { merge: true });
+    } else {
+      await setDoc(userRef, payload, { merge: true });
+    }
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `${USERS_COL}/${userId}`);
     throw error;
@@ -830,13 +896,39 @@ export async function updateUserRoleAndPermissions(
 
 export async function updateUserPassword(
   userId: string,
-  newPassword: string
+  newPassword: string,
+  clearMustReset: boolean = true
 ): Promise<void> {
   try {
-    await updateDoc(doc(db, USERS_COL, userId), {
+    const updatePayload: any = {
       password: newPassword.trim(),
       updatedAt: new Date().toISOString()
-    });
+    };
+    if (clearMustReset) {
+      updatePayload.mustResetPassword = false;
+    }
+    await setDoc(doc(db, USERS_COL, userId), updatePayload, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `${USERS_COL}/${userId}`);
+    throw error;
+  }
+}
+
+/**
+ * Exclusive Administrator action: Reset a user's password.
+ */
+export async function adminResetUserPassword(
+  userId: string,
+  newPassword: string,
+  requireResetOnLogin: boolean = false
+): Promise<void> {
+  try {
+    await setDoc(doc(db, USERS_COL, userId), {
+      password: newPassword.trim(),
+      mustResetPassword: requireResetOnLogin,
+      tempPasswordSetAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `${USERS_COL}/${userId}`);
     throw error;

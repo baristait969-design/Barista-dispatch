@@ -463,7 +463,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   onChange={(e) => handleProductSelect(e.target.value)}
                   className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500"
                 >
-                  {(products && products.length > 0 ? products : INITIAL_PRODUCTS).map((p) => (
+                  {(products && products.length > 0 ? products : INITIAL_PRODUCTS)
+                    .filter((p) => p.active !== false)
+                    .map((p) => (
                     <option key={p.name} value={p.name}>
                       {p.name} ({p.category})
                     </option>

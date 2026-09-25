@@ -26,6 +26,7 @@ import {
 import { DispatchLog, InventoryBatch, Outlet, Driver, UserProfile } from '../types';
 import { PrintableDispatchSheet } from './PrintableDispatchSheet';
 import { PrintableExecutiveReportModal } from './PrintableExecutiveReportModal';
+import { BaristaLogo } from './BaristaLogo';
 import { generateExecutiveReportPDF, generateSingleDispatchPDF } from '../utils/pdfExport';
 
 interface ReportsViewProps {
@@ -345,7 +346,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         <div>
           <h3 className="text-lg font-bold text-white">Access Restricted: Reports Module</h3>
           <p className="text-xs text-stone-400 max-w-md mt-1">
-            Your current assigned role ({role.toUpperCase()}) does not possess permissions to view Central Kitchen QA and dispatch analytics. Please contact the Barista IT Administrator to update your module access matrix.
+            Your account does not possess permissions to view Central Kitchen QA and dispatch analytics. Please contact the Barista IT Administrator to update your module permissions.
           </p>
         </div>
       </div>
@@ -384,18 +385,22 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       )}
 
       {/* TOP BANNER */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-stone-900 border border-stone-800 rounded-2xl p-5 print:hidden shadow-md">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#171311] border border-[#2E221E] rounded-2xl p-5 print:hidden shadow-md">
         <div>
-          <div className="flex items-center space-x-2">
-            <BarChart3 className="w-6 h-6 text-amber-400" />
-            <h2 className="text-xl sm:text-2xl font-bold text-white">Central Kitchen Reports & QA Audits</h2>
-            <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded font-mono font-bold">
-              OPRP-2 Certified
-            </span>
+          <div className="flex items-center space-x-2.5">
+            <BaristaLogo className="w-8 h-8 ring-2 ring-[#ED5338]/40 shadow-md shrink-0" />
+            <div>
+              <div className="flex items-center space-x-2">
+                <h2 className="text-xl sm:text-2xl font-bold text-white tracking-wide">Central Kitchen Reports & QA Audits</h2>
+                <span className="text-[10px] bg-[#ED5338]/15 text-[#FFA594] border border-[#ED5338]/30 px-2 py-0.5 rounded font-mono font-bold">
+                  OPRP-2 Certified
+                </span>
+              </div>
+              <p className="text-xs text-stone-400 mt-0.5">
+                Real-time bakery dispatch analytics, cold-chain compliance (≤5°C), retail outlet volumes, and item performance.
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-stone-400 mt-1">
-            Real-time bakery dispatch analytics, cold-chain compliance (≤5°C), retail outlet volumes, and item performance.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -417,10 +422,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
           <button
             onClick={handlePrintExecutiveReport}
-            className="px-3.5 py-2 bg-stone-800 hover:bg-stone-750 text-stone-200 border border-stone-700 font-semibold rounded-xl text-xs transition flex items-center space-x-1.5 cursor-pointer shadow-sm"
+            className="px-3.5 py-2 bg-[#ED5338] hover:bg-[#D84228] text-white font-bold rounded-xl text-xs shadow-md shadow-[#ED5338]/20 transition flex items-center space-x-1.5 cursor-pointer"
             title="Print Executive QA & Dispatch Summary Sheet"
           >
-            <Printer className="w-4 h-4 text-amber-400" />
+            <Printer className="w-4 h-4" />
             <span>Print Report</span>
           </button>
 
@@ -428,7 +433,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             <button
               onClick={exportAllDispatchesCSV}
               disabled={filteredLogs.length === 0}
-              className="px-3.5 py-2 bg-stone-800 hover:bg-stone-750 text-amber-400 border border-amber-500/40 font-bold rounded-xl text-xs transition flex items-center space-x-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+              className="px-3.5 py-2 bg-[#221B18] hover:bg-[#2F2420] text-[#FFA594] border border-[#ED5338]/40 font-bold rounded-xl text-xs transition flex items-center space-x-1.5 cursor-pointer shadow-sm disabled:opacity-50"
               title="Download CSV for Excel / ERP integration"
             >
               <Download className="w-4 h-4" />
@@ -646,16 +651,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       </div>
 
       {/* REPORT SUB-NAV TABS */}
-      <div className="flex bg-stone-950/80 p-1.5 rounded-2xl border border-stone-800 space-x-1.5 print:hidden overflow-x-auto shadow-inner">
+      <div className="flex bg-[#120E0D] p-1.5 rounded-2xl border border-[#2E221E] space-x-1.5 print:hidden overflow-x-auto shadow-inner">
         <button
           onClick={() => setActiveReportTab('dispatch_log')}
           className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center space-x-2 shrink-0 ${
             activeReportTab === 'dispatch_log'
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-sm'
-              : 'text-stone-300 hover:text-white hover:bg-stone-800/70 border border-transparent'
+              ? 'bg-[#ED5338] text-white shadow-md shadow-[#ED5338]/25'
+              : 'text-stone-300 hover:text-white hover:bg-[#251C18]'
           }`}
         >
-          <FileText className="w-4 h-4 text-amber-400" />
+          <FileText className="w-4 h-4" />
           <span>Dispatch Records & Print Archive ({filteredLogs.length})</span>
         </button>
 
@@ -663,11 +668,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           onClick={() => setActiveReportTab('outlets')}
           className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center space-x-2 shrink-0 ${
             activeReportTab === 'outlets'
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-sm'
-              : 'text-stone-300 hover:text-white hover:bg-stone-800/70 border border-transparent'
+              ? 'bg-[#ED5338] text-white shadow-md shadow-[#ED5338]/25'
+              : 'text-stone-300 hover:text-white hover:bg-[#251C18]'
           }`}
         >
-          <Building2 className="w-4 h-4 text-amber-400" />
+          <Building2 className="w-4 h-4" />
           <span>Outlet Distribution Breakdown ({outletStats.length})</span>
         </button>
 
@@ -675,11 +680,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           onClick={() => setActiveReportTab('products')}
           className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center space-x-2 shrink-0 ${
             activeReportTab === 'products'
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-sm'
-              : 'text-stone-300 hover:text-white hover:bg-stone-800/70 border border-transparent'
+              ? 'bg-[#ED5338] text-white shadow-md shadow-[#ED5338]/25'
+              : 'text-stone-300 hover:text-white hover:bg-[#251C18]'
           }`}
         >
-          <Package className="w-4 h-4 text-amber-400" />
+          <Package className="w-4 h-4" />
           <span>Product Performance Matrix ({productStats.length})</span>
         </button>
       </div>
@@ -791,7 +796,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
                             <button
                               onClick={() => setSelectedLogForPrint(log)}
-                              className="px-2.5 py-1.5 bg-stone-800 hover:bg-stone-750 text-amber-400 hover:text-amber-300 border border-stone-700 hover:border-amber-500/50 rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer shadow-sm"
+                              className="px-2.5 py-1.5 bg-[#251C18] hover:bg-[#ED5338] text-[#FFA594] hover:text-white border border-[#ED5338]/30 rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer shadow-sm"
                               title="Print this dispatch sheet with official Barista header"
                             >
                               <Printer className="w-3 h-3" />
@@ -811,8 +816,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
       {/* TAB 2: OUTLET BREAKDOWN */}
       {activeReportTab === 'outlets' && (
-        <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4 shadow-md">
-          <div className="flex items-center justify-between pb-3 border-b border-stone-800">
+        <div className="bg-[#171311] border border-[#2E221E] rounded-2xl p-5 space-y-4 shadow-md">
+          <div className="flex items-center justify-between pb-3 border-b border-[#2E221E]">
             <div>
               <h3 className="text-sm font-bold text-white">Retail Outlet Delivery & Volume Breakdown</h3>
               <p className="text-xs text-stone-400">
@@ -826,23 +831,23 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {outletStats.map((stat, idx) => (
-              <div key={stat.name} className="bg-stone-850 border border-stone-800 rounded-xl p-4 space-y-2">
+              <div key={stat.name} className="bg-[#1E1714] border border-[#382B25] rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <span className="w-5 h-5 rounded-full bg-stone-800 text-amber-400 font-mono text-[10px] flex items-center justify-center font-bold">
+                    <span className="w-5 h-5 rounded-full bg-[#2A201C] text-[#FFA594] font-mono text-[10px] flex items-center justify-center font-bold">
                       {idx + 1}
                     </span>
                     <span className="text-sm font-bold text-white">{stat.name}</span>
                   </div>
-                  <span className="text-xs font-mono font-bold text-amber-400">
+                  <span className="text-xs font-mono font-bold text-[#FFA594]">
                     {stat.units} Units ({stat.share}%)
                   </span>
                 </div>
 
                 {/* Progress bar */}
-                <div className="w-full bg-stone-800 rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-[#120E0D] rounded-full h-2 overflow-hidden border border-[#2E221E]">
                   <div 
-                    className="bg-amber-500 h-full rounded-full transition-all duration-500"
+                    className="bg-[#ED5338] h-full rounded-full transition-all duration-500"
                     style={{ width: `${Math.min(100, stat.share * 2 || 5)}%` }}
                   />
                 </div>
@@ -912,95 +917,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 ))}
               </tbody>
             </table>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 4: HACCP COLD-CHAIN & OPRP-2 AUDIT LOG */}
-      {activeReportTab === 'haccp_audit' && (
-        <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-5 shadow-md">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-stone-800">
-            <div>
-              <div className="flex items-center space-x-2">
-                <ThermometerSnowflake className="w-5 h-5 text-cyan-400" />
-                <h3 className="text-sm font-bold text-white">HACCP OPRP-2 Cold-Chain Audit Verification</h3>
-              </div>
-              <p className="text-xs text-stone-400 mt-0.5">
-                Standard: Product core temperature must be ≤ 5.0°C at central kitchen dispatch loading.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center space-x-2 font-mono text-xs bg-stone-850 px-3 py-1.5 rounded-xl border border-stone-800">
-                <span className="text-stone-400">Total Audits:</span>
-                <strong className="text-white">{filteredLogs.length}</strong>
-                <span className="text-stone-400">• Compliance:</span>
-                <strong className="text-emerald-400">{haccpComplianceRate}%</strong>
-              </div>
-              <button
-                onClick={handleDownloadExecutivePDF}
-                className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl text-xs transition flex items-center space-x-1.5 cursor-pointer shadow-sm"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Download HACCP PDF</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Compliance Status Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-            <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-800 text-emerald-200">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase">Optimal Range (0°C - 4.5°C)</span>
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              </div>
-              <p className="text-2xl font-black font-mono text-emerald-300 mt-2">
-                {compliantLogsCount} Logs
-              </p>
-              <span className="text-[11px] text-emerald-400/80 block mt-0.5">
-                Complies with strict OPRP-2 central kitchen standard
-              </span>
-            </div>
-
-            <div className="p-4 rounded-xl bg-amber-950/40 border border-amber-800 text-amber-200">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase">Critical Limit Margin (4.6°C - 5.0°C)</span>
-                <AlertTriangle className="w-4 h-4 text-amber-400" />
-              </div>
-              <p className="text-2xl font-black font-mono text-amber-300 mt-2">
-                0 Logs
-              </p>
-              <span className="text-[11px] text-amber-400/80 block mt-0.5">
-                Requires accelerated loading protocol
-              </span>
-            </div>
-
-            <div className="p-4 rounded-xl bg-red-950/40 border border-red-800 text-red-200">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase">Deviations (&gt; 5.0°C Breach)</span>
-                <AlertTriangle className="w-4 h-4 text-red-400" />
-              </div>
-              <p className="text-2xl font-black font-mono text-red-300 mt-2">
-                {deviationCount} Logs
-              </p>
-              <span className="text-[11px] text-red-400/80 block mt-0.5">
-                Immediate CAPA and re-chilling required
-              </span>
-            </div>
-          </div>
-
-          {/* Audit Verification Statement */}
-          <div className="p-4 bg-stone-850 border border-stone-700 rounded-xl text-xs space-y-2">
-            <h4 className="font-bold text-white uppercase text-[11px] tracking-wider flex items-center space-x-1.5">
-              <ShieldCheck className="w-4 h-4 text-amber-400" />
-              <span>QA Executive Compliance Certificate</span>
-            </h4>
-            <p className="text-stone-300 leading-relaxed text-[11px]">
-              This log verifies that all refrigerated pastry dispatches from the Barista Sri Lanka Central Kitchen were inspected by the designated Quality Assurance Executive. Probe thermometer readings are recorded for every batch prior to vehicle loading. Maximum cold-chain transit time to retail outlets does not exceed 2 hours in insulated refrigerated containers.
-            </p>
-            <div className="pt-2 border-t border-stone-800 flex justify-between items-center text-[10px] text-stone-400 font-mono">
-              <span>HACCP Link: OPRP-2 | Document: BCL/REC/HACCP/32</span>
-              <span>Auditor: {userProfile?.displayName || 'Central Kitchen QA Executive'}</span>
-            </div>
           </div>
         </div>
       )}

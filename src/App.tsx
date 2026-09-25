@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { LoginPage } from './components/LoginPage';
@@ -8,7 +8,6 @@ import { FormsView } from './components/FormsView';
 import { OutletsView } from './components/OutletsView';
 import { ProductsView } from './components/ProductsView';
 import { UsersView } from './components/UsersView';
-import { RolesView } from './components/RolesView';
 import { ReportsView } from './components/ReportsView';
 import { 
   InventoryBatch, 
@@ -38,20 +37,34 @@ import {
   subscribeBatchLogs, 
   subscribeUsers 
 } from './services/dataService';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ShieldAlert } from 'lucide-react';
 
 const MainContent: React.FC = () => {
-  const { userProfile, loading, role, hasAccess } = useAuth();
-  const [currentTab, setCurrentTab] = useState<string>(role === 'viewer' ? 'reports' : 'dashboard');
+  const { userProfile, loading, hasAccess } = useAuth();
 
-  // Enforce viewer role restriction: in viewer section only report is visible
+  // Dynamic accessible tabs calculation based strictly on administrator assigned permissions
+  const accessibleTabs = useMemo(() => {
+    const list = [
+      { id: 'dashboard', access: hasAccess('dashboard', 'view') },
+      { id: 'inventory', access: hasAccess('inventory', 'view') },
+      { id: 'forms', access: hasAccess('forms', 'view') },
+      { id: 'outlets', access: hasAccess('outlets', 'view') },
+      { id: 'products', access: hasAccess('products', 'view') },
+      { id: 'reports', access: hasAccess('reports', 'view') },
+      { id: 'users', access: hasAccess('users', 'view') },
+    ];
+    return list.filter(t => t.access).map(t => t.id);
+  }, [hasAccess]);
+
+  const [currentTab, setCurrentTab] = useState<string>('dashboard');
+
+  // Auto-switch to first accessible tab if currently selected tab is hidden / inaccessible
   useEffect(() => {
-    if (role === 'viewer') {
-      setCurrentTab('reports');
-    } else if (!hasAccess(currentTab as any, 'view')) {
-      setCurrentTab('dashboard');
+    if (!userProfile) return;
+    if (accessibleTabs.length > 0 && !accessibleTabs.includes(currentTab)) {
+      setCurrentTab(accessibleTabs[0]);
     }
-  }, [role, currentTab, hasAccess]);
+  }, [accessibleTabs, currentTab, userProfile]);
 
   // Application Data States (synced with Firestore)
   const [batches, setBatches] = useState<InventoryBatch[]>(INITIAL_BATCHES);
@@ -136,14 +149,14 @@ const MainContent: React.FC = () => {
       <Navbar currentTab={currentTab} setCurrentTab={setCurrentTab} />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-        {/* If user is Viewer or Driver, ONLY ReportsView is rendered (Report-only access) */}
-        {role === 'viewer' || role === 'driver' ? (
-          <ReportsView
-            dispatchLogs={dispatchLogs}
-            batches={batches}
-            outlets={outlets}
-            drivers={drivers}
-          />
+        {accessibleTabs.length === 0 ? (
+          <div className="bg-stone-900 border border-stone-800 rounded-2xl p-12 text-center max-w-lg mx-auto my-12 space-y-3">
+            <ShieldAlert className="w-12 h-12 text-amber-500 mx-auto" />
+            <h3 className="text-lg font-bold text-white">Access Restricted</h3>
+            <p className="text-xs text-stone-400">
+              No module view permissions are assigned to your staff account. Please contact a Barista System Administrator to configure your access permissions.
+            </p>
+          </div>
         ) : (
           <>
             {currentTab === 'dashboard' && hasAccess('dashboard', 'view') && (
@@ -191,10 +204,6 @@ const MainContent: React.FC = () => {
               <UsersView
                 usersList={usersList}
               />
-            )}
-
-            {currentTab === 'roles' && hasAccess('roles', 'view') && (
-              <RolesView />
             )}
 
             {currentTab === 'reports' && hasAccess('reports', 'view') && (

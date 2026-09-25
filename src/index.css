@@ -1,5 +1,118 @@
 @import "tailwindcss";
 
+:root {
+  color-scheme: dark;
+  --barista-orange: #ED5338;
+  --barista-orange-hover: #D84228;
+  --barista-orange-light: rgba(237, 83, 56, 0.15);
+  --barista-orange-border: rgba(237, 83, 56, 0.4);
+  --barista-espresso: #3E1812;
+  --barista-espresso-dark: #20100C;
+  --barista-bg-dark: #0D0B0A;
+  --barista-card-dark: #171311;
+  --barista-card-border: #332824;
+}
+
+body {
+  background-color: #0D0B0A;
+  color: #F5F0EB;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Custom Scrollbar for sleek dark Barista experience */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #14100E;
+}
+::-webkit-scrollbar-thumb {
+  background: #382B25;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #ED5338;
+}
+
+select {
+  color-scheme: dark;
+}
+
+option, optgroup {
+  background-color: #171311 !important; /* warm dark espresso stone */
+  color: #F5F0EB !important;
+}
+
+/* Reusable Barista UI System Utilities for Future Consistency */
+.barista-card {
+  background-color: #171311;
+  border: 1px solid #2E221E;
+  border-radius: 1rem;
+}
+
+.barista-card-hover {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.barista-card-hover:hover {
+  border-color: rgba(237, 83, 56, 0.5);
+  box-shadow: 0 4px 20px -2px rgba(237, 83, 56, 0.12);
+}
+
+.btn-barista-primary {
+  background-color: #ED5338;
+  color: #FFFFFF;
+  font-weight: 700;
+  border-radius: 0.75rem;
+  transition: all 0.15s ease-in-out;
+  box-shadow: 0 4px 14px 0 rgba(237, 83, 56, 0.3);
+  cursor: pointer;
+}
+.btn-barista-primary:hover:not(:disabled) {
+  background-color: #D84228;
+  box-shadow: 0 6px 20px rgba(237, 83, 56, 0.4);
+}
+.btn-barista-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-barista-secondary {
+  background-color: #221B18;
+  color: #E6DCD6;
+  border: 1px solid #3A2D27;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+}
+.btn-barista-secondary:hover:not(:disabled) {
+  background-color: #2D231F;
+  border-color: #ED5338;
+  color: #FFFFFF;
+}
+
+.input-barista {
+  background-color: #1A1412;
+  border: 1px solid #382B25;
+  color: #F5F0EB;
+  border-radius: 0.75rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.input-barista:focus {
+  outline: none;
+  border-color: #ED5338;
+  box-shadow: 0 0 0 1px #ED5338;
+}
+
+.badge-barista {
+  background-color: rgba(237, 83, 56, 0.15);
+  color: #FFA594;
+  border: 1px solid rgba(237, 83, 56, 0.35);
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+}
+
 /* Hide browser default number input spin arrows */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {

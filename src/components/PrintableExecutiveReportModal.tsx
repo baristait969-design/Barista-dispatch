@@ -37,16 +37,17 @@ export const PrintableExecutiveReportModal: React.FC<PrintableExecutiveReportMod
   };
 
   return (
-    <div className="printable-modal-overlay fixed inset-0 z-50 overflow-y-auto bg-stone-950/85 backdrop-blur-sm flex justify-center p-2 sm:p-6 print:p-0 print:bg-white print:static print:inset-auto print:backdrop-blur-none">
-      <div className="printable-card-container relative w-full max-w-5xl bg-white text-stone-900 rounded-2xl shadow-2xl p-6 sm:p-8 print:p-4 print:shadow-none print:rounded-none print:w-full print:max-w-none">
+    <div className="printable-modal-overlay fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-2 sm:p-6 print:p-0 print:bg-white print:static print:inset-auto print:backdrop-blur-none">
+      <div className="printable-card-container relative w-full max-w-5xl bg-[#171311] border border-[#382B25] text-stone-100 rounded-2xl shadow-2xl p-4 sm:p-6 print:p-0 print:border-none print:shadow-none print:rounded-none print:w-full print:max-w-none print:bg-white">
         
         {/* Modal Action Bar */}
-        <div className="flex items-center justify-between pb-4 mb-4 border-b border-stone-200 print:hidden">
-          <div className="flex items-center space-x-2">
-            <span className="bg-amber-100 text-amber-900 border border-amber-300 text-xs px-2.5 py-1 rounded-md font-bold font-mono">
+        <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#2C211C] print:hidden">
+          <div className="flex items-center space-x-2.5">
+            <BaristaLogo className="w-7 h-7 shadow-sm" />
+            <span className="bg-[#ED5338]/15 text-[#FFA594] border border-[#ED5338]/30 text-xs px-2.5 py-1 rounded-md font-bold font-mono">
               OPRP-2 QA REPORT
             </span>
-            <span className="text-xs text-stone-500 font-medium">
+            <span className="text-xs text-stone-400 font-medium hidden sm:inline">
               Central Kitchen Quality & Cold-Chain Dispatch Audit
             </span>
           </div>
@@ -63,7 +64,7 @@ export const PrintableExecutiveReportModal: React.FC<PrintableExecutiveReportMod
 
             <button
               onClick={handlePrint}
-              className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-xl text-xs flex items-center space-x-1.5 shadow-md transition cursor-pointer"
+              className="px-4 py-2 bg-[#ED5338] hover:bg-[#D84228] text-white font-bold rounded-xl text-xs flex items-center space-x-1.5 shadow-md shadow-[#ED5338]/25 transition cursor-pointer"
             >
               <Printer className="w-4 h-4" />
               <span>Print Document</span>
@@ -71,7 +72,7 @@ export const PrintableExecutiveReportModal: React.FC<PrintableExecutiveReportMod
 
             <button
               onClick={onClose}
-              className="p-2 text-stone-400 hover:text-stone-700 rounded-xl border border-stone-200 hover:bg-stone-100 transition cursor-pointer"
+              className="p-2 text-stone-400 hover:text-white rounded-xl border border-[#382B25] hover:bg-[#251D1A] transition cursor-pointer"
               title="Close Report Preview"
             >
               <X className="w-5 h-5" />
@@ -80,7 +81,7 @@ export const PrintableExecutiveReportModal: React.FC<PrintableExecutiveReportMod
         </div>
 
         {/* PRINTABLE CONTENT CONTAINER */}
-        <div id="printable-executive-report-content" className="print-content text-stone-900">
+        <div id="printable-executive-report-content" className="print-content bg-white text-stone-900 rounded-xl p-5 sm:p-8 shadow-md print:shadow-none print:rounded-none print:p-0">
           
           {/* Header Grid */}
           <div className="border-2 border-stone-900 mb-4">

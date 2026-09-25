@@ -2,21 +2,21 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   Lock, 
-  Mail, 
+  User, 
   AlertCircle,
   ThermometerSnowflake,
   ArrowRight,
   Eye,
   EyeOff,
-  ShieldCheck
+  ShieldCheck,
+  KeyRound
 } from 'lucide-react';
 import { BaristaLogo } from './BaristaLogo';
 
 export const LoginPage: React.FC = () => {
-  const { loginWithEmail } = useAuth();
+  const { loginWithUsername } = useAuth();
   
-  // Clean states without any pre-filled demo credentials to mitigate cyber attacks
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +28,7 @@ export const LoginPage: React.FC = () => {
     setSubmitting(true);
 
     try {
-      await loginWithEmail(email.trim(), password);
+      await loginWithUsername(username.trim(), password);
     } catch (err: any) {
       console.error(err);
       setError(err?.message || 'Authentication failed. Please verify credentials or contact the Administrator.');
@@ -38,39 +38,39 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 relative overflow-hidden">
-      {/* Background ambient accents */}
-      <div className="absolute -top-40 -left-40 w-96 h-96 bg-amber-600/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-amber-700/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-[#0D0B0A] text-stone-100 flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 relative overflow-hidden">
+      {/* Background ambient accents in Barista warm espresso and flame tones */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-[#ED5338]/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-[#3E1812]/30 rounded-full blur-3xl pointer-events-none" />
 
       {/* Brand header with authentic Barista circular logo */}
       <div className="text-center mb-6 z-10">
-        <div className="inline-flex items-center justify-center space-x-2 bg-stone-900 border border-stone-800 px-4 py-1.5 rounded-full mb-4 text-xs text-amber-300 shadow-sm">
-          <ThermometerSnowflake className="w-4 h-4 text-amber-400 animate-pulse" />
+        <div className="inline-flex items-center justify-center space-x-2 bg-[#1A1412] border border-[#2E221E] px-4 py-1.5 rounded-full mb-4 text-xs text-[#FFA594] shadow-sm">
+          <ThermometerSnowflake className="w-4 h-4 text-[#ED5338] animate-pulse" />
           <span>HACCP BCL/REC/HACCP/32 Compliance System</span>
         </div>
         
         <div className="flex items-center justify-center space-x-3.5">
-          <BaristaLogo className="w-14 h-14 shadow-xl ring-2 ring-amber-500/30" />
+          <BaristaLogo className="w-14 h-14 shadow-xl ring-2 ring-[#ED5338]/40" />
           <div className="text-left">
-            <h1 className="text-2xl sm:text-3xl font-extrabold font-serif tracking-widest text-white">
+            <h1 className="text-2xl sm:text-3xl font-extrabold font-serif tracking-widest text-[#ED5338]">
               BARISTA
             </h1>
-            <p className="text-xs text-amber-400 font-semibold uppercase tracking-wider">
+            <p className="text-xs text-[#FFA594] font-semibold uppercase tracking-wider">
               Sri Lanka — Central Kitchen Dispatch & Inventory
             </p>
           </div>
         </div>
       </div>
 
-      {/* Clean Secure Login Card - No hints, no autofills, no exposed credentials */}
-      <div className="w-full max-w-md bg-stone-900 border border-stone-800 rounded-2xl shadow-2xl p-6 sm:p-8 z-10 backdrop-blur-md">
+      {/* Clean Secure Login Card - Username & Password Based Authentication */}
+      <div className="w-full max-w-md bg-[#171311] border border-[#2E221E] rounded-2xl shadow-2xl p-6 sm:p-8 z-10 backdrop-blur-md">
         <div className="mb-6 text-center">
           <h2 className="text-xl font-bold text-white tracking-wide">
             Staff Portal Sign In
           </h2>
           <p className="text-xs text-stone-400 mt-1">
-            Central Kitchen Dispatch, Inventory & Quality Control
+            Sign in with your staff username and password
           </p>
         </div>
 
@@ -84,17 +84,18 @@ export const LoginPage: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           <div>
             <label className="block text-xs font-semibold text-stone-300 mb-1.5">
-              Email Address
+              Staff Username or User ID
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-stone-500 absolute left-3 top-3" />
+              <User className="w-4 h-4 text-stone-500 absolute left-3 top-3" />
               <input
-                type="email"
+                type="text"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-                className="w-full pl-9 pr-3 py-2.5 bg-stone-850 border border-stone-750 rounded-xl text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 font-mono transition"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                placeholder="e.g. admin or kamal"
+                className="w-full pl-9 pr-3 py-2.5 bg-[#1C1614] border border-[#382B25] rounded-xl text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-[#ED5338] focus:ring-1 focus:ring-[#ED5338] font-mono transition"
               />
             </div>
           </div>
@@ -113,7 +114,8 @@ export const LoginPage: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
-                className="w-full pl-9 pr-10 py-2.5 bg-stone-850 border border-stone-750 rounded-xl text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 font-mono transition"
+                placeholder="••••••••"
+                className="w-full pl-9 pr-10 py-2.5 bg-[#1C1614] border border-[#382B25] rounded-xl text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-[#ED5338] focus:ring-1 focus:ring-[#ED5338] font-mono transition"
               />
               <button
                 type="button"
@@ -129,7 +131,7 @@ export const LoginPage: React.FC = () => {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-2.5 px-4 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-stone-950 font-bold rounded-xl shadow-lg transition cursor-pointer flex items-center justify-center space-x-2 disabled:opacity-50 mt-3"
+            className="w-full py-3 px-4 bg-[#ED5338] hover:bg-[#D84228] text-white font-bold rounded-xl shadow-lg shadow-[#ED5338]/25 transition cursor-pointer flex items-center justify-center space-x-2 disabled:opacity-50 mt-3"
           >
             {submitting ? (
               <span>Authenticating...</span>
@@ -142,9 +144,16 @@ export const LoginPage: React.FC = () => {
           </button>
         </form>
 
-        <div className="mt-6 pt-4 border-t border-stone-800 text-center text-xs text-stone-500">
+        <div className="mt-5 p-3 bg-[#1C1614] border border-[#382B25] rounded-xl text-[11px] text-stone-400 flex items-start space-x-2">
+          <KeyRound className="w-4 h-4 text-[#ED5338] shrink-0 mt-0.5" />
+          <span>
+            <strong className="text-[#FFA594]">Temporary Password:</strong> If an administrator provisioned your account with a temporary one-time password, you will be required to set your own permanent password immediately upon login.
+          </span>
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-[#2E221E] text-center text-xs text-stone-500">
           <div className="flex items-center justify-center space-x-1.5">
-            <ShieldCheck className="w-4 h-4 text-amber-500/70" />
+            <ShieldCheck className="w-4 h-4 text-[#ED5338]" />
             <span>Secure Enterprise Access Control • Barista QA Portal</span>
           </div>
         </div>

@@ -1,18 +1,18 @@
 import { InventoryBatch, Outlet, Driver, UserProfile, Product } from '../types';
 
 export const INITIAL_PRODUCTS = [
-  { name: 'Blueberry Cold Cheesecake Slices', keyCode: 'BCC', category: 'Pastry Kitchen Items', defaultTemp: 3.5, shelfLifeDays: 5, unit: 'NoS' },
-  { name: 'Brownies Cheesecake Slices', keyCode: 'BCS', category: 'Pastry Kitchen Items', defaultTemp: 3.8, shelfLifeDays: 5, unit: 'NoS' },
-  { name: 'Death By Chocolate Cake (1500gm)', keyCode: 'DBC', category: 'Pastry Kitchen Items', defaultTemp: 4.0, shelfLifeDays: 6, unit: 'NoS' },
-  { name: 'Red velvet cake (1500gm)', keyCode: 'RVC', category: 'Pastry Kitchen Items', defaultTemp: 3.6, shelfLifeDays: 6, unit: 'NoS' },
-  { name: 'Mocha Cake', keyCode: 'MC', category: 'Pastry Kitchen Items', defaultTemp: 4.1, shelfLifeDays: 6, unit: 'NoS' },
-  { name: 'Caramel Macchiato Tart', keyCode: 'CMT', category: 'Pastry Kitchen Items', defaultTemp: 3.4, shelfLifeDays: 4, unit: 'NoS' },
-  { name: 'Almond Croissant Slices', keyCode: 'ACS', category: 'Bakery & Pastry', defaultTemp: 4.5, shelfLifeDays: 3, unit: 'NoS' },
-  { name: 'Tiramisu Cold Cups', keyCode: 'TCC', category: 'Pastry Kitchen Items', defaultTemp: 3.2, shelfLifeDays: 4, unit: 'NoS' },
-  { name: 'Classic Dark Chocolate Mousse', keyCode: 'CDM', category: 'Pastry Kitchen Items', defaultTemp: 3.2, shelfLifeDays: 4, unit: 'NoS' },
-  { name: 'Iced Latte Mix Cold Base', keyCode: 'ILM', category: 'Beverage Bases', defaultTemp: 2.8, shelfLifeDays: 7, unit: 'NoS' },
-  { name: 'Chicken & Mushroom Savory Pie', keyCode: 'CMS', category: 'Savory Kitchen', defaultTemp: 4.2, shelfLifeDays: 3, unit: 'NoS' },
-  { name: 'Butter Croissants 4-Pack', keyCode: 'BCP', category: 'Bakery & Pastry', defaultTemp: 4.5, shelfLifeDays: 3, unit: 'NoS' }
+  { name: 'Blueberry Cold Cheesecake Slices', keyCode: 'BCC', category: 'Pastry Kitchen Items', defaultTemp: 3.5, shelfLifeDays: 5, unit: 'NoS', active: true },
+  { name: 'Brownies Cheesecake Slices', keyCode: 'BCS', category: 'Pastry Kitchen Items', defaultTemp: 3.8, shelfLifeDays: 5, unit: 'NoS', active: true },
+  { name: 'Death By Chocolate Cake (1500gm)', keyCode: 'DBC', category: 'Pastry Kitchen Items', defaultTemp: 4.0, shelfLifeDays: 6, unit: 'NoS', active: true },
+  { name: 'Red velvet cake (1500gm)', keyCode: 'RVC', category: 'Pastry Kitchen Items', defaultTemp: 3.6, shelfLifeDays: 6, unit: 'NoS', active: true },
+  { name: 'Mocha Cake', keyCode: 'MC', category: 'Pastry Kitchen Items', defaultTemp: 4.1, shelfLifeDays: 6, unit: 'NoS', active: true },
+  { name: 'Caramel Macchiato Tart', keyCode: 'CMT', category: 'Pastry Kitchen Items', defaultTemp: 3.4, shelfLifeDays: 4, unit: 'NoS', active: true },
+  { name: 'Almond Croissant Slices', keyCode: 'ACS', category: 'Bakery & Pastry', defaultTemp: 4.5, shelfLifeDays: 3, unit: 'NoS', active: true },
+  { name: 'Tiramisu Cold Cups', keyCode: 'TCC', category: 'Pastry Kitchen Items', defaultTemp: 3.2, shelfLifeDays: 4, unit: 'NoS', active: true },
+  { name: 'Classic Dark Chocolate Mousse', keyCode: 'CDM', category: 'Pastry Kitchen Items', defaultTemp: 3.2, shelfLifeDays: 4, unit: 'NoS', active: true },
+  { name: 'Iced Latte Mix Cold Base', keyCode: 'ILM', category: 'Beverage Bases', defaultTemp: 2.8, shelfLifeDays: 7, unit: 'NoS', active: true },
+  { name: 'Chicken & Mushroom Savory Pie', keyCode: 'CMS', category: 'Savory Kitchen', defaultTemp: 4.2, shelfLifeDays: 3, unit: 'NoS', active: true },
+  { name: 'Butter Croissants 4-Pack', keyCode: 'BCP', category: 'Bakery & Pastry', defaultTemp: 4.5, shelfLifeDays: 3, unit: 'NoS', active: true }
 ];
 
 export const INITIAL_PRODUCT_CATALOG: Product[] = INITIAL_PRODUCTS.map((p, idx) => ({
@@ -226,9 +226,12 @@ export const INITIAL_USERS: UserProfile[] = [
   {
     id: 'user-admin-main',
     uid: 'admin-barista-00',
+    username: 'admin',
     userIdCode: 'USR-ADM-01',
-    email: 'baristait969@gmail.com',
+    email: 'admin@barista.lk',
     password: '123',
+    mustResetPassword: false,
+    status: 'active',
     displayName: 'Barista IT Administrator',
     role: 'admin',
     designation: 'System Administrator & QA Executive',
@@ -238,18 +241,21 @@ export const INITIAL_USERS: UserProfile[] = [
       inventory: { view: true, edit: true },
       forms: { view: true, edit: true },
       outlets: { view: true, edit: true },
-      users: { view: true, edit: true },
-      roles: { view: true, edit: true },
-      reports: { view: true, edit: true }
+      products: { view: true, edit: true },
+      reports: { view: true, edit: true },
+      users: { view: true, edit: true }
     },
     createdAt: '2025-01-01T00:00:00.000Z'
   },
   {
     id: 'user-admin',
     uid: 'admin-barista-01',
+    username: 'tharindu',
     userIdCode: 'USR-ADM-02',
-    email: 'admin@barista.lk',
+    email: 'tharindu@barista.lk',
     password: '123',
+    mustResetPassword: false,
+    status: 'active',
     displayName: 'Tharindu Fernando (QA Executive)',
     role: 'admin',
     designation: 'QA Executive',
@@ -259,18 +265,21 @@ export const INITIAL_USERS: UserProfile[] = [
       inventory: { view: true, edit: true },
       forms: { view: true, edit: true },
       outlets: { view: true, edit: true },
-      users: { view: true, edit: true },
-      roles: { view: true, edit: true },
-      reports: { view: true, edit: true }
+      products: { view: true, edit: true },
+      reports: { view: true, edit: true },
+      users: { view: true, edit: true }
     },
     createdAt: '2025-01-01T00:00:00.000Z'
   },
   {
     id: 'user-editor',
     uid: 'editor-barista-02',
+    username: 'dineth',
     userIdCode: 'USR-EDT-02',
     email: 'pastrychef@barista.lk',
     password: '123',
+    mustResetPassword: false,
+    status: 'active',
     displayName: 'Chef Dineth (Head Pastry Chef)',
     role: 'editor',
     designation: 'Central Kitchen Shift Supervisor',
@@ -280,18 +289,21 @@ export const INITIAL_USERS: UserProfile[] = [
       inventory: { view: true, edit: true },
       forms: { view: true, edit: true },
       outlets: { view: true, edit: false }, // Only admin can edit/add/delete/suspend outlets
-      users: { view: true, edit: false },
-      roles: { view: true, edit: false },
-      reports: { view: true, edit: false }
+      products: { view: true, edit: false },
+      reports: { view: true, edit: false },
+      users: { view: true, edit: false }
     },
     createdAt: '2025-01-01T00:00:00.000Z'
   },
   {
     id: 'user-viewer',
     uid: 'viewer-barista-03',
+    username: 'anura',
     userIdCode: 'USR-VIW-03',
     email: 'auditor@barista.lk',
     password: '123',
+    mustResetPassword: false,
+    status: 'active',
     displayName: 'Anura Bandara (Outlet Auditor / Store Viewer)',
     role: 'viewer',
     designation: 'Audit & Compliance Inspector',
@@ -302,18 +314,20 @@ export const INITIAL_USERS: UserProfile[] = [
       forms: { view: false, edit: false },
       outlets: { view: false, edit: false },
       products: { view: false, edit: false },
-      users: { view: false, edit: false },
-      roles: { view: false, edit: false },
-      reports: { view: true, edit: false } // Viewer section only report visible and printable
+      reports: { view: true, edit: false },
+      users: { view: false, edit: false }
     },
     createdAt: '2025-01-01T00:00:00.000Z'
   },
   {
     id: 'user-drv-01',
     uid: 'driver-barista-01',
+    username: 'kamal',
     userIdCode: 'USR-DRV-01',
     email: 'kamal.driver@barista.lk',
     password: '123',
+    mustResetPassword: false,
+    status: 'active',
     displayName: 'Kamal Perera',
     role: 'driver',
     designation: 'Refrigerated Logistics Driver',
@@ -324,18 +338,20 @@ export const INITIAL_USERS: UserProfile[] = [
       forms: { view: false, edit: false },
       outlets: { view: false, edit: false },
       products: { view: false, edit: false },
-      users: { view: false, edit: false },
-      roles: { view: false, edit: false },
-      reports: { view: true, edit: false }
+      reports: { view: true, edit: false },
+      users: { view: false, edit: false }
     },
     createdAt: '2025-01-01T00:00:00.000Z'
   },
   {
     id: 'user-drv-02',
     uid: 'driver-barista-02',
+    username: 'nimal',
     userIdCode: 'USR-DRV-02',
     email: 'nimal.driver@barista.lk',
     password: '123',
+    mustResetPassword: false,
+    status: 'active',
     displayName: 'Nimal Silva',
     role: 'driver',
     designation: 'Refrigerated Logistics Driver',
@@ -346,18 +362,20 @@ export const INITIAL_USERS: UserProfile[] = [
       forms: { view: false, edit: false },
       outlets: { view: false, edit: false },
       products: { view: false, edit: false },
-      users: { view: false, edit: false },
-      roles: { view: false, edit: false },
-      reports: { view: true, edit: false }
+      reports: { view: true, edit: false },
+      users: { view: false, edit: false }
     },
     createdAt: '2025-01-01T00:00:00.000Z'
   },
   {
     id: 'user-drv-03',
     uid: 'driver-barista-03',
+    username: 'sunil',
     userIdCode: 'USR-DRV-03',
     email: 'sunil.driver@barista.lk',
     password: '123',
+    mustResetPassword: false,
+    status: 'active',
     displayName: 'Sunil Fernando',
     role: 'driver',
     designation: 'Refrigerated Logistics Driver',
@@ -368,9 +386,8 @@ export const INITIAL_USERS: UserProfile[] = [
       forms: { view: false, edit: false },
       outlets: { view: false, edit: false },
       products: { view: false, edit: false },
-      users: { view: false, edit: false },
-      roles: { view: false, edit: false },
-      reports: { view: true, edit: false }
+      reports: { view: true, edit: false },
+      users: { view: false, edit: false }
     },
     createdAt: '2025-01-01T00:00:00.000Z'
   }
