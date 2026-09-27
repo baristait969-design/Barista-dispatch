@@ -125,6 +125,12 @@ input[type="number"] {
   appearance: textfield !important;
 }
 
+@media screen {
+  #print-root {
+    display: none !important;
+  }
+}
+
 @media print {
   @page {
     margin: 6mm 8mm;
@@ -134,6 +140,7 @@ input[type="number"] {
   body.printing-landscape {
     @page {
       size: landscape;
+      margin: 6mm 8mm;
     }
   }
 
@@ -150,39 +157,54 @@ input[type="number"] {
     padding: 0 !important;
   }
 
-  #root {
-    background: transparent !important;
-    height: auto !important;
-    min-height: 0 !important;
-    overflow: visible !important;
-    position: static !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
   /* ----------------------------------------------------
      STRICT PRINT ISOLATION:
-     When printing, hide EVERYTHING on the website.
-     Only render the official printable sheet / report element.
+     Completely suppress the interactive application tree.
+     Only render the official printable sheet / report in #print-root.
      ---------------------------------------------------- */
-  body * {
-    visibility: hidden !important;
+  #root {
+    display: none !important;
   }
 
-  /* Exclusively show the printable document container and its children */
-  #printable-dispatch-sheet-content,
-  #printable-dispatch-sheet-content *,
-  #printable-executive-report-content,
-  #printable-executive-report-content * {
+  /* Exclusively display the isolated print root container */
+  #print-root {
+    display: block !important;
+    position: static !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+
+  #print-root * {
     visibility: visible !important;
   }
 
-  /* Pin the printable container directly to (0, 0) of the printed page */
-  #printable-dispatch-sheet-content,
-  #printable-executive-report-content {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
+  /* Strip card containers and modals inside print-root if any */
+  #print-root .printable-modal-overlay,
+  #print-root .printable-card-container {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    inset: auto !important;
+  }
+
+  #print-root .print-content {
+    position: static !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
@@ -197,21 +219,21 @@ input[type="number"] {
 
   /* Explicitly suppress all elements with print:hidden */
   .print\:hidden,
-  .print\:hidden * {
+  #print-root .print\:hidden {
     display: none !important;
     visibility: hidden !important;
   }
 
-  .print\:block {
+  .print\:block,
+  #print-root .print\:block {
     display: block !important;
   }
 
   /* Avoid unnecessary page breaks */
-  #printable-dispatch-sheet-content,
-  #printable-executive-report-content,
   header,
   table,
-  tr {
+  tr,
+  .print-avoid-break {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }

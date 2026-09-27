@@ -4,7 +4,7 @@ import { DispatchLog, DispatchLineItem } from '../types';
 import { BaristaLogo } from './BaristaLogo';
 import { DocumentHaccpHeader } from './DocumentHaccpHeader';
 import { generateSingleDispatchPDF } from '../utils/pdfExport';
-import { printHtmlElement } from '../utils/printUtils';
+import { printHtmlElement, syncToPrintRoot, clearPrintRoot } from '../utils/printUtils';
 
 interface PrintableDispatchSheetProps {
   dispatchLog: Partial<DispatchLog> & {
@@ -14,6 +14,7 @@ interface PrintableDispatchSheetProps {
     dispatchTime: string;
     driverName: string;
     supervisor: string;
+    outletName?: string;
   };
   onClose?: () => void;
   autoPrint?: boolean;
@@ -29,18 +30,43 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
   const totalUnits = activeItems.reduce((acc, item) => acc + item.quantity, 0);
   const isAllHaccpCompliant = activeItems.every(item => item.dispatchTemp <= 5.0);
 
+  // Build standard filename title with outlet name once and today's date
+  const getDocFilenameTitle = () => {
+    let outlet = '';
+    if (dispatchLog.outletNames && dispatchLog.outletNames.length > 0) {
+      outlet = dispatchLog.outletNames[0];
+    } else if (dispatchLog.outletName) {
+      outlet = dispatchLog.outletName;
+    } else {
+      outlet = 'Outlet';
+    }
+    const cleanOutlet = outlet.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+    const todayStr = new Date().toISOString().split('T')[0];
+    return `Barista_Dispatch_${cleanOutlet}_${todayStr}`;
+  };
+
   const handlePrint = () => {
-    printHtmlElement('printable-dispatch-sheet-content', `Barista Dispatch - ${dispatchLog.date} ${dispatchLog.dispatchTime}`);
+    printHtmlElement('printable-dispatch-sheet-content', getDocFilenameTitle());
   };
 
   React.useEffect(() => {
+    const syncTimer = setTimeout(() => {
+      syncToPrintRoot('printable-dispatch-sheet-content');
+    }, 50);
+
+    let printTimer: any;
     if (autoPrint) {
-      const timer = setTimeout(() => {
+      printTimer = setTimeout(() => {
         handlePrint();
       }, 400);
-      return () => clearTimeout(timer);
     }
-  }, [autoPrint]);
+
+    return () => {
+      clearTimeout(syncTimer);
+      if (printTimer) clearTimeout(printTimer);
+      clearPrintRoot();
+    };
+  }, [dispatchLog, autoPrint]);
 
   return (
     <div className="printable-modal-overlay fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-2 sm:p-6 print:p-0 print:bg-white print:static print:inset-auto print:backdrop-blur-none">

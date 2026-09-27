@@ -718,11 +718,36 @@ export function buildSingleDispatchDoc(log: Partial<DispatchLog> & {
 }
 
 /**
- * Downloads Single Dispatch PDF.
+ * Helper to build standard dispatch sheet filename:
+ * Includes the outlet name once with today's date to identify easily.
+ * Example: "Barista_Dispatch_Havelock_Road_2026-09-27.pdf"
+ */
+export function getDispatchFilename(log: any): string {
+  let outlet = '';
+  if (Array.isArray(log?.outletNames) && log.outletNames.length > 0) {
+    outlet = log.outletNames[0];
+  } else if (typeof log?.outletName === 'string' && log.outletName.trim()) {
+    outlet = log.outletName.trim();
+  } else if (typeof log?.destination === 'string' && log.destination.trim()) {
+    outlet = log.destination.trim();
+  } else {
+    outlet = 'Outlet';
+  }
+
+  // Clean outlet name for filesystem compatibility
+  const cleanOutlet = outlet.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  return `Barista_Dispatch_${cleanOutlet}_${todayStr}.pdf`;
+}
+
+/**
+ * Downloads Single Dispatch PDF with outlet name once and today's date.
  */
 export function generateSingleDispatchPDF(log: any) {
   const doc = buildSingleDispatchDoc(log);
-  doc.save(`Barista_Dispatch_Sheet_${log.docNo || log.id || 'Manifest'}.pdf`);
+  const filename = getDispatchFilename(log);
+  doc.save(filename);
 }
 
 /**
@@ -730,11 +755,12 @@ export function generateSingleDispatchPDF(log: any) {
  */
 export function printSingleDispatchPDF(log: any) {
   const doc = buildSingleDispatchDoc(log);
+  const filename = getDispatchFilename(log);
   doc.autoPrint();
   const pdfBlob = doc.output('blob');
   const pdfUrl = URL.createObjectURL(pdfBlob);
   const win = window.open(pdfUrl, '_blank');
   if (!win) {
-    doc.save(`Barista_Dispatch_Sheet_${log.docNo || log.id || 'Manifest'}.pdf`);
+    doc.save(filename);
   }
 }

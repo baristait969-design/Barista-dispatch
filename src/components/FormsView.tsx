@@ -887,7 +887,7 @@ export const FormsView: React.FC<FormsViewProps> = ({
         <PrintableDispatchSheet
           dispatchLog={selectedLogForPrint}
           onClose={() => setSelectedLogForPrint(null)}
-          autoPrint={true}
+          autoPrint={false}
         />
       )}
 
