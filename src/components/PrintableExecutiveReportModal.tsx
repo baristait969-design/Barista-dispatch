@@ -95,7 +95,7 @@ export const PrintableExecutiveReportModal: React.FC<PrintableExecutiveReportMod
         </div>
 
         {/* PRINTABLE CONTENT CONTAINER */}
-        <div id="printable-executive-report-content" className="print-content bg-white text-stone-900 rounded-xl p-5 sm:p-8 print:p-0 shadow-md print:shadow-none print:rounded-none">
+        <div id="printable-executive-report-content" className="print-content bg-white text-stone-900 rounded-xl p-5 sm:p-8 print:p-2 shadow-md print:shadow-none">
           
           {/* Header Grid - Centered HACCP Standard Header */}
           <DocumentHaccpHeader
@@ -109,7 +109,7 @@ export const PrintableExecutiveReportModal: React.FC<PrintableExecutiveReportMod
             refId={`AUD-${stats.totalDispatches}-REC`}
             haccpLink="OPRP-2 Certified (≤ 5.0°C)"
             mandateNotice="CRITICAL CONTROL REQUIREMENT: Maximum dispatch transit temperature must remain ≤ 5.0°C."
-            className="mb-4 print:mb-2"
+            className="mb-4 print:mb-3"
           />
 
           {/* Operational Metrics Grid */}

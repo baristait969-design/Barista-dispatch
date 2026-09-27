@@ -30,28 +30,28 @@ export const DocumentHaccpHeader: React.FC<DocumentHaccpHeaderProps> = ({
   className = ''
 }) => {
   return (
-    <header className={`border-2 border-stone-900 bg-white text-stone-900 mb-4 print:mb-2 overflow-hidden rounded-sm print:rounded-none print:border-2 print:border-black ${className}`}>
+    <header className={`border-2 border-stone-900 bg-white text-stone-900 mb-4 print:mb-3.5 overflow-hidden rounded-lg print:rounded-lg ${className}`}>
       {/* 3-Column Official HACCP Grid - ALL CONTENT STRICTLY CENTERED */}
-      <div className="grid grid-cols-12 divide-y md:divide-y-0 md:divide-x-2 print:divide-y-0 print:divide-x-2 divide-stone-900 print:divide-black text-center">
+      <div className="grid grid-cols-12 divide-y md:divide-y-0 md:divide-x-2 print:divide-y-0 print:divide-x-2 divide-stone-900 text-center">
         
         {/* Column 1: Centered Logo and Company Identity */}
-        <div className="col-span-12 md:col-span-4 print:col-span-4 p-3.5 print:p-2 flex flex-col justify-center items-center text-center bg-stone-50/60 print:bg-white">
-          <div className="flex justify-center items-center mb-1.5 print:mb-1">
-            <BaristaLogo className="w-13 h-13 print:w-11 print:h-11 shadow-sm print:shadow-none" size={52} />
+        <div className="col-span-12 md:col-span-4 print:col-span-4 p-3.5 print:p-3 flex flex-col justify-center items-center text-center bg-stone-50/60 print:bg-stone-50/60">
+          <div className="flex justify-center items-center mb-1.5">
+            <BaristaLogo className="w-13 h-13 print:w-12 print:h-12 shadow-sm print:shadow-none" size={52} />
           </div>
-          <h1 className="font-serif font-black tracking-widest text-lg sm:text-xl print:text-base text-stone-900 leading-tight print:text-black">
+          <h1 className="font-serif font-black tracking-widest text-lg sm:text-xl print:text-lg text-stone-900 leading-tight">
             BARISTA
           </h1>
-          <p className="text-[10px] print:text-[9px] font-bold tracking-wider uppercase text-stone-700 print:text-black mt-0.5">
+          <p className="text-[10px] font-bold tracking-wider uppercase text-stone-700 mt-0.5">
             SRI LANKA — CENTRAL KITCHEN
           </p>
-          <p className="text-[8.5px] print:text-[8px] text-stone-500 print:text-stone-700 font-mono mt-0.5">
+          <p className="text-[8.5px] text-stone-500 font-mono mt-0.5">
             Barista Coffee Lanka (Pvt) Ltd.
           </p>
         </div>
 
         {/* Column 2: Centered Document Title & HACCP Protocol */}
-        <div className="col-span-12 md:col-span-4 print:col-span-4 p-3.5 print:p-2 flex flex-col justify-center items-center text-center bg-white">
+        <div className="col-span-12 md:col-span-4 print:col-span-4 p-3.5 print:p-3 flex flex-col justify-center items-center text-center bg-white">
           <span className="text-[9.5px] print:text-[8.5px] font-mono font-semibold tracking-wider uppercase text-stone-500 print:text-stone-700">
             HACCP Food Safety Management System
           </span>
