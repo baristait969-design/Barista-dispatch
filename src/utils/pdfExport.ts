@@ -2,8 +2,229 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { DispatchLog } from '../types';
 
+export interface PdfHeaderConfig {
+  title: string;
+  subtitle?: string;
+  docCode: string;
+  effectiveDate: string;
+  revision: string;
+  version: string;
+  approvedBy: string;
+  refId: string;
+  haccpLink?: string;
+  mandateNotice?: string;
+}
+
 /**
- * Builds the jsPDF instance for Executive QA Report.
+ * Universal official HACCP document header renderer for jsPDF.
+ * Renders the EXACT same 3-column bordered table with centered content and the official Barista logo
+ * as seen on screen and in browser print.
+ */
+export function drawHaccpHeaderToPdf(
+  doc: jsPDF,
+  startX: number,
+  startY: number,
+  totalWidth: number,
+  config: PdfHeaderConfig,
+  isLandscape: boolean = false
+): number {
+  const gridHeight = isLandscape ? 25 : 28;
+  const bannerHeight = isLandscape ? 5.5 : 6;
+  const totalHeaderHeight = gridHeight + bannerHeight;
+
+  // 1. Draw outer frame
+  doc.setFillColor(255, 255, 255);
+  doc.rect(startX, startY, totalWidth, totalHeaderHeight, 'F');
+  doc.setDrawColor(25, 20, 18);
+  doc.setLineWidth(0.5);
+  doc.rect(startX, startY, totalWidth, totalHeaderHeight, 'S');
+
+  // Column widths
+  const col1Width = Math.round(totalWidth * 0.30);
+  const col2Width = Math.round(totalWidth * 0.42);
+  const col3Width = totalWidth - col1Width - col2Width;
+
+  // 2. Draw vertical divider lines
+  doc.setDrawColor(25, 20, 18);
+  doc.setLineWidth(0.4);
+  doc.line(startX + col1Width, startY, startX + col1Width, startY + gridHeight);
+  doc.line(startX + col1Width + col2Width, startY, startX + col1Width + col2Width, startY + gridHeight);
+
+  // ----------------------------------------------------
+  // COLUMN 1: Official Barista Logo & Brand Identity (STRICTLY CENTERED)
+  // ----------------------------------------------------
+  const col1CenterX = startX + col1Width / 2;
+
+  // Background light tint
+  doc.setFillColor(250, 248, 246);
+  doc.rect(startX + 0.3, startY + 0.3, col1Width - 0.6, gridHeight - 0.3, 'F');
+
+  // Draw Barista Circular Logo Emblem (Coral Orange #ED5338 base + white letters + espresso bar)
+  const logoCenterY = startY + (isLandscape ? 6.5 : 7.2);
+  const logoRadius = isLandscape ? 4.5 : 5.0;
+
+  // Outer circle: Coral Flame (#ED5338)
+  doc.setFillColor(237, 83, 56);
+  doc.circle(col1CenterX, logoCenterY, logoRadius, 'F');
+
+  // Inner white 'BARISTA' text
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(isLandscape ? 5.5 : 6.0);
+  doc.setTextColor(255, 255, 255);
+  doc.text('BARISTA', col1CenterX, logoCenterY + (isLandscape ? 1.0 : 1.2), { align: 'center' });
+
+  // Dark espresso bar (#3E1812) under 'IS'
+  doc.setFillColor(62, 24, 18);
+  const barWidth = isLandscape ? 2.4 : 2.8;
+  doc.rect(col1CenterX - barWidth / 2, logoCenterY + (isLandscape ? 1.6 : 1.9), barWidth, 0.4, 'F');
+
+  // Brand Name Typography below logo
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(isLandscape ? 9 : 10);
+  doc.setTextColor(25, 20, 18);
+  doc.text('BARISTA', col1CenterX, startY + (isLandscape ? 14.5 : 16.5), { align: 'center' });
+
+  doc.setFontSize(isLandscape ? 5.2 : 5.8);
+  doc.setTextColor(60, 50, 45);
+  doc.text('SRI LANKA — CENTRAL KITCHEN', col1CenterX, startY + (isLandscape ? 18.5 : 21.0), { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(isLandscape ? 4.6 : 5.2);
+  doc.setTextColor(110, 100, 95);
+  doc.text('Barista Coffee Lanka (Pvt) Ltd.', col1CenterX, startY + (isLandscape ? 22.0 : 25.0), { align: 'center' });
+
+  // ----------------------------------------------------
+  // COLUMN 2: Document Title & HACCP Protocol (STRICTLY CENTERED)
+  // ----------------------------------------------------
+  const col2CenterX = startX + col1Width + col2Width / 2;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(isLandscape ? 5.5 : 6.0);
+  doc.setTextColor(100, 95, 90);
+  doc.text('HACCP FOOD SAFETY MANAGEMENT SYSTEM', col2CenterX, startY + (isLandscape ? 5.5 : 6.5), { align: 'center' });
+
+  // Title
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(isLandscape ? 9.5 : 10.5);
+  doc.setTextColor(20, 20, 20);
+  doc.text(config.title.toUpperCase(), col2CenterX, startY + (isLandscape ? 11.0 : 13.0), { align: 'center' });
+
+  // Protocol Badge
+  const badgeWidth = Math.min(col2Width - 16, 68);
+  const badgeHeight = isLandscape ? 4.5 : 4.8;
+  const badgeY = startY + (isLandscape ? 13.5 : 15.5);
+
+  doc.setFillColor(254, 242, 240);
+  doc.setDrawColor(237, 83, 56);
+  doc.setLineWidth(0.2);
+  doc.roundedRect(col2CenterX - badgeWidth / 2, badgeY, badgeWidth, badgeHeight, 1, 1, 'FD');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(isLandscape ? 5.8 : 6.3);
+  doc.setTextColor(216, 66, 40);
+  doc.text(config.haccpLink || 'OPRP-2 (Cold-Chain ≤ 5.0°C)', col2CenterX, badgeY + (isLandscape ? 3.2 : 3.4), { align: 'center' });
+
+  // Subtitle
+  if (config.subtitle) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(isLandscape ? 5.0 : 5.6);
+    doc.setTextColor(90, 85, 80);
+    doc.text(config.subtitle, col2CenterX, startY + (isLandscape ? 22.0 : 24.5), { align: 'center' });
+  }
+
+  // ----------------------------------------------------
+  // COLUMN 3: Document Control & QA Metadata (STRICTLY CENTERED)
+  // ----------------------------------------------------
+  const col3X = startX + col1Width + col2Width;
+  const col3CenterX = col3X + col3Width / 2;
+
+  // Right column light tint
+  doc.setFillColor(252, 250, 248);
+  doc.rect(col3X + 0.2, startY + 0.3, col3Width - 0.4, gridHeight - 0.3, 'F');
+
+  const row1H = isLandscape ? 8.0 : 9.0;
+  const row2H = isLandscape ? 8.5 : 9.5;
+
+  // Band 1: Record Code
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(isLandscape ? 5.0 : 5.5);
+  doc.setTextColor(110, 100, 95);
+  doc.text('RECORD CODE', col3CenterX, startY + (isLandscape ? 3.5 : 4.0), { align: 'center' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(isLandscape ? 8.0 : 9.0);
+  doc.setTextColor(20, 20, 20);
+  doc.text(config.docCode, col3CenterX, startY + (isLandscape ? 7.0 : 7.8), { align: 'center' });
+
+  // Divider line 1
+  doc.setDrawColor(210, 200, 195);
+  doc.setLineWidth(0.25);
+  doc.line(col3X, startY + row1H, col3X + col3Width, startY + row1H);
+
+  // Band 2: Effective Date & Revision
+  const band2Y = startY + row1H;
+  const leftHalfX = col3X + col3Width / 4;
+  const rightHalfX = col3X + (col3Width * 3) / 4;
+
+  doc.line(col3X + col3Width / 2, band2Y, col3X + col3Width / 2, band2Y + row2H);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(isLandscape ? 4.5 : 5.0);
+  doc.setTextColor(110, 100, 95);
+  doc.text('EFFECTIVE DATE', leftHalfX, band2Y + (isLandscape ? 3.2 : 3.5), { align: 'center' });
+  doc.text('REVISION / VER', rightHalfX, band2Y + (isLandscape ? 3.2 : 3.5), { align: 'center' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(isLandscape ? 5.8 : 6.4);
+  doc.setTextColor(30, 30, 30);
+  doc.text(config.effectiveDate, leftHalfX, band2Y + (isLandscape ? 6.8 : 7.5), { align: 'center' });
+  doc.text(`${config.revision} / ${config.version}`, rightHalfX, band2Y + (isLandscape ? 6.8 : 7.5), { align: 'center' });
+
+  // Divider line 2
+  const band3Y = band2Y + row2H;
+  doc.line(col3X, band3Y, col3X + col3Width, band3Y);
+
+  // Band 3: Approved By & Document Ref
+  doc.line(col3X + col3Width / 2, band3Y, col3X + col3Width / 2, startY + gridHeight);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(isLandscape ? 4.5 : 5.0);
+  doc.setTextColor(110, 100, 95);
+  doc.text('APPROVED BY', leftHalfX, band3Y + (isLandscape ? 3.0 : 3.4), { align: 'center' });
+  doc.text('DOCUMENT REF', rightHalfX, band3Y + (isLandscape ? 3.0 : 3.4), { align: 'center' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(isLandscape ? 5.8 : 6.4);
+  doc.setTextColor(30, 30, 30);
+  doc.text(config.approvedBy, leftHalfX, band3Y + (isLandscape ? 6.5 : 7.2), { align: 'center' });
+  doc.text(config.refId, rightHalfX, band3Y + (isLandscape ? 6.5 : 7.2), { align: 'center' });
+
+  // ----------------------------------------------------
+  // SUB-BANNER STRIP: Cold Chain Mandate (STRICTLY CENTERED)
+  // ----------------------------------------------------
+  const bannerY = startY + gridHeight;
+  doc.setFillColor(245, 245, 248);
+  doc.rect(startX, bannerY, totalWidth, bannerHeight, 'F');
+
+  doc.setDrawColor(25, 20, 18);
+  doc.setLineWidth(0.4);
+  doc.line(startX, bannerY, startX + totalWidth, bannerY);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(isLandscape ? 6.0 : 6.5);
+  doc.setTextColor(40, 40, 40);
+  doc.text(
+    config.mandateNotice || 'CRITICAL CONTROL REQUIREMENT: Maximum dispatch transit temperature must remain ≤ 5.0°C (OPRP-2)',
+    startX + totalWidth / 2,
+    bannerY + bannerHeight / 2 + (isLandscape ? 1.0 : 1.2),
+    { align: 'center' }
+  );
+
+  return startY + totalHeaderHeight + 3.5;
+}
+
+/**
+ * Builds the jsPDF instance for Executive QA Report with the EXACT same centered header.
  */
 export function buildExecutiveReportDoc(
   logs: DispatchLog[],
@@ -26,76 +247,89 @@ export function buildExecutiveReportDoc(
   });
 
   const todayStr = new Date().toISOString().split('T')[0];
+  const startX = 14;
+  const startY = 8;
+  const totalWidth = 269; // 297 - 28
 
-  // Header Banner Background
-  doc.setFillColor(30, 27, 24); // Dark stone
-  doc.rect(0, 0, 297, 26, 'F');
+  // Draw the official centered HACCP Header
+  const nextY = drawHaccpHeaderToPdf(
+    doc,
+    startX,
+    startY,
+    totalWidth,
+    {
+      title: 'Executive QA & Dispatch Summary',
+      subtitle: 'Central Kitchen Food Safety & Cold-Chain Adherence Audit',
+      docCode: 'BCL/QA/REP/EXEC',
+      effectiveDate: dateRange,
+      revision: 'Rev 01',
+      version: '01',
+      approvedBy: userName,
+      refId: `AUD-${stats.totalDispatches}-REC`,
+      haccpLink: 'OPRP-2 Certified (≤ 5.0°C)',
+      mandateNotice: 'CRITICAL CONTROL REQUIREMENT: Maximum dispatch transit temperature must remain ≤ 5.0°C.'
+    },
+    true
+  );
 
-  // Brand Name
-  doc.setTextColor(245, 158, 11); // Amber
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.text('BARISTA SRI LANKA — CENTRAL KITCHEN', 14, 12);
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(220, 220, 220);
-  doc.text('EXECUTIVE DISPATCH & HACCP COLD-CHAIN AUDIT REPORT', 14, 19);
-
-  // Document Metadata on Right
-  doc.setFontSize(8);
-  doc.setTextColor(200, 200, 200);
-  doc.text(`Doc Ref: BCL/REC/HACCP/32 | OPRP-2`, 220, 10);
-  doc.text(`Generated: ${todayStr} | Auditor: ${userName}`, 220, 16);
-  doc.text(`Period: ${dateRange}`, 220, 22);
-
-  // KPI Summary Strip
-  doc.setFillColor(245, 245, 247);
-  doc.rect(14, 30, 269, 18, 'F');
+  // KPI Summary Strip below the header
+  const kpiY = nextY;
+  const kpiH = 15;
+  doc.setFillColor(246, 246, 248);
+  doc.rect(startX, kpiY, totalWidth, kpiH, 'F');
   doc.setDrawColor(210, 210, 215);
-  doc.rect(14, 30, 269, 18, 'S');
-
-  doc.setFontSize(9);
-  doc.setTextColor(60, 60, 60);
+  doc.setLineWidth(0.3);
+  doc.rect(startX, kpiY, totalWidth, kpiH, 'S');
 
   // KPI 1: Dispatches
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(80, 80, 80);
+  doc.text('TOTAL DISPATCHES', 20, kpiY + 5);
   doc.setFont('helvetica', 'bold');
-  doc.text('TOTAL DISPATCHES', 20, 36);
-  doc.setFontSize(14);
+  doc.setFontSize(12);
   doc.setTextColor(20, 20, 20);
-  doc.text(String(stats.totalDispatches), 20, 44);
+  doc.text(String(stats.totalDispatches), 20, kpiY + 11.5);
 
   // KPI 2: Total Units
-  doc.setFontSize(9);
-  doc.setTextColor(60, 60, 60);
-  doc.text('TOTAL OUTPUT', 65, 36);
-  doc.setFontSize(14);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(80, 80, 80);
+  doc.text('TOTAL OUTPUT', 65, kpiY + 5);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
   doc.setTextColor(20, 20, 20);
-  doc.text(`${stats.totalUnitsDispatched} Units`, 65, 44);
+  doc.text(`${stats.totalUnitsDispatched} Units`, 65, kpiY + 11.5);
 
   // KPI 3: HACCP Rate
-  doc.setFontSize(9);
-  doc.setTextColor(60, 60, 60);
-  doc.text('COLD-CHAIN ADHERENCE', 120, 36);
-  doc.setFontSize(14);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(80, 80, 80);
+  doc.text('COLD-CHAIN ADHERENCE', 120, kpiY + 5);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
   doc.setTextColor(stats.haccpComplianceRate >= 95 ? 16 : 180, stats.haccpComplianceRate >= 95 ? 140 : 80, 50);
-  doc.text(`${stats.haccpComplianceRate}% (OPRP-2)`, 120, 44);
+  doc.text(`${stats.haccpComplianceRate}% (OPRP-2)`, 120, kpiY + 11.5);
 
   // KPI 4: Avg Temp
-  doc.setFontSize(9);
-  doc.setTextColor(60, 60, 60);
-  doc.text('AVG DISPATCH TEMP', 190, 36);
-  doc.setFontSize(14);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(80, 80, 80);
+  doc.text('AVG DISPATCH TEMP', 190, kpiY + 5);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
   doc.setTextColor(20, 20, 20);
-  doc.text(`${stats.averageTemp} °C`, 190, 44);
+  doc.text(`${stats.averageTemp} °C`, 190, kpiY + 11.5);
 
   // KPI 5: Outlets
-  doc.setFontSize(9);
-  doc.setTextColor(60, 60, 60);
-  doc.text('ACTIVE OUTLETS', 245, 36);
-  doc.setFontSize(14);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(80, 80, 80);
+  doc.text('ACTIVE OUTLETS', 245, kpiY + 5);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
   doc.setTextColor(20, 20, 20);
-  doc.text(String(stats.outletsCount), 245, 44);
+  doc.text(String(stats.outletsCount), 245, kpiY + 11.5);
 
   // Table Data
   const tableRows: any[] = [];
@@ -117,7 +351,7 @@ export function buildExecutiveReportDoc(
   });
 
   autoTable(doc, {
-    startY: 52,
+    startY: kpiY + kpiH + 4,
     head: [['Doc No', 'Date / Time', 'Destination Outlets', 'Driver', 'QA Supervisor', 'Output', 'Product Breakdown', 'HACCP']],
     body: tableRows,
     theme: 'grid',
@@ -151,19 +385,19 @@ export function buildExecutiveReportDoc(
         }
       }
     },
-    margin: { left: 14, right: 14, bottom: 25 }
+    margin: { left: 14, right: 14, bottom: 20 }
   });
 
-  // Footer Sign-off on Last Page
+  // Footer on Every Page
   const pageCount = (doc as any).internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     doc.setTextColor(120, 120, 120);
     doc.text(
-      `Barista Coffee Lanka (Pvt) Ltd. • Doc: BCL/REC/HACCP/32 • Confidential HACCP Audit Report • Page ${i} of ${pageCount}`,
+      `Barista Coffee Lanka (Pvt) Ltd. • Doc: BCL/QA/REP/EXEC • Official HACCP Audit Record • Page ${i} of ${pageCount}`,
       14,
-      200
+      202
     );
   }
 
@@ -205,7 +439,7 @@ export function printExecutiveReportPDF(
 }
 
 /**
- * Builds the jsPDF instance for Single Dispatch Manifest Sheet.
+ * Builds the jsPDF instance for Single Dispatch Manifest Sheet with the EXACT same centered header.
  */
 export function buildSingleDispatchDoc(log: Partial<DispatchLog> & {
   items: any[];
@@ -225,51 +459,57 @@ export function buildSingleDispatchDoc(log: Partial<DispatchLog> & {
   const totalUnits = activeItems.reduce((acc, item) => acc + item.quantity, 0);
   const isAllHaccpCompliant = activeItems.every(item => item.dispatchTemp <= 5.0);
 
-  // Top Header Banner
-  doc.setFillColor(30, 27, 24);
-  doc.rect(14, 12, 182, 24, 'F');
+  const startX = 14;
+  const startY = 10;
+  const totalWidth = 182; // 210 - 28
 
-  doc.setTextColor(245, 158, 11);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.text('BARISTA', 20, 22);
+  // Draw the official centered HACCP Header
+  const nextY = drawHaccpHeaderToPdf(
+    doc,
+    startX,
+    startY,
+    totalWidth,
+    {
+      title: 'Dispatch Log & Receipt',
+      subtitle: 'Central Kitchen Cold-Chain Logistics & Dispatch Custody',
+      docCode: 'BCL/REC/HACCP/32',
+      effectiveDate: log.date || '01 January 2025',
+      revision: 'Rev 01',
+      version: '01',
+      approvedBy: log.supervisor || 'QA Executive',
+      refId: log.docNo || log.id || 'DSP-001',
+      haccpLink: 'OPRP-2 (Cold-Chain ≤ 5.0°C)',
+      mandateNotice: 'CRITICAL CONTROL REQUIREMENT: Maximum dispatch transit temperature must remain ≤ 5.0°C.'
+    },
+    false
+  );
 
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(240, 240, 240);
-  doc.text('SRI LANKA — CENTRAL KITCHEN DISPATCH LOG', 20, 28);
-  doc.text('Barista Coffee Lanka (Pvt) Ltd.', 20, 33);
-
-  // Header Right Metadata
-  doc.setFontSize(8);
-  doc.setTextColor(220, 220, 220);
-  doc.text(`Doc Code: BCL/REC/HACCP/32`, 130, 20);
-  doc.text(`Revision: Rev 01 | Version: 01`, 130, 25);
-  doc.text(`HACCP Standard: OPRP-2 (≤5°C)`, 130, 30);
-
-  // Logistics Box
+  // Logistics Box below header
+  const logBoxY = nextY;
+  const logBoxH = 18;
   doc.setFillColor(248, 248, 250);
-  doc.rect(14, 40, 182, 22, 'F');
+  doc.rect(startX, logBoxY, totalWidth, logBoxH, 'F');
   doc.setDrawColor(200, 200, 205);
-  doc.rect(14, 40, 182, 22, 'S');
+  doc.setLineWidth(0.3);
+  doc.rect(startX, logBoxY, totalWidth, logBoxH, 'S');
 
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setTextColor(100, 100, 100);
   doc.setFont('helvetica', 'bold');
-  doc.text('DESTINATION OUTLETS', 18, 46);
-  doc.text('DATE & DISPATCH TIME', 85, 46);
-  doc.text('ASSIGNED DRIVER', 140, 46);
+  doc.text('DESTINATION OUTLETS', 18, logBoxY + 4.5);
+  doc.text('DATE & DISPATCH TIME', 85, logBoxY + 4.5);
+  doc.text('ASSIGNED DRIVER', 140, logBoxY + 4.5);
 
-  doc.setFontSize(9.5);
+  doc.setFontSize(9);
   doc.setTextColor(20, 20, 20);
-  doc.text(log.outletNames.join(', ') || 'Retail Branches', 18, 52);
-  doc.text(`${log.date} @ ${log.dispatchTime}`, 85, 52);
-  doc.text(log.driverName || 'Fleet Driver', 140, 52);
+  doc.text(log.outletNames.join(', ') || 'Retail Branches', 18, logBoxY + 10);
+  doc.text(`${log.date} @ ${log.dispatchTime}`, 85, logBoxY + 10);
+  doc.text(log.driverName || 'Fleet Driver', 140, logBoxY + 10);
 
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setTextColor(80, 80, 80);
   doc.setFont('helvetica', 'normal');
-  doc.text(`QA Supervisor: ${log.supervisor || 'QA Officer'}${log.notes ? ` • Notes: ${log.notes}` : ''}`, 18, 58);
+  doc.text(`QA Supervisor: ${log.supervisor || 'QA Officer'}${log.notes ? ` • Notes: ${log.notes}` : ''}`, 18, logBoxY + 15);
 
   // Items Table
   const tableRows = activeItems.map((item, idx) => {
@@ -288,7 +528,7 @@ export function buildSingleDispatchDoc(log: Partial<DispatchLog> & {
   });
 
   autoTable(doc, {
-    startY: 66,
+    startY: logBoxY + logBoxH + 4,
     head: [['#', 'Product Description', 'Batch No', 'Time', 'Prod Date', 'Use-By Date', 'Qty', 'Temp', 'HACCP Check']],
     body: tableRows,
     theme: 'grid',
@@ -325,82 +565,85 @@ export function buildSingleDispatchDoc(log: Partial<DispatchLog> & {
   });
 
   // Total Strip
-  const finalY = (doc as any).lastAutoTable.finalY + 6;
+  const finalY = (doc as any).lastAutoTable.finalY + 5;
 
   doc.setFillColor(240, 240, 245);
-  doc.rect(14, finalY, 182, 10, 'F');
+  doc.rect(14, finalY, 182, 9, 'F');
   doc.setDrawColor(200, 200, 205);
-  doc.rect(14, finalY, 182, 10, 'S');
+  doc.setLineWidth(0.3);
+  doc.rect(14, finalY, 182, 9, 'S');
 
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(20, 20, 20);
-  doc.text(`TOTAL DISPATCHED OUTPUT: ${totalUnits} UNITS`, 18, finalY + 6.5);
+  doc.text(`TOTAL DISPATCHED OUTPUT: ${totalUnits} UNITS`, 18, finalY + 6);
   doc.setTextColor(isAllHaccpCompliant ? 16 : 180, isAllHaccpCompliant ? 130 : 20, 40);
   doc.text(
     isAllHaccpCompliant ? '✓ 100% Cold-Chain Compliant (≤5.0°C)' : '⚠ HACCP Temperature Breach Detected',
     115,
-    finalY + 6.5
+    finalY + 6
   );
 
   // Sign-off Matrix
-  const signY = finalY + 14;
+  const signY = finalY + 12;
   doc.setFillColor(255, 255, 255);
   doc.setDrawColor(30, 27, 24);
-  doc.rect(14, signY, 182, 34, 'S');
+  doc.setLineWidth(0.4);
+  doc.rect(14, signY, 182, 32, 'S');
 
   doc.setFillColor(30, 27, 24);
-  doc.rect(14, signY, 182, 6, 'F');
-  doc.setFontSize(7.5);
+  doc.rect(14, signY, 182, 5.5, 'F');
+  doc.setFontSize(7);
   doc.setTextColor(255, 255, 255);
-  doc.text('VERIFICATION & CUSTODY HANDOVER SIGN-OFF (STRICT HACCP AUDIT PROTOCOL)', 18, signY + 4.5);
+  doc.text('VERIFICATION & CUSTODY HANDOVER SIGN-OFF (STRICT HACCP AUDIT PROTOCOL)', 18, signY + 4);
 
   // Column dividers
   doc.setDrawColor(200, 200, 205);
-  doc.line(74, signY + 6, 74, signY + 34);
-  doc.line(134, signY + 6, 134, signY + 34);
+  doc.setLineWidth(0.3);
+  doc.line(74, signY + 5.5, 74, signY + 32);
+  doc.line(134, signY + 5.5, 134, signY + 32);
 
   // 1. Dispatch Supervisor
-  doc.setFontSize(7.5);
+  doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(80, 80, 80);
-  doc.text('1. Central Kitchen QA Supervisor', 18, signY + 11);
-  doc.setFontSize(8.5);
+  doc.text('1. Central Kitchen QA Supervisor', 18, signY + 10);
+  doc.setFontSize(8);
   doc.setTextColor(20, 20, 20);
-  doc.text(log.supervisor || 'QA Officer', 18, signY + 17);
-  doc.setFontSize(7);
-  doc.setTextColor(16, 120, 50);
-  doc.text('✓ Verified Electronic Signature', 18, signY + 28);
+  doc.text(log.supervisor || 'QA Officer', 18, signY + 16);
+  doc.setFontSize(6.5);
+  doc.setTextColor(100, 100, 100);
+  doc.text('Signature: _______________________', 18, signY + 26);
 
   // 2. Driver
-  doc.setFontSize(7.5);
+  doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(80, 80, 80);
-  doc.text('2. Cold-Chain Transport Driver', 78, signY + 11);
-  doc.setFontSize(8.5);
+  doc.text('2. Cold-Chain Transport Driver', 78, signY + 10);
+  doc.setFontSize(8);
   doc.setTextColor(20, 20, 20);
-  doc.text(log.driverName || 'Driver', 78, signY + 17);
-  doc.setFontSize(7);
+  doc.text(log.driverName || 'Driver', 78, signY + 16);
+  doc.setFontSize(6.5);
   doc.setTextColor(100, 100, 100);
-  doc.text('Signature: _______________________', 78, signY + 28);
+  doc.text('Signature: _______________________', 78, signY + 26);
 
   // 3. Retail Store
-  doc.setFontSize(7.5);
+  doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(80, 80, 80);
-  doc.text('3. Retail Store Receiving Barista', 138, signY + 11);
-  doc.setFontSize(8.5);
+  doc.text('3. Retail Store Receiving Barista', 138, signY + 10);
+  doc.setFontSize(8);
   doc.setTextColor(20, 20, 20);
-  doc.text('Receiving Store Staff', 138, signY + 17);
-  doc.setFontSize(7);
+  doc.text('Receiving Store Staff', 138, signY + 16);
+  doc.setFontSize(6.5);
   doc.setTextColor(100, 100, 100);
-  doc.text('Temp: _____ °C | Sign: ____________', 138, signY + 28);
+  doc.text('Temp: _____ °C | Sign: ____________', 138, signY + 26);
 
-  // Micro Footer
-  doc.setFontSize(7);
+  // Footer on page
+  doc.setFontSize(6.5);
   doc.setTextColor(130, 130, 130);
-  doc.text(`Barista Coffee Lanka • BCL/REC/HACCP/32 • Doc ID: ${log.docNo || log.id || 'DSP-001'}`, 14, 285);
-  doc.text(`Printed: ${new Date().toLocaleString()}`, 150, 285);
+  doc.text(`Barista Coffee Lanka • BCL/REC/HACCP/32 • Doc ID: ${log.docNo || log.id || 'DSP-001'}`, 14, 287);
+  doc.text(`Printed: ${new Date().toLocaleString()}`, 150, 287);
 
   return doc;
 }

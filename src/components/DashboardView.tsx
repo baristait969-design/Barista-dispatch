@@ -313,92 +313,53 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* Recent Dispatches & HACCP OPRP-2 Protocol Card */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-[#171311] border border-[#2E221E] rounded-xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-white text-sm flex items-center space-x-2">
-              <FileText className="w-4 h-4 text-[#ED5338]" />
-              <span>Recent Kitchen Dispatch Logs</span>
-            </h3>
-            <button
-              onClick={() => onNavigate('forms')}
-              className="text-xs text-[#FFA594] hover:text-[#ED5338] transition font-semibold"
-            >
-              View All ({dispatchLogs.length})
-            </button>
-          </div>
+      {/* Recent Dispatches Section */}
+      <div className="bg-[#171311] border border-[#2E221E] rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-white text-sm flex items-center space-x-2">
+            <FileText className="w-4 h-4 text-[#ED5338]" />
+            <span>Recent Kitchen Dispatch Logs</span>
+          </h3>
+          <button
+            onClick={() => onNavigate('forms')}
+            className="text-xs text-[#FFA594] hover:text-[#ED5338] transition font-semibold"
+          >
+            View All ({dispatchLogs.length})
+          </button>
+        </div>
 
-          {dispatchLogs.length === 0 ? (
-            <div className="text-center py-8 text-stone-500 text-xs">
-              No dispatch logs recorded yet. Use the "Dispatch Forms" button to issue the first delivery.
-            </div>
-          ) : (
-            <div className="divide-y divide-[#261D1A]">
-              {dispatchLogs.slice(0, 4).map((log) => (
-                <div key={log.id} className="py-3 flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <span className="font-bold text-white text-xs">{log.docNo}</span>
-                      <span className="text-[10px] bg-[#221A17] border border-[#382B25] px-1.5 py-0.2 rounded text-stone-300">
-                        {log.date} @ {log.dispatchTime}
-                      </span>
-                      <span className="text-[10px] text-[#FFA594] font-semibold">
-                        {log.outletNames.join(', ')}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-stone-400 mt-0.5">
-                      Driver: <span className="text-stone-300">{log.driverName}</span> • Supervisor: <span className="text-stone-300">{log.supervisor}</span> • {log.items.length} product line(s)
-                    </p>
+        {dispatchLogs.length === 0 ? (
+          <div className="text-center py-8 text-stone-500 text-xs">
+            No dispatch logs recorded yet. Use the "Dispatch Forms" button to issue the first delivery.
+          </div>
+        ) : (
+          <div className="divide-y divide-[#261D1A]">
+            {dispatchLogs.slice(0, 5).map((log) => (
+              <div key={log.id} className="py-3 flex items-center justify-between">
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="font-bold text-white text-xs">{log.docNo}</span>
+                    <span className="text-[10px] bg-[#221A17] border border-[#382B25] px-1.5 py-0.2 rounded text-stone-300">
+                      {log.date} @ {log.dispatchTime}
+                    </span>
+                    <span className="text-[10px] text-[#FFA594] font-semibold">
+                      {log.outletNames.join(', ')}
+                    </span>
                   </div>
-                  <button
-                    onClick={() => onNavigate('forms')}
-                    className="text-xs bg-[#221A17] hover:bg-[#2C211D] border border-[#382B25] text-stone-300 hover:text-white px-2.5 py-1 rounded transition"
-                  >
-                    Details
-                  </button>
+                  <p className="text-[11px] text-stone-400 mt-0.5">
+                    Driver: <span className="text-stone-300">{log.driverName}</span> • Supervisor: <span className="text-stone-300">{log.supervisor}</span> • {log.items.length} product line(s)
+                  </p>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* HACCP Compliance Sidebar Note */}
-        <div className="bg-stone-900 border border-stone-800 rounded-xl p-5 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center space-x-2 mb-3">
-              <ThermometerSnowflake className="w-5 h-5 text-amber-400" />
-              <h3 className="font-bold text-white text-sm">HACCP OPRP-2 Protocol</h3>
-            </div>
-            <p className="text-xs text-stone-300 leading-relaxed">
-              "No product may leave the central kitchen without a verified Dispatch Log. Dispatch temperature must be <strong>≤ 5°C</strong>. Cream cakes and cold cheesecakes: maximum 2-hour transit in temperature-controlled vehicles."
-            </p>
-            <div className="mt-4 p-3 bg-stone-800/80 rounded-lg border border-stone-700 text-xs space-y-1.5 font-mono">
-              <div className="flex justify-between text-stone-300">
-                <span>Doc Number:</span>
-                <span className="text-amber-400 font-bold">BCL/REC/HACCP/32</span>
+                <button
+                  onClick={() => onNavigate('forms')}
+                  className="text-xs bg-[#221A17] hover:bg-[#2C211D] border border-[#382B25] text-stone-300 hover:text-white px-2.5 py-1 rounded transition"
+                >
+                  Details
+                </button>
               </div>
-              <div className="flex justify-between text-stone-300">
-                <span>Revision:</span>
-                <span>Rev 01 (01 Jan 2025)</span>
-              </div>
-              <div className="flex justify-between text-stone-300">
-                <span>Approval:</span>
-                <span className="text-emerald-400">QA Executive</span>
-              </div>
-            </div>
+            ))}
           </div>
-
-          <div className="mt-4 pt-3 border-t border-stone-800">
-            <button
-              onClick={() => onNavigate('reports')}
-              className="w-full py-2 bg-stone-800 hover:bg-stone-750 text-amber-300 border border-stone-700 hover:border-amber-500/50 rounded-lg text-xs font-semibold transition flex items-center justify-center space-x-1.5 cursor-pointer"
-            >
-              <BarChart3 className="w-3.5 h-3.5 text-amber-400" />
-              <span>View Central Kitchen QA Reports</span>
-            </button>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

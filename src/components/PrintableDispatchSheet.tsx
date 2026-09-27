@@ -2,6 +2,7 @@ import React from 'react';
 import { Printer, X, CheckCircle2, AlertTriangle, ShieldCheck, ThermometerSnowflake, FileText, Download } from 'lucide-react';
 import { DispatchLog, DispatchLineItem } from '../types';
 import { BaristaLogo } from './BaristaLogo';
+import { DocumentHaccpHeader } from './DocumentHaccpHeader';
 import { generateSingleDispatchPDF } from '../utils/pdfExport';
 import { printHtmlElement } from '../utils/printUtils';
 
@@ -88,80 +89,19 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
         {/* PRINTABLE OFFICIAL HACCP DOCUMENT */}
         <div id="printable-dispatch-sheet-content" className="print-content bg-white text-stone-900 rounded-xl p-5 sm:p-8 shadow-md print:shadow-none print:rounded-none print:p-0">
           
-          {/* Header Grid */}
-          <div className="border-2 border-stone-900 mb-4">
-            <div className="grid grid-cols-12 divide-y md:divide-y-0 md:divide-x-2 divide-stone-900">
-              
-              {/* Brand Logo & Name (4 cols) */}
-              <div className="col-span-12 md:col-span-4 p-4 flex flex-col justify-center items-center text-center bg-stone-50">
-                <BaristaLogo className="w-12 h-12 mb-1 shadow-sm" />
-                <h1 className="font-serif font-black tracking-widest text-xl text-stone-900 leading-none">
-                  BARISTA
-                </h1>
-                <p className="text-[10px] font-bold tracking-wider uppercase text-stone-700 mt-0.5">
-                  SRI LANKA — CENTRAL KITCHEN
-                </p>
-                <p className="text-[9px] text-stone-500 font-mono mt-0.5">
-                  Barista Coffee Lanka (Pvt) Ltd.
-                </p>
-              </div>
-
-              {/* Document Identity (4 cols) */}
-              <div className="col-span-12 md:col-span-4 p-3 text-xs space-y-1">
-                <div className="flex justify-between border-b border-stone-200 pb-1">
-                  <span className="text-stone-500">Document Code:</span>
-                  <span className="font-mono font-bold text-stone-900">BCL/REC/HACCP/32</span>
-                </div>
-                <div className="flex justify-between border-b border-stone-200 pb-1">
-                  <span className="text-stone-500">Record Title:</span>
-                  <span className="font-bold text-stone-900">Dispatch Log & Receipt</span>
-                </div>
-                <div className="flex justify-between border-b border-stone-200 pb-1">
-                  <span className="text-stone-500">Effective Date:</span>
-                  <span className="font-mono text-stone-800">01 January 2025</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-stone-500">HACCP Link:</span>
-                  <span className="font-mono font-bold text-blue-800">OPRP-2 (Cold-Chain ≤5°C)</span>
-                </div>
-              </div>
-
-              {/* Governance & QA (4 cols) */}
-              <div className="col-span-12 md:col-span-4 p-3 text-xs space-y-1 bg-stone-50/50">
-                <div className="flex justify-between border-b border-stone-200 pb-1">
-                  <span className="text-stone-500">Revision:</span>
-                  <span className="font-mono text-stone-800">Rev 01</span>
-                </div>
-                <div className="flex justify-between border-b border-stone-200 pb-1">
-                  <span className="text-stone-500">Version:</span>
-                  <span className="font-mono text-stone-800">01</span>
-                </div>
-                <div className="flex justify-between border-b border-stone-200 pb-1">
-                  <span className="text-stone-500">Approved By:</span>
-                  <span className="font-bold text-stone-900">QA Executive</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-stone-500">Log Ref / ID:</span>
-                  <span className="font-mono font-bold text-stone-800 truncate max-w-[130px]">
-                    {dispatchLog.id || `DSP-${Date.now().toString().slice(-6)}`}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Sub-banner: HACCP Cold Chain Mandate */}
-            <div className="bg-stone-100 p-2 border-t-2 border-stone-900 flex items-center justify-between text-[11px] px-3">
-              <div className="flex items-center space-x-2">
-                <ThermometerSnowflake className="w-3.5 h-3.5 text-blue-700" />
-                <span className="font-semibold text-stone-800">
-                  CRITICAL CONTROL REQUIREMENT: Maximum dispatch transit temperature must remain ≤ 5.0°C.
-                </span>
-              </div>
-              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-stone-600">
-                Official Controlled Copy
-              </span>
-            </div>
-          </div>
+          {/* Header Grid - Centered HACCP Standard Header */}
+          <DocumentHaccpHeader
+            title="Dispatch Log & Receipt"
+            subtitle="Central Kitchen Cold-Chain Logistics & Dispatch Custody"
+            docCode="BCL/REC/HACCP/32"
+            effectiveDate={dispatchLog.date || "01 January 2025"}
+            revision="Rev 01"
+            version="01"
+            approvedBy={dispatchLog.supervisor || "QA Executive"}
+            refId={dispatchLog.docNo || dispatchLog.id || `DSP-${Date.now().toString().slice(-6)}`}
+            haccpLink="OPRP-2 (Cold-Chain ≤ 5.0°C)"
+            mandateNotice="CRITICAL CONTROL REQUIREMENT: Maximum dispatch transit temperature must remain ≤ 5.0°C."
+          />
 
           {/* Delivery & Logistics Manifest Details */}
           <div className="border border-stone-300 rounded-lg p-3.5 mb-4 bg-stone-50/60 text-xs">
@@ -307,9 +247,7 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
                 </div>
                 <div className="mt-4 pt-2 border-t border-dashed border-stone-400">
                   <span className="text-[10px] text-stone-400 block">Authorized Signature:</span>
-                  <div className="h-6 font-serif italic text-sm text-stone-800 flex items-center">
-                    ✓ Verified Electronic QA Sign
-                  </div>
+                  <div className="h-6 border-b border-stone-300"></div>
                 </div>
               </div>
 

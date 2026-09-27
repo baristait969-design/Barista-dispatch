@@ -32,6 +32,7 @@ import { INITIAL_PRODUCTS } from '../data/seedData';
 import { createDispatchLogWithDeduction, updateDispatchLog } from '../services/dataService';
 import { PrintableDispatchSheet } from './PrintableDispatchSheet';
 import { BaristaLogo } from './BaristaLogo';
+import { DocumentHaccpHeader } from './DocumentHaccpHeader';
 import { getAvailableFIFOBatches } from '../utils/batchUtils';
 
 interface FormsViewProps {
@@ -1050,74 +1051,20 @@ export const FormsView: React.FC<FormsViewProps> = ({
 
           {/* PRINTABLE OFFICIAL HACCP DOCUMENT WRAPPER */}
           <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4 sm:p-6 shadow-xl print:bg-white print:text-black print:p-2 print:border-none print:shadow-none">
-            {/* Header Document Table */}
-            <div className="border border-stone-700 print:border-black rounded-xl overflow-hidden mb-5">
-              <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-stone-700 print:divide-black text-xs">
-                {/* Brand Logo Box */}
-                <div className="p-4 flex flex-col justify-center items-center bg-stone-850 print:bg-white text-center">
-                  <BaristaLogo className="w-10 h-10 mb-1" />
-                  <span className="font-serif font-black tracking-widest text-2xl text-amber-500 print:text-black">
-                    BARISTA
-                  </span>
-                  <span className="text-[10px] font-bold tracking-wider uppercase text-stone-300 print:text-black">
-                    SRI LANKA — CENTRAL KITCHEN
-                  </span>
-                  <span className="text-[9px] text-stone-400 print:text-gray-600 mt-0.5 font-mono">
-                    BCL/REC/HACCP/32
-                  </span>
-                </div>
-
-                {/* Form Metadata */}
-                <div className="p-3 space-y-1 bg-stone-900 print:bg-white">
-                  <div className="flex justify-between">
-                    <span className="text-stone-400 print:text-gray-700">Record Code:</span>
-                    <strong className="text-white print:text-black font-mono">BCL/REC/HACCP/32</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-stone-400 print:text-gray-700">Title:</span>
-                    <strong className="text-amber-400 print:text-black">Dispatch Log</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-stone-400 print:text-gray-700">Effective Date:</span>
-                    <span className="text-stone-300 print:text-black font-mono">01 January 2025</span>
-                  </div>
-                </div>
-
-                <div className="p-3 space-y-1 bg-stone-900 print:bg-white">
-                  <div className="flex justify-between">
-                    <span className="text-stone-400 print:text-gray-700">Revision:</span>
-                    <span className="text-stone-300 print:text-black font-mono">Rev 01</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-stone-400 print:text-gray-700">Version:</span>
-                    <span className="text-stone-300 print:text-black font-mono">01</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-stone-400 print:text-gray-700">HACCP Link:</span>
-                    <strong className="text-cyan-400 print:text-black font-mono">OPRP-2</strong>
-                  </div>
-                </div>
-
-                <div className="p-3 space-y-1 bg-stone-900 print:bg-white">
-                  <div className="flex justify-between">
-                    <span className="text-stone-400 print:text-gray-700">Approved By:</span>
-                    <strong className="text-emerald-400 print:text-black font-semibold">QA Executive</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-stone-400 print:text-gray-700">Standard:</span>
-                    <span className="text-stone-300 print:text-black">HACCP Compliant</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Compliance Warning Banner */}
-              <div className="bg-stone-800/90 print:bg-gray-100 p-2.5 text-[11px] text-stone-300 print:text-black border-t border-stone-700 print:border-black italic flex items-center space-x-2">
-                <ThermometerSnowflake className="w-4 h-4 text-amber-400 print:text-black shrink-0" />
-                <span>
-                  <strong>HACCP Requirement:</strong> Complete for EVERY dispatch. No product may leave the kitchen without a complete Dispatch Log. Dispatch temperature must be <strong>≤5°C</strong>.
-                </span>
-              </div>
-            </div>
+            {/* Header Document Table - Centered HACCP Standard Header */}
+            <DocumentHaccpHeader
+              title="Central Kitchen Dispatch Log"
+              subtitle="Daily Food Safety & Cold-Chain Logistics Document"
+              docCode="BCL/REC/HACCP/32"
+              effectiveDate={date || "01 January 2025"}
+              revision="Rev 01"
+              version="01"
+              approvedBy={supervisorName || "QA Executive"}
+              refId={editingLogId ? (dispatchLogs.find(l => l.id === editingLogId)?.docNo || 'BCL-CK-DISP') : 'BCL-CK-DISP'}
+              haccpLink="OPRP-2 (Cold-Chain ≤ 5.0°C)"
+              mandateNotice="CRITICAL CONTROL REQUIREMENT: Maximum dispatch transit temperature must remain ≤ 5.0°C."
+              className="mb-5"
+            />
 
             {/* Outlet Selection & Dispatch Date/Time Section */}
             <div className="bg-stone-850/70 print:bg-white border border-stone-800 print:border-black rounded-xl p-4 sm:p-5 mb-6 space-y-4">
