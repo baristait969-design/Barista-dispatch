@@ -2,11 +2,11 @@
 
 :root {
   color-scheme: dark;
-  --barista-orange: #ED5338;
+  --barista-orange: #EF6340;
   --barista-orange-hover: #D84228;
-  --barista-orange-light: rgba(237, 83, 56, 0.15);
-  --barista-orange-border: rgba(237, 83, 56, 0.4);
-  --barista-espresso: #3E1812;
+  --barista-orange-light: rgba(239, 99, 64, 0.15);
+  --barista-orange-border: rgba(239, 99, 64, 0.4);
+  --barista-espresso: #641B0B;
   --barista-espresso-dark: #20100C;
   --barista-bg-dark: #0D0B0A;
   --barista-card-dark: #171311;

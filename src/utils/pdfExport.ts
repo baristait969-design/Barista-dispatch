@@ -63,8 +63,8 @@ export function drawHaccpHeaderToPdf(
   const logoCenterY = startY + (isLandscape ? 6.5 : 7.2);
   const logoRadius = isLandscape ? 4.5 : 5.0;
 
-  // Outer circle: Coral Flame (#ED5338)
-  doc.setFillColor(237, 83, 56);
+  // Outer circle: Coral Flame (#EF6340)
+  doc.setFillColor(239, 99, 64);
   doc.circle(col1CenterX, logoCenterY, logoRadius, 'F');
 
   // Inner white 'BARISTA' text
@@ -73,8 +73,8 @@ export function drawHaccpHeaderToPdf(
   doc.setTextColor(255, 255, 255);
   doc.text('BARISTA', col1CenterX, logoCenterY + (isLandscape ? 1.0 : 1.2), { align: 'center' });
 
-  // Dark espresso bar (#3E1812) under 'IS'
-  doc.setFillColor(62, 24, 18);
+  // Dark brown bar (#641B0B) under 'IS'
+  doc.setFillColor(100, 27, 11);
   const barWidth = isLandscape ? 2.4 : 2.8;
   doc.rect(col1CenterX - barWidth / 2, logoCenterY + (isLandscape ? 1.6 : 1.9), barWidth, 0.4, 'F');
 
