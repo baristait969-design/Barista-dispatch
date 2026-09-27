@@ -87,7 +87,7 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
         </div>
 
         {/* PRINTABLE OFFICIAL HACCP DOCUMENT */}
-        <div id="printable-dispatch-sheet-content" className="print-content bg-white text-stone-900 rounded-xl p-5 sm:p-8 shadow-md print:shadow-none print:rounded-none print:p-0">
+        <div id="printable-dispatch-sheet-content" className="print-content bg-white text-stone-900 rounded-xl p-5 sm:p-8 print:p-0 shadow-md print:shadow-none print:rounded-none">
           
           {/* Header Grid - Centered HACCP Standard Header */}
           <DocumentHaccpHeader
@@ -101,14 +101,15 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
             refId={dispatchLog.docNo || dispatchLog.id || `DSP-${Date.now().toString().slice(-6)}`}
             haccpLink="OPRP-2 (Cold-Chain ≤ 5.0°C)"
             mandateNotice="CRITICAL CONTROL REQUIREMENT: Maximum dispatch transit temperature must remain ≤ 5.0°C."
+            className="mb-4 print:mb-2"
           />
 
           {/* Delivery & Logistics Manifest Details */}
-          <div className="border border-stone-300 rounded-lg p-3.5 mb-4 bg-stone-50/60 text-xs">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="border border-stone-300 print:border-stone-900 rounded-lg p-3.5 print:p-2 mb-4 print:mb-2 bg-stone-50/60 print:bg-white text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-3 print:grid-cols-3 gap-3 print:gap-2">
               <div>
-                <span className="text-stone-500 block text-[10px] uppercase font-semibold">Destination Outlets</span>
-                <span className="font-bold text-stone-900 text-sm">
+                <span className="text-stone-500 print:text-stone-600 block text-[10px] uppercase font-semibold">Destination Outlets</span>
+                <span className="font-bold text-stone-900 text-sm print:text-xs">
                   {dispatchLog.outletNames && dispatchLog.outletNames.length > 0 
                     ? dispatchLog.outletNames.join(', ')
                     : 'All Assigned Outlets'}
@@ -116,21 +117,21 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
               </div>
 
               <div>
-                <span className="text-stone-500 block text-[10px] uppercase font-semibold">Date & Dispatch Time</span>
-                <span className="font-mono font-bold text-stone-900 text-sm">
+                <span className="text-stone-500 print:text-stone-600 block text-[10px] uppercase font-semibold">Date & Dispatch Time</span>
+                <span className="font-mono font-bold text-stone-900 text-sm print:text-xs">
                   {dispatchLog.date} @ {dispatchLog.dispatchTime} hrs
                 </span>
               </div>
 
               <div>
-                <span className="text-stone-500 block text-[10px] uppercase font-semibold">Assigned Dispatch Driver</span>
-                <span className="font-bold text-stone-900 text-sm">
+                <span className="text-stone-500 print:text-stone-600 block text-[10px] uppercase font-semibold">Assigned Dispatch Driver</span>
+                <span className="font-bold text-stone-900 text-sm print:text-xs">
                   {dispatchLog.driverName}
                 </span>
               </div>
             </div>
 
-            <div className="mt-2 pt-2 border-t border-stone-200 grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
+            <div className="mt-2 pt-2 border-t border-stone-200 print:border-stone-300 grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-2 text-[11px] print:text-[10px]">
               <div>
                 <span className="text-stone-500">Dispatch QA / Supervisor: </span>
                 <strong className="text-stone-900">{dispatchLog.supervisor}</strong>
@@ -148,12 +149,12 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
           </div>
 
           {/* Selected Dispatches Table (ONLY ITEMS DISPATCHED) */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-black uppercase tracking-wider text-stone-800">
+          <div className="mb-4 print:mb-2">
+            <div className="flex items-center justify-between mb-1.5 print:mb-1">
+              <span className="text-xs font-black uppercase tracking-wider text-stone-800 print:text-black">
                 Dispatched Kitchen Line Items ({activeItems.length} Products)
               </span>
-              <span className="text-[10px] text-stone-500 font-mono">
+              <span className="text-[10px] text-stone-500 print:text-stone-600 font-mono">
                 Printed only items with quantity &gt; 0
               </span>
             </div>
@@ -165,56 +166,56 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
             ) : (
               <table className="w-full text-left text-xs border-collapse border border-stone-900">
                 <thead>
-                  <tr className="bg-stone-100 text-stone-900 border-b-2 border-stone-900 font-bold uppercase text-[10px] tracking-wider">
-                    <th className="p-2 border-r border-stone-400 w-8 text-center">#</th>
-                    <th className="p-2 border-r border-stone-400">Product Description</th>
-                    <th className="p-2 border-r border-stone-400 w-28">Batch No (FIFO)</th>
-                    <th className="p-2 border-r border-stone-400 w-20 text-center">Dispatch Time</th>
-                    <th className="p-2 border-r border-stone-400 w-24">Prod Date</th>
-                    <th className="p-2 border-r border-stone-400 w-24">Use-By Date</th>
-                    <th className="p-2 border-r border-stone-400 w-20 text-center">Qty (Units)</th>
-                    <th className="p-2 w-24 text-center">Dispatch Temp</th>
+                  <tr className="bg-stone-100 print:bg-stone-100 text-stone-900 border-b-2 border-stone-900 font-bold uppercase text-[10px] tracking-wider">
+                    <th className="p-2 print:py-1.5 print:px-2 border-r border-stone-400 print:border-black w-8 text-center">#</th>
+                    <th className="p-2 print:py-1.5 print:px-2 border-r border-stone-400 print:border-black">Product Description</th>
+                    <th className="p-2 print:py-1.5 print:px-2 border-r border-stone-400 print:border-black w-28">Batch No (FIFO)</th>
+                    <th className="p-2 print:py-1.5 print:px-2 border-r border-stone-400 print:border-black w-20 text-center">Dispatch Time</th>
+                    <th className="p-2 print:py-1.5 print:px-2 border-r border-stone-400 print:border-black w-24">Prod Date</th>
+                    <th className="p-2 print:py-1.5 print:px-2 border-r border-stone-400 print:border-black w-24">Use-By Date</th>
+                    <th className="p-2 print:py-1.5 print:px-2 border-r border-stone-400 print:border-black w-20 text-center">Qty (Units)</th>
+                    <th className="p-2 print:py-1.5 print:px-2 w-24 text-center">Dispatch Temp</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-stone-300">
+                <tbody className="divide-y divide-stone-300 print:divide-stone-400">
                   {activeItems.map((item, index) => (
                     <tr key={item.id || index} className="text-stone-900">
-                      <td className="p-2 border-r border-stone-300 text-center font-mono font-bold text-stone-500">
+                      <td className="p-2 print:py-1 print:px-2 border-r border-stone-300 print:border-stone-400 text-center font-mono font-bold text-stone-500 print:text-stone-700">
                         {index + 1}
                       </td>
-                      <td className="p-2 border-r border-stone-300 font-bold">
+                      <td className="p-2 print:py-1 print:px-2 border-r border-stone-300 print:border-stone-400 font-bold">
                         {item.productName}
                       </td>
-                      <td className="p-2 border-r border-stone-300 font-mono font-semibold text-stone-800">
+                      <td className="p-2 print:py-1 print:px-2 border-r border-stone-300 print:border-stone-400 font-mono font-semibold text-stone-800">
                         {item.batchNo || 'N/A'}
                       </td>
-                      <td className="p-2 border-r border-stone-300 text-center font-mono">
+                      <td className="p-2 print:py-1 print:px-2 border-r border-stone-300 print:border-stone-400 text-center font-mono">
                         {item.dispatchTime || dispatchLog.dispatchTime}
                       </td>
-                      <td className="p-2 border-r border-stone-300 font-mono text-stone-700">
+                      <td className="p-2 print:py-1 print:px-2 border-r border-stone-300 print:border-stone-400 font-mono text-stone-700">
                         {item.prodDate || '-'}
                       </td>
-                      <td className="p-2 border-r border-stone-300 font-mono text-stone-700">
+                      <td className="p-2 print:py-1 print:px-2 border-r border-stone-300 print:border-stone-400 font-mono text-stone-700">
                         {item.useByDate || '-'}
                       </td>
-                      <td className="p-2 border-r border-stone-300 text-center font-mono font-bold text-sm bg-stone-50">
+                      <td className="p-2 print:py-1 print:px-2 border-r border-stone-300 print:border-stone-400 text-center font-mono font-bold text-sm print:text-xs bg-stone-50 print:bg-white">
                         {item.quantity}
                       </td>
-                      <td className="p-2 text-center font-mono font-bold text-stone-900">
+                      <td className="p-2 print:py-1 print:px-2 text-center font-mono font-bold text-stone-900">
                         {item.dispatchTemp.toFixed(1)}°C
                       </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-stone-900 bg-stone-100 font-bold text-xs text-stone-900">
-                    <td colSpan={6} className="p-2 text-right uppercase tracking-wider">
+                  <tr className="border-t-2 border-stone-900 bg-stone-100 print:bg-stone-50 font-bold text-xs text-stone-900">
+                    <td colSpan={6} className="p-2 print:py-1 print:px-2 text-right uppercase tracking-wider">
                       Total Dispatched Output:
                     </td>
-                    <td className="p-2 border-r border-l border-stone-900 text-center font-mono text-sm bg-stone-200 font-black">
+                    <td className="p-2 print:py-1 print:px-2 border-r border-l border-stone-900 text-center font-mono text-sm print:text-xs bg-stone-200 print:bg-stone-100 font-black">
                       {totalUnits} Units
                     </td>
-                    <td className="p-2 text-center font-mono text-xs">
+                    <td className="p-2 print:py-1 print:px-2 text-center font-mono text-xs">
                       {activeItems.length > 0 ? (activeItems.reduce((s, i) => s + i.dispatchTemp, 0) / activeItems.length).toFixed(1) : '-'}°C avg
                     </td>
                   </tr>
@@ -224,60 +225,60 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
           </div>
 
           {/* Quality & HACCP Certification Banner */}
-          <div className="border border-stone-300 bg-stone-50 p-3 rounded-lg mb-4 text-[11px] leading-relaxed">
+          <div className="border border-stone-300 print:border-stone-900 bg-stone-50 print:bg-white p-3 print:py-2 print:px-3 rounded-lg mb-4 print:mb-2 text-[11px] print:text-[10px] leading-relaxed">
             <strong className="text-stone-900">Central Kitchen QA Verification:</strong> All refrigerated items listed above have been prepared, packed, and loaded from the Barista Central Kitchen according to HACCP Standard Operating Procedures. Product temperatures were tested using calibrated probe thermometers. Cold-chain integrity must be preserved throughout delivery transit.
           </div>
 
           {/* Official 3-Party Sign-off Matrix */}
-          <div className="border-2 border-stone-900 rounded-lg overflow-hidden">
-            <div className="bg-stone-900 text-white px-3 py-1 text-[10px] font-bold uppercase tracking-wider">
+          <div className="border-2 border-stone-900 rounded-lg overflow-hidden mb-3 print:mb-1.5">
+            <div className="bg-stone-900 text-white px-3 py-1 print:py-0.5 text-[10px] print:text-[9px] font-bold uppercase tracking-wider">
               Verification & Custody Handover Sign-Off (Strict HACCP Audit Protocol)
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x border-t border-stone-900 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-3 print:grid-cols-3 divide-y md:divide-y-0 md:divide-x print:divide-y-0 print:divide-x border-t border-stone-900 text-xs">
               
               {/* 1. Dispatch Supervisor */}
-              <div className="p-3 flex flex-col justify-between min-h-[120px]">
+              <div className="p-3 print:p-2 flex flex-col justify-between min-h-[120px] print:min-h-[85px]">
                 <div>
-                  <span className="text-[10px] font-bold uppercase text-stone-500 block">
+                  <span className="text-[10px] print:text-[9px] font-bold uppercase text-stone-500 block">
                     1. Central Kitchen Dispatch QA
                   </span>
-                  <p className="font-bold text-stone-900 mt-1">{dispatchLog.supervisor}</p>
-                  <p className="text-[10px] text-stone-500 font-mono">Date: {dispatchLog.date} @ {dispatchLog.dispatchTime}</p>
+                  <p className="font-bold text-stone-900 mt-1 print:mt-0.5 text-xs print:text-[11px]">{dispatchLog.supervisor}</p>
+                  <p className="text-[10px] print:text-[9px] text-stone-500 font-mono">Date: {dispatchLog.date} @ {dispatchLog.dispatchTime}</p>
                 </div>
-                <div className="mt-4 pt-2 border-t border-dashed border-stone-400">
-                  <span className="text-[10px] text-stone-400 block">Authorized Signature:</span>
-                  <div className="h-6 border-b border-stone-300"></div>
+                <div className="mt-4 print:mt-2 pt-2 print:pt-1 border-t border-dashed border-stone-400">
+                  <span className="text-[10px] print:text-[9px] text-stone-400 block">Authorized Signature:</span>
+                  <div className="h-6 print:h-5 border-b border-stone-300"></div>
                 </div>
               </div>
 
               {/* 2. Driver / Cold-Chain Transit */}
-              <div className="p-3 flex flex-col justify-between min-h-[120px]">
+              <div className="p-3 print:p-2 flex flex-col justify-between min-h-[120px] print:min-h-[85px]">
                 <div>
-                  <span className="text-[10px] font-bold uppercase text-stone-500 block">
+                  <span className="text-[10px] print:text-[9px] font-bold uppercase text-stone-500 block">
                     2. Cold-Chain Transport Driver
                   </span>
-                  <p className="font-bold text-stone-900 mt-1">{dispatchLog.driverName}</p>
-                  <p className="text-[10px] text-stone-500 font-mono">Vehicle: {dispatchLog.vehicleNo || 'WP CAD-4291'}</p>
+                  <p className="font-bold text-stone-900 mt-1 print:mt-0.5 text-xs print:text-[11px]">{dispatchLog.driverName}</p>
+                  <p className="text-[10px] print:text-[9px] text-stone-500 font-mono">Vehicle: {dispatchLog.vehicleNo || 'WP CAD-4291'}</p>
                 </div>
-                <div className="mt-4 pt-2 border-t border-dashed border-stone-400">
-                  <span className="text-[10px] text-stone-400 block">Driver Acceptance Signature:</span>
-                  <div className="h-6 border-b border-stone-300"></div>
+                <div className="mt-4 print:mt-2 pt-2 print:pt-1 border-t border-dashed border-stone-400">
+                  <span className="text-[10px] print:text-[9px] text-stone-400 block">Driver Acceptance Signature:</span>
+                  <div className="h-6 print:h-5 border-b border-stone-300"></div>
                 </div>
               </div>
 
               {/* 3. Retail Store Receiving */}
-              <div className="p-3 flex flex-col justify-between min-h-[120px]">
+              <div className="p-3 print:p-2 flex flex-col justify-between min-h-[120px] print:min-h-[85px]">
                 <div>
-                  <span className="text-[10px] font-bold uppercase text-stone-500 block">
+                  <span className="text-[10px] print:text-[9px] font-bold uppercase text-stone-500 block">
                     3. Retail Store Receiving In-Charge
                   </span>
-                  <p className="font-bold text-stone-900 mt-1">Branch Receiving Barista</p>
-                  <p className="text-[10px] text-stone-500 font-mono">Temp on Arrival: _____ °C</p>
+                  <p className="font-bold text-stone-900 mt-1 print:mt-0.5 text-xs print:text-[11px]">Branch Receiving Barista</p>
+                  <p className="text-[10px] print:text-[9px] text-stone-500 font-mono">Temp on Arrival: _____ °C</p>
                 </div>
-                <div className="mt-4 pt-2 border-t border-dashed border-stone-400">
-                  <span className="text-[10px] text-stone-400 block">Store Stamp & Signature:</span>
-                  <div className="h-6 border-b border-stone-300"></div>
+                <div className="mt-4 print:mt-2 pt-2 print:pt-1 border-t border-dashed border-stone-400">
+                  <span className="text-[10px] print:text-[9px] text-stone-400 block">Store Stamp & Signature:</span>
+                  <div className="h-6 print:h-5 border-b border-stone-300"></div>
                 </div>
               </div>
 
@@ -285,7 +286,7 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
           </div>
 
           {/* Micro Footer for Print Compliance */}
-          <div className="mt-3 pt-2 border-t border-stone-300 flex justify-between items-center text-[9px] text-stone-500 font-mono">
+          <div className="mt-3 print:mt-1 pt-2 print:pt-1 border-t border-stone-300 flex justify-between items-center text-[9px] print:text-[8px] text-stone-500 font-mono">
             <span>Barista Coffee Lanka • BCL/REC/HACCP/32 • Controlled Document</span>
             <span>Printed on: {new Date().toLocaleString()}</span>
             <span>Page 1 of 1</span>

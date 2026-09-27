@@ -30,46 +30,46 @@ export const DocumentHaccpHeader: React.FC<DocumentHaccpHeaderProps> = ({
   className = ''
 }) => {
   return (
-    <header className={`border-2 border-stone-900 bg-white text-stone-900 mb-4 overflow-hidden rounded-sm print:rounded-none print:border-2 print:border-black ${className}`}>
+    <header className={`border-2 border-stone-900 bg-white text-stone-900 mb-4 print:mb-2 overflow-hidden rounded-sm print:rounded-none print:border-2 print:border-black ${className}`}>
       {/* 3-Column Official HACCP Grid - ALL CONTENT STRICTLY CENTERED */}
-      <div className="grid grid-cols-12 divide-y md:divide-y-0 md:divide-x-2 divide-stone-900 print:divide-black text-center">
+      <div className="grid grid-cols-12 divide-y md:divide-y-0 md:divide-x-2 print:divide-y-0 print:divide-x-2 divide-stone-900 print:divide-black text-center">
         
         {/* Column 1: Centered Logo and Company Identity */}
-        <div className="col-span-12 md:col-span-4 p-3.5 flex flex-col justify-center items-center text-center bg-stone-50/60 print:bg-white">
-          <div className="flex justify-center items-center mb-1.5">
-            <BaristaLogo className="w-13 h-13 shadow-sm print:shadow-none" size={52} />
+        <div className="col-span-12 md:col-span-4 print:col-span-4 p-3.5 print:p-2 flex flex-col justify-center items-center text-center bg-stone-50/60 print:bg-white">
+          <div className="flex justify-center items-center mb-1.5 print:mb-1">
+            <BaristaLogo className="w-13 h-13 print:w-11 print:h-11 shadow-sm print:shadow-none" size={52} />
           </div>
-          <h1 className="font-serif font-black tracking-widest text-lg sm:text-xl text-stone-900 leading-tight print:text-black">
+          <h1 className="font-serif font-black tracking-widest text-lg sm:text-xl print:text-base text-stone-900 leading-tight print:text-black">
             BARISTA
           </h1>
-          <p className="text-[10px] font-bold tracking-wider uppercase text-stone-700 print:text-black mt-0.5">
+          <p className="text-[10px] print:text-[9px] font-bold tracking-wider uppercase text-stone-700 print:text-black mt-0.5">
             SRI LANKA — CENTRAL KITCHEN
           </p>
-          <p className="text-[8.5px] text-stone-500 print:text-stone-700 font-mono mt-0.5">
+          <p className="text-[8.5px] print:text-[8px] text-stone-500 print:text-stone-700 font-mono mt-0.5">
             Barista Coffee Lanka (Pvt) Ltd.
           </p>
         </div>
 
         {/* Column 2: Centered Document Title & HACCP Protocol */}
-        <div className="col-span-12 md:col-span-4 p-3.5 flex flex-col justify-center items-center text-center bg-white">
-          <span className="text-[9.5px] font-mono font-semibold tracking-wider uppercase text-stone-500 print:text-stone-700">
+        <div className="col-span-12 md:col-span-4 print:col-span-4 p-3.5 print:p-2 flex flex-col justify-center items-center text-center bg-white">
+          <span className="text-[9.5px] print:text-[8.5px] font-mono font-semibold tracking-wider uppercase text-stone-500 print:text-stone-700">
             HACCP Food Safety Management System
           </span>
-          <h2 className="text-base sm:text-lg font-black text-stone-900 print:text-black uppercase tracking-wide leading-snug my-1">
+          <h2 className="text-base sm:text-lg print:text-sm font-black text-stone-900 print:text-black uppercase tracking-wide leading-snug my-1 print:my-0.5">
             {title}
           </h2>
-          <div className="inline-flex items-center justify-center px-2.5 py-0.5 bg-[#ED5338]/10 print:bg-stone-100 text-[#ED5338] print:text-black border border-[#ED5338]/30 print:border-black rounded text-[9.5px] font-bold font-mono">
+          <div className="inline-flex items-center justify-center px-2.5 py-0.5 bg-[#ED5338]/10 print:bg-stone-100 text-[#ED5338] print:text-black border border-[#ED5338]/30 print:border-black rounded text-[9.5px] print:text-[8.5px] font-bold font-mono">
             {haccpLink}
           </div>
           {subtitle && (
-            <p className="text-[9px] text-stone-600 print:text-stone-800 mt-1 max-w-[260px]">
+            <p className="text-[9px] print:text-[8px] text-stone-600 print:text-stone-800 mt-1 print:mt-0.5 max-w-[260px]">
               {subtitle}
             </p>
           )}
         </div>
 
         {/* Column 3: Centered Document Control & QA Metadata */}
-        <div className="col-span-12 md:col-span-4 flex flex-col justify-between text-center text-xs divide-y divide-stone-200 print:divide-black bg-stone-50/40 print:bg-white">
+        <div className="col-span-12 md:col-span-4 print:col-span-4 flex flex-col justify-between text-center text-xs divide-y divide-stone-200 print:divide-black bg-stone-50/40 print:bg-white">
           {/* Record Code (Centered) */}
           <div className="py-2 px-2 flex flex-col items-center justify-center">
             <span className="text-[9px] text-stone-500 print:text-stone-700 uppercase tracking-wider font-semibold">

@@ -127,63 +127,93 @@ input[type="number"] {
 
 @media print {
   @page {
-    margin: 8mm;
-    size: auto;
+    margin: 6mm 8mm;
+    size: portrait;
   }
 
-  body, html {
-    background-color: white !important;
-    background: white !important;
-    color: black !important;
+  body.printing-landscape {
+    @page {
+      size: landscape;
+    }
+  }
+
+  html, body {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    color: #000000 !important;
     width: 100% !important;
     height: auto !important;
-    min-height: auto !important;
+    min-height: 0 !important;
     overflow: visible !important;
     position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   #root {
     background: transparent !important;
     height: auto !important;
+    min-height: 0 !important;
     overflow: visible !important;
     position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
-  /* Hide app navigation, headers, footers and interactive controls in print */
-  header, 
-  nav, 
-  button, 
-  aside,
-  footer,
-  .print\:hidden {
+  /* ----------------------------------------------------
+     STRICT PRINT ISOLATION:
+     When printing, hide EVERYTHING on the website.
+     Only render the official printable sheet / report element.
+     ---------------------------------------------------- */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Exclusively show the printable document container and its children */
+  #printable-dispatch-sheet-content,
+  #printable-dispatch-sheet-content *,
+  #printable-executive-report-content,
+  #printable-executive-report-content * {
+    visibility: visible !important;
+  }
+
+  /* Pin the printable container directly to (0, 0) of the printed page */
+  #printable-dispatch-sheet-content,
+  #printable-executive-report-content {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Explicitly suppress all elements with print:hidden */
+  .print\:hidden,
+  .print\:hidden * {
     display: none !important;
+    visibility: hidden !important;
   }
 
   .print\:block {
     display: block !important;
   }
 
-  /* Reset fixed modal overlays to natural print document flow */
-  .printable-modal-overlay {
-    position: static !important;
-    background: transparent !important;
-    backdrop-filter: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    overflow: visible !important;
-    inset: auto !important;
-    display: block !important;
-  }
-
-  .printable-card-container {
-    box-shadow: none !important;
-    border: none !important;
-    max-width: 100% !important;
-    width: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    border-radius: 0 !important;
-    background: white !important;
+  /* Avoid unnecessary page breaks */
+  #printable-dispatch-sheet-content,
+  #printable-executive-report-content,
+  header,
+  table,
+  tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   /* High fidelity print color retention */

@@ -82,7 +82,7 @@ export const PrintableExecutiveReportModal: React.FC<PrintableExecutiveReportMod
         </div>
 
         {/* PRINTABLE CONTENT CONTAINER */}
-        <div id="printable-executive-report-content" className="print-content bg-white text-stone-900 rounded-xl p-5 sm:p-8 shadow-md print:shadow-none print:rounded-none print:p-0">
+        <div id="printable-executive-report-content" className="print-content bg-white text-stone-900 rounded-xl p-5 sm:p-8 print:p-0 shadow-md print:shadow-none print:rounded-none">
           
           {/* Header Grid - Centered HACCP Standard Header */}
           <DocumentHaccpHeader
@@ -96,6 +96,7 @@ export const PrintableExecutiveReportModal: React.FC<PrintableExecutiveReportMod
             refId={`AUD-${stats.totalDispatches}-REC`}
             haccpLink="OPRP-2 Certified (≤ 5.0°C)"
             mandateNotice="CRITICAL CONTROL REQUIREMENT: Maximum dispatch transit temperature must remain ≤ 5.0°C."
+            className="mb-4 print:mb-2"
           />
 
           {/* Operational Metrics Grid */}
@@ -205,32 +206,44 @@ export const PrintableExecutiveReportModal: React.FC<PrintableExecutiveReportMod
           </div>
 
           {/* QA Verification & Sign-off */}
-          <div className="border-2 border-stone-900 rounded-lg overflow-hidden">
-            <div className="bg-stone-900 text-white px-3 py-1 text-[10px] font-bold uppercase tracking-wider">
+          <div className="border-2 border-stone-900 rounded-lg overflow-hidden mb-3 print:mb-1.5">
+            <div className="bg-stone-900 text-white px-3 py-1 print:py-0.5 text-[10px] print:text-[9px] font-bold uppercase tracking-wider">
               Executive QA Sign-off & Controlled Audit Certification
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x border-t border-stone-900 text-xs">
-              <div className="p-3">
-                <span className="text-[10px] font-bold uppercase text-stone-500 block">Compiled By</span>
-                <p className="font-bold text-stone-900 mt-1">{generatedBy}</p>
-                <div className="mt-4 pt-2 border-t border-dashed border-stone-400">
-                  <span className="text-[10px] text-stone-400 block">Sign: ✓ Electronic QA Log</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 print:grid-cols-3 divide-y md:divide-y-0 md:divide-x print:divide-y-0 print:divide-x border-t border-stone-900 text-xs">
+              <div className="p-3 print:p-2 flex flex-col justify-between min-h-[110px] print:min-h-[80px]">
+                <div>
+                  <span className="text-[10px] print:text-[9px] font-bold uppercase text-stone-500 block">1. Central Kitchen QA Supervisor</span>
+                  <p className="font-bold text-stone-900 mt-1 print:mt-0.5 text-xs print:text-[11px]">{generatedBy}</p>
+                  <p className="text-[10px] print:text-[9px] text-stone-500 font-mono">Date: {filterPeriod}</p>
+                </div>
+                <div className="mt-4 print:mt-2 pt-2 print:pt-1 border-t border-dashed border-stone-400">
+                  <span className="text-[10px] print:text-[9px] text-stone-400 block">Authorized Signature:</span>
+                  <div className="h-6 print:h-5 border-b border-stone-300"></div>
                 </div>
               </div>
 
-              <div className="p-3">
-                <span className="text-[10px] font-bold uppercase text-stone-500 block">Central Kitchen Manager</span>
-                <p className="font-bold text-stone-900 mt-1">Head of Production</p>
-                <div className="mt-4 pt-2 border-t border-dashed border-stone-400">
-                  <span className="text-[10px] text-stone-400 block">Signature: ___________________</span>
+              <div className="p-3 print:p-2 flex flex-col justify-between min-h-[110px] print:min-h-[80px]">
+                <div>
+                  <span className="text-[10px] print:text-[9px] font-bold uppercase text-stone-500 block">2. Central Kitchen Manager</span>
+                  <p className="font-bold text-stone-900 mt-1 print:mt-0.5 text-xs print:text-[11px]">Head of Production</p>
+                  <p className="text-[10px] print:text-[9px] text-stone-500 font-mono">Operations Sign-off</p>
+                </div>
+                <div className="mt-4 print:mt-2 pt-2 print:pt-1 border-t border-dashed border-stone-400">
+                  <span className="text-[10px] print:text-[9px] text-stone-400 block">Manager Signature:</span>
+                  <div className="h-6 print:h-5 border-b border-stone-300"></div>
                 </div>
               </div>
 
-              <div className="p-3">
-                <span className="text-[10px] font-bold uppercase text-stone-500 block">Quality Assurance Executive</span>
-                <p className="font-bold text-stone-900 mt-1">Lead HACCP Auditor</p>
-                <div className="mt-4 pt-2 border-t border-dashed border-stone-400">
-                  <span className="text-[10px] text-stone-400 block">Signature: ___________________</span>
+              <div className="p-3 print:p-2 flex flex-col justify-between min-h-[110px] print:min-h-[80px]">
+                <div>
+                  <span className="text-[10px] print:text-[9px] font-bold uppercase text-stone-500 block">3. Quality Assurance Executive</span>
+                  <p className="font-bold text-stone-900 mt-1 print:mt-0.5 text-xs print:text-[11px]">Lead HACCP Auditor</p>
+                  <p className="text-[10px] print:text-[9px] text-stone-500 font-mono">HACCP Compliance Sign-off</p>
+                </div>
+                <div className="mt-4 print:mt-2 pt-2 print:pt-1 border-t border-dashed border-stone-400">
+                  <span className="text-[10px] print:text-[9px] text-stone-400 block">QA Auditor Signature:</span>
+                  <div className="h-6 print:h-5 border-b border-stone-300"></div>
                 </div>
               </div>
             </div>

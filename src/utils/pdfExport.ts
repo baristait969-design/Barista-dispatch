@@ -388,6 +388,75 @@ export function buildExecutiveReportDoc(
     margin: { left: 14, right: 14, bottom: 20 }
   });
 
+  // ----------------------------------------------------
+  // EXECUTIVE QA SIGN-OFF MATRIX (All Signatures Blank to Sign)
+  // ----------------------------------------------------
+  const lastTableFinalY = (doc as any).lastAutoTable?.finalY || 140;
+  let execSignY = lastTableFinalY + 6;
+  if (execSignY + 26 > 195) {
+    doc.addPage();
+    execSignY = 16;
+  }
+  
+  // Outer frame for sign-off box (width: 269mm)
+  doc.setDrawColor(30, 25, 22);
+  doc.setLineWidth(0.35);
+  doc.rect(startX, execSignY, totalWidth, 22, 'S');
+
+  // Sign-off header banner
+  doc.setFillColor(35, 32, 29);
+  doc.rect(startX, execSignY, totalWidth, 4.2, 'F');
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text('EXECUTIVE QA SIGN-OFF & CONTROLLED AUDIT CERTIFICATION', startX + 4, execSignY + 3.0);
+
+  // Column dividers (3 equal columns: 269 / 3 = 89.66mm)
+  const colW = totalWidth / 3;
+  doc.setDrawColor(200, 200, 205);
+  doc.setLineWidth(0.25);
+  doc.line(startX + colW, execSignY + 4.2, startX + colW, execSignY + 22);
+  doc.line(startX + colW * 2, execSignY + 4.2, startX + colW * 2, execSignY + 22);
+
+  // 1. Central Kitchen QA Supervisor
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(80, 80, 80);
+  doc.text('1. Central Kitchen QA Supervisor', startX + 4, execSignY + 8.0);
+  doc.setFontSize(7.5);
+  doc.setTextColor(20, 20, 20);
+  doc.text(userName || 'QA Executive', startX + 4, execSignY + 12.5);
+  doc.setFontSize(6.2);
+  doc.setTextColor(100, 100, 100);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Authorized Signature: _______________________', startX + 4, execSignY + 18.5);
+
+  // 2. Central Kitchen Manager
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(80, 80, 80);
+  doc.text('2. Central Kitchen Manager', startX + colW + 4, execSignY + 8.0);
+  doc.setFontSize(7.5);
+  doc.setTextColor(20, 20, 20);
+  doc.text('Head of Production', startX + colW + 4, execSignY + 12.5);
+  doc.setFontSize(6.2);
+  doc.setTextColor(100, 100, 100);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Manager Signature: __________________________', startX + colW + 4, execSignY + 18.5);
+
+  // 3. Lead HACCP Auditor
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(80, 80, 80);
+  doc.text('3. Quality Assurance Executive', startX + colW * 2 + 4, execSignY + 8.0);
+  doc.setFontSize(7.5);
+  doc.setTextColor(20, 20, 20);
+  doc.text('Lead HACCP Auditor', startX + colW * 2 + 4, execSignY + 12.5);
+  doc.setFontSize(6.2);
+  doc.setTextColor(100, 100, 100);
+  doc.setFont('helvetica', 'normal');
+  doc.text('QA Auditor Signature: _______________________', startX + colW * 2 + 4, execSignY + 18.5);
+
   // Footer on Every Page
   const pageCount = (doc as any).internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
@@ -613,7 +682,7 @@ export function buildSingleDispatchDoc(log: Partial<DispatchLog> & {
   doc.text(log.supervisor || 'QA Officer', 18, signY + 16);
   doc.setFontSize(6.5);
   doc.setTextColor(100, 100, 100);
-  doc.text('Signature: _______________________', 18, signY + 26);
+  doc.text('Authorized Signature: __________________', 18, signY + 26);
 
   // 2. Driver
   doc.setFontSize(7);
@@ -625,7 +694,7 @@ export function buildSingleDispatchDoc(log: Partial<DispatchLog> & {
   doc.text(log.driverName || 'Driver', 78, signY + 16);
   doc.setFontSize(6.5);
   doc.setTextColor(100, 100, 100);
-  doc.text('Signature: _______________________', 78, signY + 26);
+  doc.text('Driver Signature: ______________________', 78, signY + 26);
 
   // 3. Retail Store
   doc.setFontSize(7);
@@ -637,7 +706,7 @@ export function buildSingleDispatchDoc(log: Partial<DispatchLog> & {
   doc.text('Receiving Store Staff', 138, signY + 16);
   doc.setFontSize(6.5);
   doc.setTextColor(100, 100, 100);
-  doc.text('Temp: _____ °C | Sign: ____________', 138, signY + 26);
+  doc.text('Store Stamp & Sign: ____________________', 138, signY + 26);
 
   // Footer on page
   doc.setFontSize(6.5);

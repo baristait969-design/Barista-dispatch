@@ -1,21 +1,36 @@
 /**
  * Universal single-window print helper.
- * Directly triggers the native system print preview without opening any secondary popups or extra windows.
+ * Directly triggers the native system print preview for the isolated document element.
  */
-export function printHtmlElement(_elementId?: string, _title?: string) {
+export function printHtmlElement(elementId?: string, title?: string) {
   try {
+    const isLandscape = elementId === 'printable-executive-report-content';
+    if (isLandscape) {
+      document.body.classList.add('printing-landscape');
+    }
+
+    const prevTitle = document.title;
+    if (title) {
+      document.title = title;
+    }
+
+    const cleanup = () => {
+      document.body.classList.remove('printing-landscape');
+      document.title = prevTitle;
+      window.removeEventListener('afterprint', cleanup);
+    };
+
+    window.addEventListener('afterprint', cleanup);
     window.focus();
     window.print();
+
+    // Fallback cleanup if afterprint doesn't fire immediately
+    setTimeout(cleanup, 2000);
   } catch (err) {
     console.error('Print error:', err);
   }
 }
 
-export function triggerDevicePrint(_elementId?: string, _title?: string) {
-  try {
-    window.focus();
-    window.print();
-  } catch (err) {
-    console.error('Print error:', err);
-  }
+export function triggerDevicePrint(elementId?: string, title?: string) {
+  printHtmlElement(elementId, title);
 }
