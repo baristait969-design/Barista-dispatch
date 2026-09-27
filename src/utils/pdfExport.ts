@@ -247,9 +247,9 @@ export function buildExecutiveReportDoc(
   });
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const startX = 14;
+  const startX = 18; // 18mm left margin for binder punching
   const startY = 8;
-  const totalWidth = 269; // 297 - 28
+  const totalWidth = 267; // 297mm - 18mm (left) - 12mm (right) = 267mm balanced content width
 
   // Draw the official centered HACCP Header
   const nextY = drawHaccpHeaderToPdf(
@@ -385,7 +385,7 @@ export function buildExecutiveReportDoc(
         }
       }
     },
-    margin: { left: 14, right: 14, bottom: 20 }
+    margin: { left: startX, right: 12, bottom: 20 }
   });
 
   // ----------------------------------------------------
@@ -465,7 +465,7 @@ export function buildExecutiveReportDoc(
     doc.setTextColor(120, 120, 120);
     doc.text(
       `Barista Coffee Lanka (Pvt) Ltd. • Doc: BCL/QA/REP/EXEC • Official HACCP Audit Record • Page ${i} of ${pageCount}`,
-      14,
+      startX,
       202
     );
   }
@@ -528,9 +528,9 @@ export function buildSingleDispatchDoc(log: Partial<DispatchLog> & {
   const totalUnits = activeItems.reduce((acc, item) => acc + item.quantity, 0);
   const isAllHaccpCompliant = activeItems.every(item => item.dispatchTemp <= 5.0);
 
-  const startX = 14;
+  const startX = 20; // 20mm left margin for punch-hole and binder clearance
   const startY = 10;
-  const totalWidth = 182; // 210 - 28
+  const totalWidth = 178; // 210mm - 20mm (left) - 12mm (right) = 178mm balanced content width
 
   // Draw the official centered HACCP Header
   const nextY = drawHaccpHeaderToPdf(
@@ -565,20 +565,20 @@ export function buildSingleDispatchDoc(log: Partial<DispatchLog> & {
   doc.setFontSize(7.5);
   doc.setTextColor(100, 100, 100);
   doc.setFont('helvetica', 'bold');
-  doc.text('DESTINATION OUTLETS', 18, logBoxY + 4.5);
-  doc.text('DATE & DISPATCH TIME', 85, logBoxY + 4.5);
-  doc.text('ASSIGNED DRIVER', 140, logBoxY + 4.5);
+  doc.text('DESTINATION OUTLETS', startX + 4, logBoxY + 4.5);
+  doc.text('DATE & DISPATCH TIME', startX + 70, logBoxY + 4.5);
+  doc.text('ASSIGNED DRIVER', startX + 130, logBoxY + 4.5);
 
   doc.setFontSize(9);
   doc.setTextColor(20, 20, 20);
-  doc.text(log.outletNames.join(', ') || 'Retail Branches', 18, logBoxY + 10);
-  doc.text(`${log.date} @ ${log.dispatchTime}`, 85, logBoxY + 10);
-  doc.text(log.driverName || 'Fleet Driver', 140, logBoxY + 10);
+  doc.text(log.outletNames.join(', ') || 'Retail Branches', startX + 4, logBoxY + 10);
+  doc.text(`${log.date} @ ${log.dispatchTime}`, startX + 70, logBoxY + 10);
+  doc.text(log.driverName || 'Fleet Driver', startX + 130, logBoxY + 10);
 
   doc.setFontSize(7.5);
   doc.setTextColor(80, 80, 80);
   doc.setFont('helvetica', 'normal');
-  doc.text(`QA Supervisor: ${log.supervisor || 'QA Officer'}${log.notes ? ` • Notes: ${log.notes}` : ''}`, 18, logBoxY + 15);
+  doc.text(`QA Supervisor: ${log.supervisor || 'QA Officer'}${log.notes ? ` • Notes: ${log.notes}` : ''}`, startX + 4, logBoxY + 15);
 
   // Items Table
   const tableRows = activeItems.map((item, idx) => {
@@ -637,19 +637,19 @@ export function buildSingleDispatchDoc(log: Partial<DispatchLog> & {
   const finalY = (doc as any).lastAutoTable.finalY + 5;
 
   doc.setFillColor(240, 240, 245);
-  doc.rect(14, finalY, 182, 9, 'F');
+  doc.rect(startX, finalY, totalWidth, 9, 'F');
   doc.setDrawColor(200, 200, 205);
   doc.setLineWidth(0.3);
-  doc.rect(14, finalY, 182, 9, 'S');
+  doc.rect(startX, finalY, totalWidth, 9, 'S');
 
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(20, 20, 20);
-  doc.text(`TOTAL DISPATCHED OUTPUT: ${totalUnits} UNITS`, 18, finalY + 6);
+  doc.text(`TOTAL DISPATCHED OUTPUT: ${totalUnits} UNITS`, startX + 4, finalY + 6);
   doc.setTextColor(isAllHaccpCompliant ? 16 : 180, isAllHaccpCompliant ? 130 : 20, 40);
   doc.text(
     isAllHaccpCompliant ? '✓ 100% Cold-Chain Compliant (≤5.0°C)' : '⚠ HACCP Temperature Breach Detected',
-    115,
+    startX + totalWidth - 78,
     finalY + 6
   );
 
@@ -658,61 +658,62 @@ export function buildSingleDispatchDoc(log: Partial<DispatchLog> & {
   doc.setFillColor(255, 255, 255);
   doc.setDrawColor(30, 27, 24);
   doc.setLineWidth(0.4);
-  doc.rect(14, signY, 182, 32, 'S');
+  doc.rect(startX, signY, totalWidth, 32, 'S');
 
   doc.setFillColor(30, 27, 24);
-  doc.rect(14, signY, 182, 5.5, 'F');
+  doc.rect(startX, signY, totalWidth, 5.5, 'F');
   doc.setFontSize(7);
   doc.setTextColor(255, 255, 255);
-  doc.text('VERIFICATION & CUSTODY HANDOVER SIGN-OFF (STRICT HACCP AUDIT PROTOCOL)', 18, signY + 4);
+  doc.text('VERIFICATION & CUSTODY HANDOVER SIGN-OFF (STRICT HACCP AUDIT PROTOCOL)', startX + 4, signY + 4);
 
-  // Column dividers
+  // Column dividers (equal thirds)
+  const colW = totalWidth / 3;
   doc.setDrawColor(200, 200, 205);
   doc.setLineWidth(0.3);
-  doc.line(74, signY + 5.5, 74, signY + 32);
-  doc.line(134, signY + 5.5, 134, signY + 32);
+  doc.line(startX + colW, signY + 5.5, startX + colW, signY + 32);
+  doc.line(startX + colW * 2, signY + 5.5, startX + colW * 2, signY + 32);
 
   // 1. Dispatch Supervisor
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(80, 80, 80);
-  doc.text('1. Central Kitchen QA Supervisor', 18, signY + 10);
+  doc.text('1. Central Kitchen QA Supervisor', startX + 4, signY + 10);
   doc.setFontSize(8);
   doc.setTextColor(20, 20, 20);
-  doc.text(log.supervisor || 'QA Officer', 18, signY + 16);
+  doc.text(log.supervisor || 'QA Officer', startX + 4, signY + 16);
   doc.setFontSize(6.5);
   doc.setTextColor(100, 100, 100);
-  doc.text('Authorized Signature: __________________', 18, signY + 26);
+  doc.text('Authorized Signature: __________________', startX + 4, signY + 26);
 
   // 2. Driver
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(80, 80, 80);
-  doc.text('2. Cold-Chain Transport Driver', 78, signY + 10);
+  doc.text('2. Cold-Chain Transport Driver', startX + colW + 4, signY + 10);
   doc.setFontSize(8);
   doc.setTextColor(20, 20, 20);
-  doc.text(log.driverName || 'Driver', 78, signY + 16);
+  doc.text(log.driverName || 'Driver', startX + colW + 4, signY + 16);
   doc.setFontSize(6.5);
   doc.setTextColor(100, 100, 100);
-  doc.text('Driver Signature: ______________________', 78, signY + 26);
+  doc.text('Driver Signature: ______________________', startX + colW + 4, signY + 26);
 
   // 3. Retail Store
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(80, 80, 80);
-  doc.text('3. Retail Store Receiving Barista', 138, signY + 10);
+  doc.text('3. Retail Store Receiving Barista', startX + colW * 2 + 4, signY + 10);
   doc.setFontSize(8);
   doc.setTextColor(20, 20, 20);
-  doc.text('Receiving Store Staff', 138, signY + 16);
+  doc.text('Receiving Store Staff', startX + colW * 2 + 4, signY + 16);
   doc.setFontSize(6.5);
   doc.setTextColor(100, 100, 100);
-  doc.text('Store Stamp & Sign: ____________________', 138, signY + 26);
+  doc.text('Store Stamp & Sign: ____________________', startX + colW * 2 + 4, signY + 26);
 
   // Footer on page
   doc.setFontSize(6.5);
   doc.setTextColor(130, 130, 130);
-  doc.text(`Barista Coffee Lanka • BCL/REC/HACCP/32 • Doc ID: ${log.docNo || log.id || 'DSP-001'}`, 14, 287);
-  doc.text(`Printed: ${new Date().toLocaleString()}`, 150, 287);
+  doc.text(`Barista Coffee Lanka • BCL/REC/HACCP/32 • Doc ID: ${log.docNo || log.id || 'DSP-001'}`, startX, 287);
+  doc.text(`Printed: ${new Date().toLocaleString()}`, startX + totalWidth - 45, 287);
 
   return doc;
 }

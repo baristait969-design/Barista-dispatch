@@ -133,14 +133,14 @@ input[type="number"] {
 
 @media print {
   @page {
-    margin: 6mm 8mm;
-    size: portrait;
+    size: A4 portrait;
+    margin: 10mm 12mm 10mm 20mm; /* Top: 10mm, Right: 12mm, Bottom: 10mm, Left: 20mm (Binder punch-hole gutter) */
   }
 
   body.printing-landscape {
     @page {
-      size: landscape;
-      margin: 6mm 8mm;
+      size: A4 landscape;
+      margin: 10mm 12mm 10mm 18mm;
     }
   }
 
