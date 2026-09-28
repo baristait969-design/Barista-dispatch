@@ -335,9 +335,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <FileText className="w-4 h-4 text-[#ED5338]" />
             <span>Recent Kitchen Dispatch Logs</span>
           </h3>
-          {(hasAccess('forms', 'view') || hasAccess('reports', 'view')) && (
+          {(hasAccess('reports', 'view') || hasAccess('forms', 'view')) && (
             <button
-              onClick={() => onNavigate(hasAccess('forms', 'view') ? 'forms' : 'reports')}
+              onClick={() => onNavigate(hasAccess('reports', 'view') ? 'reports' : 'forms')}
               className="text-xs text-[#FFA594] hover:text-[#ED5338] transition font-semibold cursor-pointer"
             >
               View All ({dispatchLogs.length})
@@ -367,9 +367,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     Driver: <span className="text-stone-300">{log.driverName}</span> • Supervisor: <span className="text-stone-300">{log.supervisor}</span> • {log.items.length} product line(s)
                   </p>
                 </div>
-                {(hasAccess('forms', 'view') || hasAccess('reports', 'view')) && (
+                {(hasAccess('reports', 'view') || hasAccess('forms', 'view')) && (
                   <button
-                    onClick={() => onNavigate(hasAccess('forms', 'view') ? 'forms' : 'reports')}
+                    onClick={() => onNavigate(hasAccess('reports', 'view') ? 'reports' : 'forms')}
                     className="text-xs bg-[#221A17] hover:bg-[#2C211D] border border-[#382B25] text-stone-300 hover:text-white px-2.5 py-1 rounded transition cursor-pointer"
                   >
                     Details

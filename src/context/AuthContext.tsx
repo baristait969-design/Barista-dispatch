@@ -126,6 +126,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserProfile(latest);
         setRole(latest.role || 'viewer');
         localStorage.setItem('barista_simulated_user', JSON.stringify(latest));
+      } else {
+        // User account was deleted in Firestore! Revoke access immediately.
+        setUserProfile(null);
+        setRole('viewer');
+        setIsSimulated(false);
+        localStorage.removeItem('barista_simulated_user');
+        window.dispatchEvent(new CustomEvent('barista-account-deleted'));
       }
     }, (error) => {
       console.warn('Real-time profile listener error:', error);
@@ -231,7 +238,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       let matchedUser: UserProfile | null = null;
 
-      // 1. Direct query against Firestore 'users' collection
+      // 1. Check if user account was deleted / blacklisted in Firestore
+      try {
+        const deletedSnap = await getDoc(doc(db, 'deleted_users', cleanUser));
+        if (deletedSnap.exists()) {
+          throw new Error(`This user account "${usernameInput}" has been removed and access is permanently revoked.`);
+        }
+      } catch (delErr: any) {
+        if (delErr.message?.includes('access is permanently revoked')) throw delErr;
+      }
+
+      // 2. Direct query against Firestore 'users' collection
       try {
         const usersSnap = await getDocs(collection(db, 'users'));
         if (!usersSnap.empty) {
@@ -251,20 +268,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Could not query users collection in Firestore:', dbErr);
       }
 
-      // 2. Direct check in INITIAL_USERS fallback
-      if (!matchedUser) {
-        const demoMatch = INITIAL_USERS.find(u => 
-          (u.username && u.username.toLowerCase() === cleanUser) ||
-          (u.userIdCode && u.userIdCode.toLowerCase() === cleanUser) ||
-          (u.email && u.email.toLowerCase() === cleanUser)
-        );
-        if (demoMatch) {
-          matchedUser = demoMatch;
+      // 3. Fallback ONLY for primary root administrator if Firestore is unreachable or empty
+      if (!matchedUser && cleanUser === 'admin') {
+        const rootAdmin = INITIAL_USERS.find(u => u.username === 'admin');
+        if (rootAdmin) {
+          matchedUser = rootAdmin;
         }
       }
 
       if (!matchedUser) {
-        throw new Error(`User account "${usernameInput}" was not found. Please verify your username or contact the Administrator.`);
+        throw new Error(`User account "${usernameInput}" was not found or has been removed. Please verify your username or contact the Administrator.`);
       }
 
       // 3. Check account active status

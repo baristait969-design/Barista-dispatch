@@ -128,7 +128,7 @@ export const ModalDialogProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
   }, [showAlert]);
 
-  // Listen for real-time account suspension event
+  // Listen for real-time account suspension and deletion events
   useEffect(() => {
     const handleSuspended = () => {
       showAlert('Your user account has been suspended by an Administrator. Access has been revoked and you have been signed out.', {
@@ -136,8 +136,18 @@ export const ModalDialogProvider: React.FC<{ children: React.ReactNode }> = ({ c
         type: 'security'
       });
     };
+    const handleDeleted = () => {
+      showAlert('Your user account has been permanently removed by an Administrator. Access has been terminated and you have been signed out.', {
+        title: 'Account Deleted',
+        type: 'security'
+      });
+    };
     window.addEventListener('barista-account-suspended', handleSuspended);
-    return () => window.removeEventListener('barista-account-suspended', handleSuspended);
+    window.addEventListener('barista-account-deleted', handleDeleted);
+    return () => {
+      window.removeEventListener('barista-account-suspended', handleSuspended);
+      window.removeEventListener('barista-account-deleted', handleDeleted);
+    };
   }, [showAlert]);
 
   // Keyboard navigation: Escape closes or cancels, Enter confirms

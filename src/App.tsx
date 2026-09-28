@@ -115,7 +115,7 @@ const MainContent: React.FC = () => {
     });
 
     const unsubUsers = subscribeUsers((data) => {
-      if (data && data.length > 0) setUsersList(data);
+      setUsersList(data || []);
     });
 
     return () => {

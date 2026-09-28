@@ -1,13 +1,14 @@
 import { 
   collection, 
   doc, 
+  getDoc,
   getDocs, 
   setDoc, 
   updateDoc, 
   deleteDoc, 
   onSnapshot, 
   query, 
-  where,
+  where, 
   orderBy, 
   runTransaction,
   writeBatch
@@ -62,9 +63,16 @@ export async function seedInitialDataIfNeeded(): Promise<boolean> {
           await setDoc(doc(db, PRODUCTS_COL, p.id), p);
         }
       }
-      // Ensure primary Administrator account exists with username 'admin' and password
-      for (const u of INITIAL_USERS) {
-        await setDoc(doc(db, USERS_COL, u.id), u, { merge: true });
+      // Ensure only the primary Administrator account exists if missing (never recreate deleted staff accounts)
+      try {
+        const adminDocRef = doc(db, USERS_COL, 'user-admin-main');
+        const adminSnap = await getDoc(adminDocRef);
+        if (!adminSnap.exists()) {
+          const rootAdmin = INITIAL_USERS[0];
+          await setDoc(adminDocRef, rootAdmin);
+        }
+      } catch (adminCheckErr) {
+        console.warn('Could not verify root admin existence:', adminCheckErr);
       }
       // Sync official 101 outlets if needed
       await syncOfficialOutlets(false);
@@ -800,23 +808,23 @@ export async function createNewUser(user: Omit<UserProfile, 'id'>): Promise<stri
     throw new Error('Username is compulsory and cannot be empty.');
   }
 
-  // Enforce username uniqueness across all initial users and Firestore users
-  const initialMatch = INITIAL_USERS.find(
-    (u) => (u.username || '').toLowerCase() === cleanUsername || (u.userIdCode || '').toLowerCase() === cleanUsername
-  );
-  if (initialMatch) {
-    throw new Error(`Username "${cleanUsername}" is already in use by another account.`);
-  }
-
+  // Enforce username uniqueness across active Firestore users
   try {
     const q = query(collection(db, USERS_COL), where('username', '==', cleanUsername));
     const snap = await getDocs(q);
     if (!snap.empty) {
-      throw new Error(`Username "${cleanUsername}" is already in use by another account.`);
+      throw new Error(`Username "${cleanUsername}" is already in use by another active account.`);
     }
   } catch (checkErr: any) {
     if (checkErr.message?.includes('already in use')) throw checkErr;
     console.warn('Could not verify username uniqueness in Firestore:', checkErr);
+  }
+
+  // If this username was previously deleted, remove its tombstone from deleted_users
+  try {
+    await deleteDoc(doc(db, 'deleted_users', cleanUsername));
+  } catch (e) {
+    // Ignore tombstone delete failure
   }
 
   const id = user.uid || `user-${Date.now()}`;
@@ -939,7 +947,43 @@ export async function adminResetUserPassword(
 
 export async function deleteUserRecord(userId: string): Promise<void> {
   try {
-    await deleteDoc(doc(db, USERS_COL, userId));
+    const userDocRef = doc(db, USERS_COL, userId);
+    let deletedUsername = '';
+    let deletedCode = '';
+    try {
+      const snap = await getDoc(userDocRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        deletedUsername = (data?.username || '').trim().toLowerCase();
+        deletedCode = (data?.userIdCode || '').trim().toLowerCase();
+      }
+    } catch (e) {
+      console.warn('Could not read user before delete:', e);
+    }
+
+    // 1. Delete document from Firestore users collection
+    await deleteDoc(userDocRef);
+
+    // 2. Record tombstone in deleted_users so neither username nor code can log in
+    if (deletedUsername && deletedUsername !== 'admin') {
+      try {
+        await setDoc(doc(db, 'deleted_users', deletedUsername), {
+          username: deletedUsername,
+          userId,
+          deletedAt: new Date().toISOString()
+        });
+        if (deletedCode) {
+          await setDoc(doc(db, 'deleted_users', deletedCode), {
+            username: deletedUsername,
+            userIdCode: deletedCode,
+            userId,
+            deletedAt: new Date().toISOString()
+          });
+        }
+      } catch (tombErr) {
+        console.warn('Could not record deleted_user tombstone:', tombErr);
+      }
+    }
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, `${USERS_COL}/${userId}`);
     throw error;

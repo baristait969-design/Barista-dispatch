@@ -11,7 +11,6 @@ import {
   EyeOff,
   ShieldCheck,
   ShieldAlert,
-  KeyRound,
   Timer
 } from 'lucide-react';
 import { BaristaLogo } from './BaristaLogo';
@@ -276,13 +275,6 @@ export const LoginPage: React.FC = () => {
             )}
           </button>
         </form>
-
-        <div className="mt-5 p-3 bg-[#1C1614] border border-[#382B25] rounded-xl text-[11px] text-stone-400 flex items-start space-x-2">
-          <KeyRound className="w-4 h-4 text-[#ED5338] shrink-0 mt-0.5" />
-          <span>
-            <strong className="text-[#FFA594]">Temporary Password:</strong> If an administrator provisioned your account with a temporary one-time password, you will be required to set your own permanent password immediately upon login.
-          </span>
-        </div>
 
         <div className="mt-6 pt-4 border-t border-[#2E221E] text-center text-xs text-stone-500">
           <div className="flex items-center justify-center space-x-1.5">
