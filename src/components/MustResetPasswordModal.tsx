@@ -21,6 +21,7 @@ export const MustResetPasswordModal: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,14 +47,16 @@ export const MustResetPasswordModal: React.FC = () => {
     try {
       await updateCurrentUserPassword(cleanPass);
       setSuccess(true);
+      setTimeout(() => {
+        setDismissed(true);
+      }, 1200);
     } catch (err: any) {
       setError(err?.message || 'Failed to update password. Please try again.');
-    } finally {
       setSubmitting(false);
     }
   };
 
-  if (!userProfile?.mustResetPassword) {
+  if (dismissed || (!userProfile?.mustResetPassword && !userProfile?.isFirstLogin && !success)) {
     return null;
   }
 
@@ -67,10 +70,10 @@ export const MustResetPasswordModal: React.FC = () => {
           <BaristaLogo className="w-10 h-10 ring-2 ring-[#ED5338]/40" />
           <div>
             <h2 className="text-lg font-bold text-white flex items-center space-x-2">
-              <span>Set Your Personal Password</span>
+              <span>First Login: Create Your Password</span>
             </h2>
             <p className="text-xs text-[#FFA594] font-mono">
-              Welcome, {userProfile.displayName} ({userProfile.username || userProfile.userIdCode})
+              Welcome, {userProfile?.displayName} ({userProfile?.username || userProfile?.userIdCode})
             </p>
           </div>
         </div>
@@ -78,8 +81,8 @@ export const MustResetPasswordModal: React.FC = () => {
         <div className="mb-4 p-3 bg-[#1C1614] border border-[#382B25] rounded-xl text-xs text-stone-300 leading-relaxed flex items-start space-x-2.5">
           <KeyRound className="w-4 h-4 text-[#ED5338] shrink-0 mt-0.5" />
           <div>
-            <strong className="text-[#FFA594] block mb-0.5">Temporary One-Time Password Detected</strong>
-            Your account was provisioned or reset with a temporary password. For your security, please create a new personal permanent password to proceed into the system.
+            <strong className="text-[#FFA594] block mb-0.5">One-Time Password Setup Required</strong>
+            Your account was initialized by an Administrator. On your first login, you must create your own personal permanent password. This setup is required once and cannot be repeated later.
           </div>
         </div>
 

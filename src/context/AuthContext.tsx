@@ -306,7 +306,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const updated: UserProfile = { 
         ...userProfile, 
         password: cleanPass, 
-        mustResetPassword: false 
+        mustResetPassword: false,
+        isFirstLogin: false 
       };
       setUserProfile(updated);
       localStorage.setItem('barista_simulated_user', JSON.stringify(updated));

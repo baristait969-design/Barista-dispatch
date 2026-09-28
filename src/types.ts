@@ -18,6 +18,7 @@ export interface UserProfile {
   email?: string;
   password?: string;
   mustResetPassword?: boolean; // Flag if one-time temporary password was set by admin
+  isFirstLogin?: boolean; // True on user's first login until they create their own password
   tempPasswordSetAt?: string;
   status?: 'active' | 'suspended'; // Account access status - suspended users cannot log in
   displayName: string;

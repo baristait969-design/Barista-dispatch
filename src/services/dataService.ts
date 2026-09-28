@@ -906,6 +906,7 @@ export async function updateUserPassword(
     };
     if (clearMustReset) {
       updatePayload.mustResetPassword = false;
+      updatePayload.isFirstLogin = false;
     }
     await setDoc(doc(db, USERS_COL, userId), updatePayload, { merge: true });
   } catch (error) {
@@ -920,12 +921,13 @@ export async function updateUserPassword(
 export async function adminResetUserPassword(
   userId: string,
   newPassword: string,
-  requireResetOnLogin: boolean = false
+  requireResetOnLogin: boolean = true
 ): Promise<void> {
   try {
     await setDoc(doc(db, USERS_COL, userId), {
       password: newPassword.trim(),
       mustResetPassword: requireResetOnLogin,
+      isFirstLogin: requireResetOnLogin,
       tempPasswordSetAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }, { merge: true });

@@ -225,7 +225,8 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
         displayName: formData.displayName.trim(),
         email: formData.email.trim().toLowerCase() || `${cleanUsername}@barista.lk`,
         password: userPassword,
-        mustResetPassword: false,
+        mustResetPassword: true,
+        isFirstLogin: true,
         tempPasswordSetAt: new Date().toISOString(),
         status: 'active',
         role: formData.role,
@@ -235,10 +236,10 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
         createdAt: new Date().toISOString()
       });
       
-      const createdMsg = `Staff account created! Username: ${cleanUsername} • Password: "${userPassword}".`;
+      const createdMsg = `Staff account created! Username: ${cleanUsername} • Assigned Password: "${userPassword}" (User will set personal password on first login).`;
       setActionSuccess(createdMsg);
       setShowAddModal(false);
-      showAlert(`Staff account "${cleanUsername}" created successfully! Temporary Password: "${userPassword}".`, {
+      showAlert(`Staff account "${cleanUsername}" created successfully! Initial Password: "${userPassword}". The user will be prompted to create their own personal password on their first login.`, {
         title: 'Staff User Created',
         type: 'success'
       });
@@ -960,7 +961,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
                     className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500 font-mono"
                   />
                   <p className="text-[10px] text-stone-500 mt-1">
-                    Assigned staff member password
+                    Initial password (User will set their own permanent password on their first login)
                   </p>
                 </div>
               </div>

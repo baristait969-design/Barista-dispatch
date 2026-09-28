@@ -32,6 +32,7 @@ export const UserPasswordResetModal: React.FC<UserPasswordResetModalProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [requireResetOnLogin, setRequireResetOnLogin] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -74,7 +75,7 @@ export const UserPasswordResetModal: React.FC<UserPasswordResetModalProps> = ({
 
     setSubmitting(true);
     try {
-      await adminResetUserPassword(user.id, cleanPass, false);
+      await adminResetUserPassword(user.id, cleanPass, requireResetOnLogin);
       if (onSuccess) {
         onSuccess(`Password successfully reset for ${user.displayName} (${user.username || user.userIdCode}) to "${cleanPass}".`);
       }
@@ -169,6 +170,19 @@ export const UserPasswordResetModal: React.FC<UserPasswordResetModalProps> = ({
               placeholder="Re-enter new password"
               className="w-full px-3.5 py-2.5 bg-[#1C1614] border border-[#382B25] rounded-xl text-xs text-stone-100 placeholder-stone-500 font-mono focus:outline-none focus:border-[#ED5338] focus:ring-1 focus:ring-[#ED5338]"
             />
+          </div>
+
+          <div className="p-3 bg-[#1C1614] border border-[#382B25] rounded-xl flex items-center space-x-2.5">
+            <input
+              type="checkbox"
+              id="requireResetCheck"
+              checked={requireResetOnLogin}
+              onChange={(e) => setRequireResetOnLogin(e.target.checked)}
+              className="w-4 h-4 rounded text-[#ED5338] bg-stone-900 border-[#382B25] focus:ring-[#ED5338] cursor-pointer"
+            />
+            <label htmlFor="requireResetCheck" className="text-xs text-stone-300 cursor-pointer select-none">
+              Require staff member to create their own new password on next login
+            </label>
           </div>
 
           <div className="pt-3 border-t border-[#2C211C] flex justify-end space-x-2">

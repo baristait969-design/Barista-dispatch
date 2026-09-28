@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ModalDialogProvider } from './context/ModalDialogContext';
 import { Navbar } from './components/Navbar';
 import { LoginPage } from './components/LoginPage';
+import { MustResetPasswordModal } from './components/MustResetPasswordModal';
 import { DashboardView } from './components/DashboardView';
 import { InventoryView } from './components/InventoryView';
 import { FormsView } from './components/FormsView';
@@ -147,6 +148,7 @@ const MainContent: React.FC = () => {
   // Logged in -> Responsive Dashboard & Navigation
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col font-sans selection:bg-amber-500 selection:text-stone-950">
+      <MustResetPasswordModal />
       <Navbar currentTab={currentTab} setCurrentTab={setCurrentTab} />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
