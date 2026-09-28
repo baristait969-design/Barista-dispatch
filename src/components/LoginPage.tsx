@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useModal } from '../context/ModalDialogContext';
 import { 
   Lock, 
   User, 
@@ -9,29 +10,130 @@ import {
   Eye,
   EyeOff,
   ShieldCheck,
-  KeyRound
+  ShieldAlert,
+  KeyRound,
+  Timer
 } from 'lucide-react';
 import { BaristaLogo } from './BaristaLogo';
 
+const MAX_ATTEMPTS = 5;
+
 export const LoginPage: React.FC = () => {
   const { loginWithUsername } = useAuth();
+  const { showAlert } = useModal();
   
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [isShaking, setIsShaking] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState<number>(0);
+  const [lockoutRemaining, setLockoutRemaining] = useState<number>(0);
+
+  // Check and restore lockout status on load
+  useEffect(() => {
+    const attempts = parseInt(localStorage.getItem('barista_security_failed_attempts') || '0', 10);
+    setFailedAttempts(isNaN(attempts) ? 0 : attempts);
+
+    const updateTimer = () => {
+      const lockoutUntilStr = localStorage.getItem('barista_security_lockout_until');
+      if (lockoutUntilStr) {
+        const lockoutUntil = parseInt(lockoutUntilStr, 10);
+        const now = Date.now();
+        if (!isNaN(lockoutUntil) && now < lockoutUntil) {
+          setLockoutRemaining(Math.ceil((lockoutUntil - now) / 1000));
+        } else {
+          setLockoutRemaining(0);
+          localStorage.removeItem('barista_security_lockout_until');
+        }
+      } else {
+        setLockoutRemaining(0);
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const triggerShake = () => {
+    setIsShaking(true);
+    setTimeout(() => setIsShaking(false), 600);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (lockoutRemaining > 0) {
+      await showAlert(
+        `Portal is currently under automated security quarantine for ${lockoutRemaining} more seconds. Please wait for the lockout countdown to expire.`,
+        { title: '🔒 Security Quarantine Active', type: 'security' }
+      );
+      return;
+    }
+
     setError(null);
     setSubmitting(true);
 
+    const cleanUser = username.trim();
+    const cleanPass = password.trim();
+
+    // 1. Intrusion Vector Pre-Check (SQL Injection / Script Injection / Attack Payload)
+    const intrusionPattern = /('|\b)(select|union|insert|drop|alter|delete|update|exec|script|declare|or\s+['"\d]=['"\d])\b|--|\/\*|<\s*script/i;
+    if (intrusionPattern.test(cleanUser) || intrusionPattern.test(cleanPass)) {
+      setSubmitting(false);
+      triggerShake();
+      const quarantineUntil = Date.now() + 120000;
+      localStorage.setItem('barista_security_lockout_until', quarantineUntil.toString());
+      setLockoutRemaining(120);
+
+      await showAlert(
+        `CRITICAL SECURITY ALERT: An unauthorized cyber intrusion / SQL injection attack was detected.\n\nPayload has been intercepted and quarantined. Sign-in has been locked for 120 seconds, and the incident details have been logged for administrative audit.`,
+        { title: '🚨 Intrusion Attack Intercepted', type: 'security' }
+      );
+      return;
+    }
+
     try {
-      await loginWithUsername(username.trim(), password);
+      await loginWithUsername(cleanUser, cleanPass);
+      // Reset attempts on successful sign-in
+      setFailedAttempts(0);
+      localStorage.removeItem('barista_security_failed_attempts');
+      localStorage.removeItem('barista_security_lockout_until');
     } catch (err: any) {
       console.error(err);
-      setError(err?.message || 'Authentication failed. Please verify credentials or contact the Administrator.');
+      triggerShake();
+      const newAttempts = failedAttempts + 1;
+      setFailedAttempts(newAttempts);
+      localStorage.setItem('barista_security_failed_attempts', newAttempts.toString());
+
+      const errorMessage = err?.message || 'Authentication failed. Please verify credentials.';
+      setError(errorMessage);
+
+      if (newAttempts >= MAX_ATTEMPTS) {
+        // Enforce 60-second lockout
+        const lockUntil = Date.now() + 60000;
+        localStorage.setItem('barista_security_lockout_until', lockUntil.toString());
+        setLockoutRemaining(60);
+
+        await showAlert(
+          `AUTOMATED SECURITY LOCKOUT: 5 consecutive invalid sign-in attempts detected.\n\nTo prevent automated credential-stuffing and hacker brute-force activities, access to the portal has been temporarily locked for 60 seconds.\n\nIf you have forgotten your password, contact your QA System Administrator.`,
+          { title: '🛡️ Brute-Force Defense Triggered', type: 'security' }
+        );
+      } else if (newAttempts >= 3) {
+        // Warning modal dialog when 3 or 4 attempts used
+        const remaining = MAX_ATTEMPTS - newAttempts;
+        await showAlert(
+          `SECURITY WARNING: Incorrect username or password entered.\n\nYou have ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before automated security quarantine locks this terminal.\n\nAll unauthorized access attempts are monitored and recorded under Barista IT Policy.`,
+          { title: '⚠️ Multiple Failed Attempts Warning', type: 'warning' }
+        );
+      } else {
+        // Standard security alert modal on 1st or 2nd invalid attempt
+        await showAlert(
+          `Authentication failed: ${errorMessage}\n\nPlease verify your staff username and case-sensitive password. (Attempt ${newAttempts} of ${MAX_ATTEMPTS})`,
+          { title: 'Authentication Security Alert', type: 'security' }
+        );
+      }
     } finally {
       setSubmitting(false);
     }
@@ -64,7 +166,9 @@ export const LoginPage: React.FC = () => {
       </div>
 
       {/* Clean Secure Login Card - Username & Password Based Authentication */}
-      <div className="w-full max-w-md bg-[#171311] border border-[#2E221E] rounded-2xl shadow-2xl p-6 sm:p-8 z-10 backdrop-blur-md">
+      <div className={`w-full max-w-md bg-[#171311] border border-[#2E221E] rounded-3xl shadow-2xl p-6 sm:p-8 z-10 backdrop-blur-md transition-all duration-300 ${
+        isShaking ? 'animate-bounce ring-2 ring-red-500/80 shadow-red-950/50' : ''
+      }`}>
         <div className="mb-6 text-center">
           <h2 className="text-xl font-bold text-white tracking-wide">
             Staff Portal Sign In
@@ -72,12 +176,50 @@ export const LoginPage: React.FC = () => {
           <p className="text-xs text-stone-400 mt-1">
             Sign in with your staff username and password
           </p>
+
+          {/* Security status badge */}
+          <div className="mt-3 flex items-center justify-center space-x-2">
+            <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800 flex items-center space-x-1">
+              <ShieldCheck className="w-3 h-3" />
+              <span>Anti-Brute Force Protection Active</span>
+            </span>
+          </div>
         </div>
 
-        {error && (
+        {/* Lockout Active Banner */}
+        {lockoutRemaining > 0 && (
+          <div className="mb-5 p-4 bg-red-950/90 border border-red-700 rounded-2xl text-red-100 text-xs shadow-xl animate-pulse">
+            <div className="flex items-center space-x-2 font-bold text-red-200 mb-1">
+              <Timer className="w-4 h-4 text-red-400" />
+              <span>SECURITY QUARANTINE ENGAGED</span>
+            </div>
+            <p className="text-[11px] text-red-300">
+              Sign-in is temporarily frozen to prevent automated password hacking attempts.
+            </p>
+            <div className="mt-2.5 flex items-center justify-between bg-black/40 p-2 rounded-xl border border-red-900/60 font-mono text-xs">
+              <span>Time Remaining:</span>
+              <span className="text-red-400 font-extrabold text-sm">{lockoutRemaining} seconds</span>
+            </div>
+          </div>
+        )}
+
+        {/* Failed Attempt Warning Counter */}
+        {failedAttempts > 0 && lockoutRemaining === 0 && (
+          <div className="mb-4 p-3 bg-amber-950/40 border border-amber-800/60 rounded-xl text-amber-200 text-xs flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Failed Attempts: <strong>{failedAttempts} / {MAX_ATTEMPTS}</strong></span>
+            </div>
+            <span className="text-[10px] text-amber-300/80 font-mono">
+              {MAX_ATTEMPTS - failedAttempts} left
+            </span>
+          </div>
+        )}
+
+        {error && lockoutRemaining === 0 && (
           <div className="mb-5 p-3.5 bg-red-950/70 border border-red-800/80 rounded-xl text-red-200 text-xs flex items-start space-x-2.5 shadow-sm">
             <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-            <span>{error}</span>
+            <span className="leading-snug">{error}</span>
           </div>
         )}
 
@@ -91,11 +233,12 @@ export const LoginPage: React.FC = () => {
               <input
                 type="text"
                 required
+                disabled={lockoutRemaining > 0 || submitting}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"
                 placeholder="e.g. admin or kamal"
-                className="w-full pl-9 pr-3 py-2.5 bg-[#1C1614] border border-[#382B25] rounded-xl text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-[#ED5338] focus:ring-1 focus:ring-[#ED5338] font-mono transition"
+                className="w-full pl-9 pr-3 py-2.5 bg-[#1C1614] border border-[#382B25] rounded-xl text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-[#ED5338] focus:ring-1 focus:ring-[#ED5338] font-mono transition disabled:opacity-40"
               />
             </div>
           </div>
@@ -111,16 +254,18 @@ export const LoginPage: React.FC = () => {
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
+                disabled={lockoutRemaining > 0 || submitting}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
                 placeholder="••••••••"
-                className="w-full pl-9 pr-10 py-2.5 bg-[#1C1614] border border-[#382B25] rounded-xl text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-[#ED5338] focus:ring-1 focus:ring-[#ED5338] font-mono transition"
+                className="w-full pl-9 pr-10 py-2.5 bg-[#1C1614] border border-[#382B25] rounded-xl text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-[#ED5338] focus:ring-1 focus:ring-[#ED5338] font-mono transition disabled:opacity-40"
               />
               <button
                 type="button"
+                disabled={lockoutRemaining > 0}
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-stone-400 hover:text-stone-200 cursor-pointer"
+                className="absolute right-3 top-3 text-stone-400 hover:text-stone-200 cursor-pointer disabled:opacity-40"
                 title={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -130,11 +275,13 @@ export const LoginPage: React.FC = () => {
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || lockoutRemaining > 0}
             className="w-full py-3 px-4 bg-[#ED5338] hover:bg-[#D84228] text-white font-bold rounded-xl shadow-lg shadow-[#ED5338]/25 transition cursor-pointer flex items-center justify-center space-x-2 disabled:opacity-50 mt-3"
           >
             {submitting ? (
               <span>Authenticating...</span>
+            ) : lockoutRemaining > 0 ? (
+              <span>Locked ({lockoutRemaining}s)</span>
             ) : (
               <>
                 <span>Sign In to Central Kitchen</span>

@@ -30,6 +30,7 @@ import {
   getNextProductCode
 } from '../services/dataService';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { useModal } from '../context/ModalDialogContext';
 
 interface ProductsViewProps {
   products: Product[];
@@ -56,6 +57,7 @@ const DEFAULT_UNITS = [
 
 export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
   const { role } = useAuth();
+  const { showAlert, showConfirm } = useModal();
   // Administrators and editors have permission to manage products
   const isAdmin = role === 'admin' || role === 'editor';
 
@@ -142,16 +144,25 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) {
-      alert('Security Policy: Only Administrators have permission to add new products to the catalog.');
+      showAlert('Security Policy: Only Administrators have permission to add new products to the catalog.', {
+        title: 'Access Denied',
+        type: 'security'
+      });
       return;
     }
     const trimmed = newName.trim();
     if (!trimmed) {
-      alert('Product Name is compulsory.');
+      showAlert('Product Name is compulsory.', {
+        title: 'Validation Error',
+        type: 'warning'
+      });
       return;
     }
     if (isNaN(newDispatchTemp)) {
-      alert('Valid Dispatch Temperature (°C) is required.');
+      showAlert('Valid Dispatch Temperature (°C) is required.', {
+        title: 'Invalid Temperature',
+        type: 'warning'
+      });
       return;
     }
 
@@ -173,8 +184,15 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
       setNewShelfLifeDays(5);
       setNewActive(true);
       setShowAddModal(false);
+      showAlert(`Product "${trimmed}" successfully added to the master catalog.`, {
+        title: 'Product Added',
+        type: 'success'
+      });
     } catch (err: any) {
-      alert('Error adding product: ' + err.message);
+      showAlert('Error adding product: ' + err.message, {
+        title: 'Operation Failed',
+        type: 'error'
+      });
     } finally {
       setSubmitting(false);
     }
@@ -184,17 +202,26 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
   const handleUpdateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) {
-      alert('Security Policy: Only Administrators have permission to edit product details.');
+      showAlert('Security Policy: Only Administrators have permission to edit product details.', {
+        title: 'Access Denied',
+        type: 'security'
+      });
       return;
     }
     if (!editingProduct) return;
     const trimmed = editingProduct.name.trim();
     if (!trimmed) {
-      alert('Product Name is compulsory.');
+      showAlert('Product Name is compulsory.', {
+        title: 'Validation Error',
+        type: 'warning'
+      });
       return;
     }
     if (isNaN(editingProduct.dispatchTemp)) {
-      alert('Valid Dispatch Temperature (°C) is required.');
+      showAlert('Valid Dispatch Temperature (°C) is required.', {
+        title: 'Invalid Temperature',
+        type: 'warning'
+      });
       return;
     }
 
@@ -209,8 +236,15 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
         active: editingProduct.active
       });
       setEditingProduct(null);
+      showAlert(`Product "${trimmed}" details updated successfully.`, {
+        title: 'Product Updated',
+        type: 'success'
+      });
     } catch (err: any) {
-      alert('Error updating product: ' + err.message);
+      showAlert('Error updating product: ' + err.message, {
+        title: 'Update Failed',
+        type: 'error'
+      });
     } finally {
       setSubmitting(false);
     }
@@ -223,8 +257,15 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
     try {
       await deleteProduct(productToDelete.id);
       setProductToDelete(null);
+      showAlert('Product removed from catalog.', {
+        title: 'Product Deleted',
+        type: 'success'
+      });
     } catch (err: any) {
-      alert('Error removing product: ' + err.message);
+      showAlert('Error removing product: ' + err.message, {
+        title: 'Delete Failed',
+        type: 'error'
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -233,18 +274,35 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
   // Handle Resync Official Products
   const handleResyncAllOfficial = async () => {
     if (!isAdmin) {
-      alert('Security Policy: Only Administrators can synchronize official products.');
+      showAlert('Security Policy: Only Administrators can synchronize official products.', {
+        title: 'Access Denied',
+        type: 'security'
+      });
       return;
     }
-    if (!confirm('This will synchronize the official Barista master product catalog to the database. Continue?')) {
+    const confirmed = await showConfirm(
+      'This will synchronize the official Barista master product catalog to the database. Continue?',
+      {
+        title: 'Sync Official Catalog',
+        confirmText: 'Sync Catalog',
+        type: 'info'
+      }
+    );
+    if (!confirmed) {
       return;
     }
     setSyncing(true);
     try {
       const count = await syncOfficialProducts(true);
-      alert(`Success! Successfully synchronized ${count} official Barista products to the catalog.`);
+      showAlert(`Success! Successfully synchronized ${count} official Barista products to the catalog.`, {
+        title: 'Catalog Synchronized',
+        type: 'success'
+      });
     } catch (err: any) {
-      alert('Error syncing products: ' + (err.message || 'Please check network connection.'));
+      showAlert('Error syncing products: ' + (err.message || 'Please check network connection.'), {
+        title: 'Sync Failed',
+        type: 'error'
+      });
     } finally {
       setSyncing(false);
     }
@@ -253,14 +311,32 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
   // Handle Clear All Products
   const handleClearAllProducts = async () => {
     if (!isAdmin) {
-      alert('Security Policy: Only Administrators can clear the product catalog.');
+      showAlert('Security Policy: Only Administrators can clear the product catalog.', {
+        title: 'Access Denied',
+        type: 'security'
+      });
       return;
     }
-    if (confirm(`Are you sure you want to remove ALL ${products.length} current products from the database?`)) {
+    const confirmed = await showConfirm(
+      `Are you sure you want to remove ALL ${products.length} current products from the database? This action cannot be reversed.`,
+      {
+        title: 'Clear Product Catalog',
+        confirmText: 'Yes, Clear All Products',
+        type: 'danger'
+      }
+    );
+    if (confirmed) {
       try {
         await deleteAllProducts();
+        showAlert('All catalog products have been cleared.', {
+          title: 'Catalog Cleared',
+          type: 'success'
+        });
       } catch (err: any) {
-        alert('Error clearing product catalog: ' + err.message);
+        showAlert('Error clearing product catalog: ' + err.message, {
+          title: 'Operation Failed',
+          type: 'error'
+        });
       }
     }
   };
@@ -269,7 +345,10 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
   const handleBulkImport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) {
-      alert('Security Policy: Only Administrators have permission to import products.');
+      showAlert('Security Policy: Only Administrators have permission to import products.', {
+        title: 'Access Denied',
+        type: 'security'
+      });
       return;
     }
     const lines = bulkText
@@ -278,7 +357,10 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
       .filter(l => l.length > 0);
 
     if (lines.length === 0) {
-      alert('Please enter at least one product line.');
+      showAlert('Please enter at least one product line.', {
+        title: 'Empty List',
+        type: 'warning'
+      });
       return;
     }
 
@@ -299,8 +381,15 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
       await bulkAddProducts(itemsToImport);
       setBulkText('');
       setShowBulkModal(false);
+      showAlert(`Successfully imported ${itemsToImport.length} products to the catalog!`, {
+        title: 'Import Complete',
+        type: 'success'
+      });
     } catch (err: any) {
-      alert('Error importing products: ' + err.message);
+      showAlert('Error importing products: ' + err.message, {
+        title: 'Import Failed',
+        type: 'error'
+      });
     } finally {
       setBulkSubmitting(false);
     }
@@ -309,13 +398,19 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
   // Toggle Active Status
   const toggleActiveStatus = async (prod: Product) => {
     if (!isAdmin) {
-      alert('Security Policy: Only Administrators have permission to suspend or activate products.');
+      showAlert('Security Policy: Only Administrators have permission to suspend or activate products.', {
+        title: 'Access Denied',
+        type: 'security'
+      });
       return;
     }
     try {
       await updateProduct(prod.id, { active: !prod.active });
     } catch (err: any) {
-      alert('Error updating product status: ' + err.message);
+      showAlert('Error updating product status: ' + err.message, {
+        title: 'Status Update Failed',
+        type: 'error'
+      });
     }
   };
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ModalDialogProvider } from './context/ModalDialogContext';
 import { Navbar } from './components/Navbar';
 import { LoginPage } from './components/LoginPage';
 import { DashboardView } from './components/DashboardView';
@@ -236,7 +237,9 @@ const MainContent: React.FC = () => {
 export default function App() {
   return (
     <AuthProvider>
-      <MainContent />
+      <ModalDialogProvider>
+        <MainContent />
+      </ModalDialogProvider>
     </AuthProvider>
   );
 }

@@ -288,8 +288,8 @@ export const INITIAL_USERS: UserProfile[] = [
       dashboard: { view: true, edit: false },
       inventory: { view: true, edit: true },
       forms: { view: true, edit: true },
-      outlets: { view: true, edit: false }, // Only admin can edit/add/delete/suspend outlets
-      products: { view: true, edit: false },
+      outlets: { view: false, edit: false }, // Strictly hidden for editor
+      products: { view: false, edit: false }, // Strictly hidden for editor
       reports: { view: true, edit: false },
       users: { view: true, edit: false }
     },

@@ -22,6 +22,7 @@ import { INITIAL_PRODUCTS } from '../data/seedData';
 import { addInventoryBatch, updateInventoryBatch, deleteInventoryBatch } from '../services/dataService';
 import { getNextBatchNumberForProduct, getProductKeyCode } from '../utils/batchUtils';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { useModal } from '../context/ModalDialogContext';
 
 interface InventoryViewProps {
   batches: InventoryBatch[];
@@ -36,6 +37,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   products
 }) => {
   const { role, userProfile } = useAuth();
+  const { showAlert } = useModal();
   const canEdit = role === 'admin' || role === 'editor';
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -136,8 +138,15 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         prodDate: new Date().toISOString().split('T')[0],
         useByDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       }));
+      showAlert(`Batch ${formData.batchNo} (${formData.productName}) registered successfully!`, {
+        title: 'Batch Created',
+        type: 'success'
+      });
     } catch (err) {
-      alert('Error creating batch: ' + (err as any)?.message);
+      showAlert('Error creating batch: ' + (err as any)?.message, {
+        title: 'Operation Failed',
+        type: 'error'
+      });
     } finally {
       setSubmitting(false);
     }
@@ -162,8 +171,15 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         userProfile?.displayName || userProfile?.email || 'Staff'
       );
       setEditingBatch(null);
+      showAlert(`Batch ${editingBatch.batchNo} successfully updated.`, {
+        title: 'Batch Updated',
+        type: 'success'
+      });
     } catch (err) {
-      alert('Error updating batch: ' + (err as any)?.message);
+      showAlert('Error updating batch: ' + (err as any)?.message, {
+        title: 'Update Failed',
+        type: 'error'
+      });
     } finally {
       setSubmitting(false);
     }
@@ -175,8 +191,15 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     try {
       await deleteInventoryBatch(batchToDelete.id);
       setBatchToDelete(null);
+      showAlert('Inventory batch removed successfully.', {
+        title: 'Batch Deleted',
+        type: 'success'
+      });
     } catch (err) {
-      alert('Error deleting batch: ' + (err as any)?.message);
+      showAlert('Error deleting batch: ' + (err as any)?.message, {
+        title: 'Delete Failed',
+        type: 'error'
+      });
     } finally {
       setIsDeleting(false);
     }

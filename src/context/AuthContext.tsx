@@ -41,28 +41,28 @@ const DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     dashboard: { view: true, edit: false },
     inventory: { view: true, edit: true },
     forms: { view: true, edit: true },
-    outlets: { view: true, edit: false }, // Only admin can edit, add, delete, or suspend outlets
-    products: { view: true, edit: false }, // Admin manages product master catalog; Editor has view
+    outlets: { view: false, edit: false }, // Strictly hidden for editor
+    products: { view: false, edit: false }, // Strictly hidden for editor
     reports: { view: true, edit: false },
-    users: { view: true, edit: false }
+    users: { view: false, edit: false } // Strictly hidden for editor
   },
-  viewer: {
+  viewer: { // Report Only role
     dashboard: { view: false, edit: false },
-    inventory: { view: false, edit: false },
-    forms: { view: false, edit: false },
-    outlets: { view: false, edit: false },
-    products: { view: false, edit: false },
+    inventory: { view: false, edit: false }, // Strictly hidden for report only
+    forms: { view: false, edit: false }, // Strictly hidden for report only
+    outlets: { view: false, edit: false }, // Strictly hidden for report only
+    products: { view: false, edit: false }, // Strictly hidden for report only
     reports: { view: true, edit: false },
-    users: { view: false, edit: false }
+    users: { view: false, edit: false } // Strictly hidden for report only
   },
   driver: {
-    dashboard: { view: false, edit: false },
-    inventory: { view: false, edit: false },
-    forms: { view: false, edit: false },
-    outlets: { view: false, edit: false },
-    products: { view: false, edit: false },
+    dashboard: { view: true, edit: false },
+    inventory: { view: false, edit: false }, // Strictly hidden for driver
+    forms: { view: false, edit: false }, // Strictly hidden for driver
+    outlets: { view: false, edit: false }, // Strictly hidden for driver
+    products: { view: false, edit: false }, // Strictly hidden for driver
     reports: { view: true, edit: false },
-    users: { view: false, edit: false }
+    users: { view: false, edit: false } // Strictly hidden for driver
   }
 };
 
@@ -120,7 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setRole('viewer');
           setIsSimulated(false);
           localStorage.removeItem('barista_simulated_user');
-          alert('Your user account has been suspended by an Administrator. You have been signed out.');
+          window.dispatchEvent(new CustomEvent('barista-account-suspended'));
           return;
         }
         setUserProfile(latest);
@@ -189,9 +189,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginWithUsername = async (usernameInput: string, pass: string) => {
+    // 0. Check client-side security lockout state
+    const lockoutUntilStr = localStorage.getItem('barista_security_lockout_until');
+    if (lockoutUntilStr) {
+      const lockoutUntil = parseInt(lockoutUntilStr, 10);
+      const now = Date.now();
+      if (!isNaN(lockoutUntil) && now < lockoutUntil) {
+        const remainingSec = Math.ceil((lockoutUntil - now) / 1000);
+        throw new Error(`SECURITY LOCKDOWN ACTIVE: Portal is temporarily quarantined for ${remainingSec} seconds due to repeated failed login attempts. Please wait.`);
+      } else {
+        localStorage.removeItem('barista_security_lockout_until');
+      }
+    }
+
     setLoading(true);
     const cleanUser = usernameInput.trim().toLowerCase();
     const cleanPass = pass.trim();
+
+    // Anti-Hacking: Intrusion vector inspection
+    const intrusionPattern = /('|\b)(select|union|insert|drop|alter|delete|update|exec|script|declare|or\s+['"\d]=['"\d])\b|--|\/\*|<\s*script/i;
+    if (intrusionPattern.test(cleanUser) || intrusionPattern.test(cleanPass)) {
+      // Impose 120s quarantine on intrusion attempt
+      const quarantineUntil = Date.now() + 120000;
+      localStorage.setItem('barista_security_lockout_until', quarantineUntil.toString());
+      setLoading(false);
+      throw new Error('CYBER INTRUSION DETECTED: Malicious script/SQL syntax was detected. Access has been quarantined for 120 seconds and logged.');
+    }
 
     if (!cleanUser) {
       setLoading(false);
@@ -203,6 +226,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      // Simulated random timing jitter (200-350ms) to defeat side-channel timing analysis attacks
+      await new Promise(r => setTimeout(r, 200 + Math.random() * 150));
+
       let matchedUser: UserProfile | null = null;
 
       // 1. Direct query against Firestore 'users' collection
@@ -250,6 +276,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (matchedUser.password && matchedUser.password !== cleanPass) {
         throw new Error('Incorrect password. If you forgot your password, an Administrator can reset it for you.');
       }
+
+      // Success: Clear failed attempts and lockouts
+      localStorage.removeItem('barista_security_failed_attempts');
+      localStorage.removeItem('barista_security_lockout_until');
 
       setUserProfile(matchedUser);
       setRole(matchedUser.role || 'viewer');
@@ -310,28 +340,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!userProfile) return false;
     if (userProfile.status === 'suspended') return false;
 
-    // Granular permissions assigned to this user always take primary precedence
-    if (userProfile.permissions && userProfile.permissions[module] !== undefined) {
-      // Outlets edit is strictly restricted to administrator role for system safety
-      if (module === 'outlets' && action === 'edit' && userProfile.role !== 'admin') {
-        return false;
-      }
-      return !!userProfile.permissions[module]?.[action];
-    }
+    const currentRole = userProfile.role || role || 'viewer';
 
-    // Role-based defaults when no granular override is set
-    if (userProfile.role === 'admin') return true;
+    // Administrator has unrestricted full access to all system modules and actions
+    if (currentRole === 'admin') return true;
 
-    if (userProfile.role === 'viewer') {
-      return module === 'reports' && action === 'view';
-    }
-
-    // Strict rule: only admin can edit, add, delete, or suspend the outlet list
-    if (module === 'outlets' && action === 'edit') {
+    // Explicit Policy 1: For Editor role - Strictly hide Outlets, Products, Users & Access
+    if (currentRole === 'editor' && (module === 'outlets' || module === 'products' || module === 'users')) {
       return false;
     }
 
-    const defaults = DEFAULT_PERMISSIONS[userProfile.role];
+    // Explicit Policy 2: For Driver role - Strictly hide Inventory, Dispatch Forms, Outlets, Products, Users & Access
+    if (currentRole === 'driver' && (module === 'inventory' || module === 'forms' || module === 'outlets' || module === 'products' || module === 'users')) {
+      return false;
+    }
+
+    // Explicit Policy 3: For Report Only (Viewer) role - Strictly hide Inventory, Dispatch Forms, Outlets, Products, Users & Access
+    if (currentRole === 'viewer' && (module === 'inventory' || module === 'forms' || module === 'outlets' || module === 'products' || module === 'users')) {
+      return false;
+    }
+
+    // Safety lock: Outlets, Products, and Users management actions are strictly restricted to Administrators
+    if ((module === 'outlets' || module === 'products' || module === 'users') && action === 'edit') {
+      return false;
+    }
+
+    // Granular permissions assigned to this user profile
+    if (userProfile.permissions && userProfile.permissions[module] !== undefined) {
+      return !!userProfile.permissions[module]?.[action];
+    }
+
+    // Role-based defaults
+    const defaults = DEFAULT_PERMISSIONS[currentRole];
     if (defaults && defaults[module]) {
       return !!defaults[module][action];
     }

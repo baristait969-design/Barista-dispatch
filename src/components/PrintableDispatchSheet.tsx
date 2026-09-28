@@ -128,6 +128,7 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
             haccpLink="OPRP-2 (Cold-Chain ≤ 5.0°C)"
             mandateNotice="CRITICAL CONTROL REQUIREMENT: Maximum dispatch transit temperature must remain ≤ 5.0°C."
             className="mb-4 print:mb-3.5"
+            variant="paper"
           />
 
           {/* Delivery & Logistics Manifest Details */}

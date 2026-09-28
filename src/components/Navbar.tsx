@@ -120,8 +120,10 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
                   setCurrentTab('users');
                 }
               }}
-              className="flex items-center space-x-2 bg-[#1C1614] hover:bg-[#271F1B] border border-[#382B25] rounded-xl px-2.5 py-1.5 transition cursor-pointer group shadow-sm"
-              title="Click to view User Profile & Access settings"
+              className={`flex items-center space-x-2 bg-[#1C1614] border border-[#382B25] rounded-xl px-2.5 py-1.5 transition shadow-sm ${
+                hasAccess('users', 'view') ? 'hover:bg-[#271F1B] cursor-pointer group' : 'cursor-default'
+              }`}
+              title={hasAccess('users', 'view') ? 'Click to view User Profile & Access settings' : `Logged in as ${userProfile?.displayName || userProfile?.username || 'Staff'}`}
             >
               <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#ED5338] text-white font-black flex items-center justify-center text-xs shadow-md shrink-0 group-hover:scale-105 transition-transform">
                 {userProfile?.displayName ? userProfile.displayName.charAt(0).toUpperCase() : 'B'}

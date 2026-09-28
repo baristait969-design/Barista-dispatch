@@ -30,6 +30,7 @@ import {
 import { INITIAL_USERS } from '../data/seedData';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { UserPasswordResetModal } from './UserPasswordResetModal';
+import { useModal } from '../context/ModalDialogContext';
 
 interface UsersViewProps {
   usersList: UserProfile[];
@@ -37,6 +38,7 @@ interface UsersViewProps {
 
 export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
   const { role, userProfile } = useAuth();
+  const { showAlert } = useModal();
   const isAdmin = role === 'admin';
 
   // Search & Filters State
@@ -94,14 +96,14 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
           dashboard: { view: true, edit: false },
           inventory: { view: true, edit: true },
           forms: { view: true, edit: true },
-          outlets: { view: true, edit: false },
-          products: { view: true, edit: false },
+          outlets: { view: false, edit: false },
+          products: { view: false, edit: false },
           reports: { view: true, edit: false },
           users: { view: false, edit: false }
         };
       case 'driver':
         return {
-          dashboard: { view: false, edit: false },
+          dashboard: { view: true, edit: false },
           inventory: { view: false, edit: false },
           forms: { view: false, edit: false },
           outlets: { view: false, edit: false },
@@ -178,25 +180,37 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) {
-      alert('Security violation: Only Administrators can create staff users.');
+      showAlert('Security violation: Only Administrators can create staff users.', {
+        title: 'Access Restricted',
+        type: 'security'
+      });
       return;
     }
 
     const cleanUsername = formData.username.trim().toLowerCase().replace(/\s+/g, '_');
     if (!cleanUsername) {
-      alert('Please enter a valid staff username (no spaces).');
+      showAlert('Please enter a valid staff username (no spaces).', {
+        title: 'Validation Error',
+        type: 'warning'
+      });
       return;
     }
 
     // Check username uniqueness
     if (isUsernameTaken) {
-      alert(`The username "${cleanUsername}" is already in use by another staff member. Please choose a different username.`);
+      showAlert(`The username "${cleanUsername}" is already in use by another staff member. Please choose a different username.`, {
+        title: 'Username Conflict',
+        type: 'warning'
+      });
       return;
     }
 
     const userPassword = formData.password.trim();
     if (!userPassword) {
-      alert('Please provide a password for the user.');
+      showAlert('Please provide a password for the user.', {
+        title: 'Password Required',
+        type: 'warning'
+      });
       return;
     }
 
@@ -224,6 +238,10 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
       const createdMsg = `Staff account created! Username: ${cleanUsername} • Password: "${userPassword}".`;
       setActionSuccess(createdMsg);
       setShowAddModal(false);
+      showAlert(`Staff account "${cleanUsername}" created successfully! Temporary Password: "${userPassword}".`, {
+        title: 'Staff User Created',
+        type: 'success'
+      });
 
       // Reset form for next user
       const nextRole = 'editor';
@@ -239,7 +257,10 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
         permissions: getDefaultPermissionsForRole(nextRole)
       });
     } catch (err: any) {
-      alert('Error creating user: ' + err.message);
+      showAlert('Error creating user: ' + err.message, {
+        title: 'Operation Failed',
+        type: 'error'
+      });
     } finally {
       setSubmitting(false);
     }
@@ -248,7 +269,10 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser || !isAdmin) {
-      alert('Security violation: Only Administrators can update user roles and permissions.');
+      showAlert('Security violation: Only Administrators can update user roles and permissions.', {
+        title: 'Access Restricted',
+        type: 'security'
+      });
       return;
     }
     setSubmitting(true);
@@ -269,8 +293,15 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
 
       setActionSuccess(`Permissions and account details updated successfully for ${editingUser.displayName}!`);
       setEditingUser(null);
+      showAlert(`Permissions and account details updated successfully for ${editingUser.displayName}!`, {
+        title: 'User Profile Updated',
+        type: 'success'
+      });
     } catch (err: any) {
-      alert('Error updating user: ' + err.message);
+      showAlert('Error updating user: ' + err.message, {
+        title: 'Update Failed',
+        type: 'error'
+      });
     } finally {
       setSubmitting(false);
     }
@@ -279,11 +310,17 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
   // Direct, working suspend / reactivate action
   const handleToggleUserActiveStatus = async (user: UserProfile) => {
     if (!isAdmin) {
-      alert('Security violation: Only Administrators can change staff account status.');
+      showAlert('Security violation: Only Administrators can change staff account status.', {
+        title: 'Access Restricted',
+        type: 'security'
+      });
       return;
     }
     if (userProfile?.id === user.id) {
-      alert('Safety Lock: You cannot suspend your own active Administrator session.');
+      showAlert('Safety Lock: You cannot suspend your own active Administrator session.', {
+        title: 'Safety Lock Active',
+        type: 'warning'
+      });
       return;
     }
     const currentStatus = user.status || 'active';
@@ -292,15 +329,25 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
     try {
       await toggleUserStatus(user.id, nextStatus, user);
       setActionSuccess(`Account for "${user.displayName}" is now ${nextStatus.toUpperCase()}. ${nextStatus === 'suspended' ? 'Access has been revoked immediately.' : 'User can now sign in.'}`);
+      showAlert(`Account for "${user.displayName}" is now ${nextStatus.toUpperCase()}. ${nextStatus === 'suspended' ? 'Access has been revoked immediately.' : 'User can now sign in.'}`, {
+        title: `Account ${nextStatus === 'suspended' ? 'Suspended' : 'Reactivated'}`,
+        type: nextStatus === 'suspended' ? 'warning' : 'success'
+      });
     } catch (err: any) {
-      alert('Error updating status: ' + err.message);
+      showAlert('Error updating status: ' + err.message, {
+        title: 'Operation Failed',
+        type: 'error'
+      });
     }
   };
 
   const handleConfirmDeleteUser = async () => {
     if (!userToDelete) return;
     if (userProfile?.id === userToDelete.id) {
-      alert('Safety Lock: You cannot delete your own active Administrator account.');
+      showAlert('Safety Lock: You cannot delete your own active Administrator account.', {
+        title: 'Safety Lock Active',
+        type: 'warning'
+      });
       setUserToDelete(null);
       return;
     }
@@ -308,9 +355,16 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
     try {
       await deleteUserRecord(userToDelete.id);
       setActionSuccess(`User account "${userToDelete.displayName}" has been permanently removed.`);
+      showAlert(`User account "${userToDelete.displayName}" has been permanently removed.`, {
+        title: 'User Deleted',
+        type: 'success'
+      });
       setUserToDelete(null);
     } catch (err: any) {
-      alert('Error removing user: ' + err.message);
+      showAlert('Error removing user: ' + err.message, {
+        title: 'Delete Failed',
+        type: 'error'
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -320,7 +374,10 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
     if (!isAdmin) return;
 
     if (module === 'outlets' && type === 'edit') {
-      alert('Security Policy: Only Administrators can create, edit, suspend, or delete retail outlets.');
+      showAlert('Security Policy: Only Administrators can create, edit, suspend, or delete retail outlets.', {
+        title: 'Access Restricted',
+        type: 'security'
+      });
       return;
     }
 

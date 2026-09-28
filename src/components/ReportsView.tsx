@@ -28,6 +28,7 @@ import { PrintableDispatchSheet } from './PrintableDispatchSheet';
 import { PrintableExecutiveReportModal } from './PrintableExecutiveReportModal';
 import { BaristaLogo } from './BaristaLogo';
 import { generateExecutiveReportPDF, generateSingleDispatchPDF } from '../utils/pdfExport';
+import { useModal } from '../context/ModalDialogContext';
 
 interface ReportsViewProps {
   dispatchLogs: DispatchLog[];
@@ -45,6 +46,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   usersList = []
 }) => {
   const { userProfile, role, hasAccess } = useAuth();
+  const { showAlert } = useModal();
   
   // Access control
   const canViewReports = hasAccess('reports', 'view');
@@ -249,7 +251,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   // Export CSV Function
   const exportAllDispatchesCSV = () => {
     if (!canExport) {
-      alert('Your current role has read-only access. Only Admin or Kitchen Editor can export audit reports.');
+      showAlert('Your current role has read-only access. Only Admin or Kitchen Editor can export audit reports.', {
+        title: 'Export Access Restricted',
+        type: 'security'
+      });
       return;
     }
 
@@ -293,7 +298,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     });
 
     if (rows.length === 0) {
-      alert('No dispatched items found for the selected filter criteria.');
+      showAlert('No dispatched items found for the selected filter criteria.', {
+        title: 'Empty Dataset',
+        type: 'info'
+      });
       return;
     }
 
@@ -312,7 +320,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   // Download Executive Summary PDF
   const handleDownloadExecutivePDF = () => {
     if (filteredLogs.length === 0) {
-      alert('No dispatch records available for the selected filters to generate PDF.');
+      showAlert('No dispatch records available for the selected filters to generate PDF.', {
+        title: 'Empty Report Dataset',
+        type: 'info'
+      });
       return;
     }
     generateExecutiveReportPDF(

@@ -26,6 +26,7 @@ import {
   getNextOutletCode
 } from '../services/dataService';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { useModal } from '../context/ModalDialogContext';
 
 interface OutletsViewProps {
   outlets: Outlet[];
@@ -33,6 +34,7 @@ interface OutletsViewProps {
 
 export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
   const { role } = useAuth();
+  const { showAlert, showConfirm } = useModal();
   // Administrators and editors can manage outlets
   const isAdmin = role === 'admin' || role === 'editor';
 
@@ -94,12 +96,18 @@ export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
   const handleCreateOutlet = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) {
-      alert('Security Policy: Only Administrators have permission to add new retail outlets.');
+      showAlert('Security Policy: Only Administrators have permission to add new retail outlets.', {
+        title: 'Access Denied',
+        type: 'security'
+      });
       return;
     }
     const trimmed = newName.trim();
     if (!trimmed) {
-      alert('Outlet Name is compulsory.');
+      showAlert('Outlet Name is compulsory.', {
+        title: 'Validation Error',
+        type: 'warning'
+      });
       return;
     }
 
@@ -112,8 +120,15 @@ export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
       setNewName('');
       setNewActive(true);
       setShowAddModal(false);
+      showAlert(`Outlet "${trimmed}" successfully added to the registry.`, {
+        title: 'Outlet Created',
+        type: 'success'
+      });
     } catch (err: any) {
-      alert('Error adding outlet: ' + err.message);
+      showAlert('Error adding outlet: ' + err.message, {
+        title: 'Operation Failed',
+        type: 'error'
+      });
     } finally {
       setSubmitting(false);
     }
@@ -122,13 +137,19 @@ export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
   const handleUpdateOutlet = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) {
-      alert('Security Policy: Only Administrators have permission to edit outlet details.');
+      showAlert('Security Policy: Only Administrators have permission to edit outlet details.', {
+        title: 'Access Denied',
+        type: 'security'
+      });
       return;
     }
     if (!editingOutlet) return;
     const trimmed = editingOutlet.name.trim();
     if (!trimmed) {
-      alert('Outlet Name is compulsory.');
+      showAlert('Outlet Name is compulsory.', {
+        title: 'Validation Error',
+        type: 'warning'
+      });
       return;
     }
 
@@ -139,8 +160,15 @@ export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
         active: editingOutlet.active
       });
       setEditingOutlet(null);
+      showAlert(`Outlet "${trimmed}" updated successfully.`, {
+        title: 'Outlet Updated',
+        type: 'success'
+      });
     } catch (err: any) {
-      alert('Error updating outlet: ' + err.message);
+      showAlert('Error updating outlet: ' + err.message, {
+        title: 'Update Failed',
+        type: 'error'
+      });
     } finally {
       setSubmitting(false);
     }
@@ -152,8 +180,15 @@ export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
     try {
       await deleteOutlet(outletToDelete.id);
       setOutletToDelete(null);
+      showAlert('Retail outlet successfully removed.', {
+        title: 'Outlet Deleted',
+        type: 'success'
+      });
     } catch (err: any) {
-      alert('Error removing outlet: ' + err.message);
+      showAlert('Error removing outlet: ' + err.message, {
+        title: 'Delete Failed',
+        type: 'error'
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -161,18 +196,35 @@ export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
 
   const handleResyncAllOfficial = async () => {
     if (!isAdmin) {
-      alert('Security Policy: Only Administrators can synchronize official outlets.');
+      showAlert('Security Policy: Only Administrators can synchronize official outlets.', {
+        title: 'Access Denied',
+        type: 'security'
+      });
       return;
     }
-    if (!confirm('This will synchronize all 101 official Barista outlets to the database. Continue?')) {
+    const confirmed = await showConfirm(
+      'This will synchronize all 101 official Barista outlets to the database. Continue?',
+      {
+        title: 'Synchronize Official Outlets',
+        confirmText: 'Sync All Outlets',
+        type: 'info'
+      }
+    );
+    if (!confirmed) {
       return;
     }
     setSyncing(true);
     try {
       const count = await syncOfficialOutlets(true);
-      alert(`Success! Successfully synchronized all ${count || 101} official Barista outlets to the database.`);
+      showAlert(`Success! Successfully synchronized all ${count || 101} official Barista outlets to the database.`, {
+        title: 'Synchronization Complete',
+        type: 'success'
+      });
     } catch (err: any) {
-      alert('Error syncing outlets: ' + (err.message || 'Please check network connection.'));
+      showAlert('Error syncing outlets: ' + (err.message || 'Please check network connection.'), {
+        title: 'Sync Failed',
+        type: 'error'
+      });
     } finally {
       setSyncing(false);
     }
@@ -180,14 +232,32 @@ export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
 
   const handleClearAllOutlets = async () => {
     if (!isAdmin) {
-      alert('Security Policy: Only Administrators can clear the outlet registry.');
+      showAlert('Security Policy: Only Administrators can clear the outlet registry.', {
+        title: 'Access Denied',
+        type: 'security'
+      });
       return;
     }
-    if (confirm(`Are you sure you want to remove ALL ${outlets.length} current outlets from the database?`)) {
+    const confirmed = await showConfirm(
+      `Are you sure you want to remove ALL ${outlets.length} current outlets from the database? This action cannot be reversed.`,
+      {
+        title: 'Clear Outlets Registry',
+        confirmText: 'Yes, Clear All Outlets',
+        type: 'danger'
+      }
+    );
+    if (confirmed) {
       try {
         await deleteAllOutlets();
+        showAlert('All retail outlets have been cleared from the database.', {
+          title: 'Registry Cleared',
+          type: 'success'
+        });
       } catch (err: any) {
-        alert('Error removing outlets: ' + err.message);
+        showAlert('Error removing outlets: ' + err.message, {
+          title: 'Operation Failed',
+          type: 'error'
+        });
       }
     }
   };
@@ -195,7 +265,10 @@ export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
   const handleBulkImport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) {
-      alert('Security Policy: Only Administrators have permission to import outlets.');
+      showAlert('Security Policy: Only Administrators have permission to import outlets.', {
+        title: 'Access Denied',
+        type: 'security'
+      });
       return;
     }
     const lines = bulkText
@@ -204,7 +277,10 @@ export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
       .filter(l => l.length > 0);
 
     if (lines.length === 0) {
-      alert('Please enter at least one outlet name.');
+      showAlert('Please enter at least one outlet name.', {
+        title: 'Empty List',
+        type: 'warning'
+      });
       return;
     }
 
@@ -221,8 +297,15 @@ export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
       await bulkAddOutlets(itemsToImport);
       setBulkText('');
       setShowBulkModal(false);
+      showAlert(`Successfully imported ${itemsToImport.length} outlets!`, {
+        title: 'Import Complete',
+        type: 'success'
+      });
     } catch (err: any) {
-      alert('Error importing outlets: ' + err.message);
+      showAlert('Error importing outlets: ' + err.message, {
+        title: 'Import Failed',
+        type: 'error'
+      });
     } finally {
       setBulkSubmitting(false);
     }
@@ -230,13 +313,19 @@ export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
 
   const toggleActiveStatus = async (outlet: Outlet) => {
     if (!isAdmin) {
-      alert('Security Policy: Only Administrators have permission to suspend or activate retail outlets.');
+      showAlert('Security Policy: Only Administrators have permission to suspend or activate retail outlets.', {
+        title: 'Access Denied',
+        type: 'security'
+      });
       return;
     }
     try {
       await updateOutlet(outlet.id, { active: !outlet.active });
     } catch (err: any) {
-      alert('Error updating outlet status: ' + err.message);
+      showAlert('Error updating outlet status: ' + err.message, {
+        title: 'Status Update Failed',
+        type: 'error'
+      });
     }
   };
 

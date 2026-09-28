@@ -34,6 +34,7 @@ import { PrintableDispatchSheet } from './PrintableDispatchSheet';
 import { BaristaLogo } from './BaristaLogo';
 import { DocumentHaccpHeader } from './DocumentHaccpHeader';
 import { getAvailableFIFOBatches } from '../utils/batchUtils';
+import { useModal } from '../context/ModalDialogContext';
 
 interface FormsViewProps {
   batches: InventoryBatch[];
@@ -53,6 +54,7 @@ export const FormsView: React.FC<FormsViewProps> = ({
   usersList
 }) => {
   const { userProfile, role, hasAccess } = useAuth();
+  const { showAlert } = useModal();
   const canEdit = hasAccess('forms', 'edit');
 
   const [activeTab, setActiveTab] = useState<'create' | 'submitted'>('create');
@@ -310,7 +312,10 @@ export const FormsView: React.FC<FormsViewProps> = ({
   const toggleOutlet = (outletId: string) => {
     const targetOutlet = outlets.find(o => o.id === outletId);
     if (!editingLogId && targetOutlet && targetOutlet.active === false) {
-      alert(`Outlet "${targetOutlet.name}" is currently suspended and cannot receive dispatches.`);
+      showAlert(`Outlet "${targetOutlet.name}" is currently suspended and cannot receive dispatches.`, {
+        title: 'Suspended Outlet Blocked',
+        type: 'warning'
+      });
       return;
     }
     if (selectedOutletIds.includes(outletId)) {
@@ -441,7 +446,10 @@ export const FormsView: React.FC<FormsViewProps> = ({
       p => p.active === false && p.name.trim().toLowerCase() === trimmed.toLowerCase()
     );
     if (isSuspended) {
-      alert(`Product "${trimmed}" is currently suspended and cannot be dispatched.`);
+      showAlert(`Product "${trimmed}" is currently suspended and cannot be dispatched.`, {
+        title: 'Suspended Product Blocked',
+        type: 'warning'
+      });
       handleClearProduct(rowId);
       return;
     }
@@ -528,7 +536,10 @@ export const FormsView: React.FC<FormsViewProps> = ({
              r.batchNo === batchNo
       );
       if (isAlreadyUsed) {
-        alert(`Batch ${batchNo} is already selected on another row for this product. Please select a different batch.`);
+        showAlert(`Batch ${batchNo} is already selected on another row for this product. Please select a different batch.`, {
+          title: 'Duplicate Batch Selected',
+          type: 'warning'
+        });
         return;
       }
     }
@@ -628,7 +639,10 @@ export const FormsView: React.FC<FormsViewProps> = ({
 
   const removeRow = (rowId: string) => {
     if (lineItems.length <= 1) {
-      alert('At least one product line is required on the dispatch log.');
+      showAlert('At least one product line is required on the dispatch log.', {
+        title: 'Product Line Required',
+        type: 'warning'
+      });
       return;
     }
     setLineItems(prev => prev.filter(r => r.id !== rowId));
@@ -682,12 +696,18 @@ export const FormsView: React.FC<FormsViewProps> = ({
   const handleSubmitDispatch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canEdit) {
-      alert('Viewers cannot submit dispatch records. Switch to Admin or Editor role.');
+      showAlert('Viewers cannot submit dispatch records. Switch to Admin or Editor role.', {
+        title: 'Action Prohibited',
+        type: 'security'
+      });
       return;
     }
 
     if (selectedOutletIds.length === 0) {
-      alert('Please select at least one delivery outlet first.');
+      showAlert('Please select at least one delivery outlet first.', {
+        title: 'Destination Outlet Compulsory',
+        type: 'warning'
+      });
       return;
     }
 
@@ -696,13 +716,19 @@ export const FormsView: React.FC<FormsViewProps> = ({
       o => selectedOutletIds.includes(o.id) && o.active === false
     );
     if (suspendedChosenOutlets.length > 0) {
-      alert(`Cannot dispatch to suspended outlet(s): ${suspendedChosenOutlets.map(o => o.name).join(', ')}. Please deselect them before submitting.`);
+      showAlert(`Cannot dispatch to suspended outlet(s): ${suspendedChosenOutlets.map(o => o.name).join(', ')}. Please deselect them before submitting.`, {
+        title: 'Suspended Outlet Selected',
+        type: 'warning'
+      });
       return;
     }
 
     const activeItems = lineItems.filter(i => i.quantity > 0);
     if (activeItems.length === 0) {
-      alert('Please enter a quantity (> 0) for at least one product row to dispatch.');
+      showAlert('Please enter a quantity (> 0) for at least one product row to dispatch.', {
+        title: 'No Quantity Entered',
+        type: 'warning'
+      });
       return;
     }
 
@@ -712,15 +738,22 @@ export const FormsView: React.FC<FormsViewProps> = ({
     );
     const suspendedActiveItems = activeItems.filter(i => suspendedProdNames.has(i.productName.trim().toLowerCase()));
     if (suspendedActiveItems.length > 0) {
-      alert(`Cannot dispatch suspended product(s): ${suspendedActiveItems.map(i => i.productName).join(', ')}. Please remove them from the dispatch form.`);
+      showAlert(`Cannot dispatch suspended product(s): ${suspendedActiveItems.map(i => i.productName).join(', ')}. Please remove them from the dispatch form.`, {
+        title: 'Suspended Products Included',
+        type: 'warning'
+      });
       return;
     }
 
     // Check available stock
     for (const item of activeItems) {
       if (item.availableStock !== undefined && item.quantity > item.availableStock) {
-        alert(
-          `Cannot dispatch ${item.quantity} units of ${item.productName} (Batch ${item.batchNo}). Only ${item.availableStock} units remaining in central kitchen stock.`
+        showAlert(
+          `Cannot dispatch ${item.quantity} units of ${item.productName} (Batch ${item.batchNo}). Only ${item.availableStock} units remaining in central kitchen stock.`,
+          {
+            title: 'Insufficient Inventory',
+            type: 'warning'
+          }
         );
         return;
       }
@@ -791,7 +824,10 @@ export const FormsView: React.FC<FormsViewProps> = ({
       // Reset quantities
       setLineItems(prev => prev.map(r => ({ ...r, quantity: 0 })));
     } catch (err: any) {
-      alert('Error submitting dispatch log: ' + err.message);
+      showAlert('Error submitting dispatch log: ' + err.message, {
+        title: 'Dispatch Submission Error',
+        type: 'error'
+      });
     } finally {
       setSubmitting(false);
     }
@@ -813,7 +849,10 @@ export const FormsView: React.FC<FormsViewProps> = ({
   const handlePrintCurrentDispatches = () => {
     const activeItems = lineItems.filter(i => (i.quantity || 0) > 0);
     if (activeItems.length === 0) {
-      alert('Please enter a quantity (> 0) for at least one item before printing.');
+      showAlert('Please enter a quantity (> 0) for at least one item before printing.', {
+        title: 'No Dispatched Items',
+        type: 'info'
+      });
       return;
     }
     const draftLog: DispatchLog = {

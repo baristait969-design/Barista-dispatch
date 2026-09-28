@@ -153,62 +153,81 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-            <button
-              onClick={() => onNavigate('forms')}
-              className="px-4 py-2 bg-[#ED5338] hover:bg-[#D84228] text-white font-bold rounded-lg text-sm shadow-md shadow-[#ED5338]/25 transition flex items-center justify-center space-x-2 cursor-pointer"
-            >
-              <FileText className="w-4 h-4" />
-              <span>New Dispatch Log</span>
-            </button>
-            <button
-              onClick={() => onNavigate('inventory')}
-              className="px-4 py-2 bg-[#221B18] hover:bg-[#2F2420] text-stone-200 border border-[#382B25] font-medium rounded-lg text-sm transition flex items-center justify-center space-x-2 cursor-pointer"
-            >
-              <Package className="w-4 h-4" />
-              <span>Stock Overview</span>
-            </button>
+            {hasAccess('forms', 'view') && (
+              <button
+                onClick={() => onNavigate('forms')}
+                className="px-4 py-2 bg-[#ED5338] hover:bg-[#D84228] text-white font-bold rounded-lg text-sm shadow-md shadow-[#ED5338]/25 transition flex items-center justify-center space-x-2 cursor-pointer"
+              >
+                <FileText className="w-4 h-4" />
+                <span>New Dispatch Log</span>
+              </button>
+            )}
+            {hasAccess('inventory', 'view') && (
+              <button
+                onClick={() => onNavigate('inventory')}
+                className="px-4 py-2 bg-[#221B18] hover:bg-[#2F2420] text-stone-200 border border-[#382B25] font-medium rounded-lg text-sm transition flex items-center justify-center space-x-2 cursor-pointer"
+              >
+                <Package className="w-4 h-4" />
+                <span>Stock Overview</span>
+              </button>
+            )}
+            {hasAccess('reports', 'view') && (
+              <button
+                onClick={() => onNavigate('reports')}
+                className="px-4 py-2 bg-[#221B18] hover:bg-[#2F2420] text-stone-200 border border-[#382B25] font-medium rounded-lg text-sm transition flex items-center justify-center space-x-2 cursor-pointer"
+              >
+                <BarChart3 className="w-4 h-4 text-[#ED5338]" />
+                <span>Audit Reports</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* Key Metrics Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-stone-900 border border-stone-800 rounded-xl p-4 shadow-sm">
-          <div className="flex items-center justify-between text-stone-400 text-xs mb-1">
-            <span>Total Units In Kitchen</span>
-            <Package className="w-4 h-4 text-amber-500" />
+        {hasAccess('inventory', 'view') && (
+          <div className="bg-stone-900 border border-stone-800 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between text-stone-400 text-xs mb-1">
+              <span>Total Units In Kitchen</span>
+              <Package className="w-4 h-4 text-amber-500" />
+            </div>
+            <div className="text-2xl font-black text-white">{totalStockUnits}</div>
+            <div className="text-[11px] text-stone-400 mt-1 flex items-center space-x-1">
+              <span>Across</span>
+              <span className="text-amber-400 font-semibold">{batches.length} batches</span>
+            </div>
           </div>
-          <div className="text-2xl font-black text-white">{totalStockUnits}</div>
-          <div className="text-[11px] text-stone-400 mt-1 flex items-center space-x-1">
-            <span>Across</span>
-            <span className="text-amber-400 font-semibold">{batches.length} batches</span>
-          </div>
-        </div>
+        )}
 
-        <div className="bg-stone-900 border border-stone-800 rounded-xl p-4 shadow-sm">
-          <div className="flex items-center justify-between text-stone-400 text-xs mb-1">
-            <span>Today's Dispatches</span>
-            <Clock className="w-4 h-4 text-blue-400" />
+        {(hasAccess('forms', 'view') || hasAccess('reports', 'view')) && (
+          <div className="bg-stone-900 border border-stone-800 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between text-stone-400 text-xs mb-1">
+              <span>Today's Dispatches</span>
+              <Clock className="w-4 h-4 text-blue-400" />
+            </div>
+            <div className="text-2xl font-black text-white">{todayDispatches}</div>
+            <div className="text-[11px] text-stone-400 mt-1">
+              <span>Total recorded: </span>
+              <span className="text-blue-400 font-semibold">{dispatchLogs.length} logs</span>
+            </div>
           </div>
-          <div className="text-2xl font-black text-white">{todayDispatches}</div>
-          <div className="text-[11px] text-stone-400 mt-1">
-            <span>Total recorded: </span>
-            <span className="text-blue-400 font-semibold">{dispatchLogs.length} logs</span>
-          </div>
-        </div>
+        )}
 
-        <div className="bg-stone-900 border border-stone-800 rounded-xl p-4 shadow-sm">
-          <div className="flex items-center justify-between text-stone-400 text-xs mb-1">
-            <span>Active Outlets</span>
-            <Store className="w-4 h-4 text-emerald-400" />
+        {hasAccess('outlets', 'view') && (
+          <div className="bg-stone-900 border border-stone-800 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between text-stone-400 text-xs mb-1">
+              <span>Active Outlets</span>
+              <Store className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div className="text-2xl font-black text-white">
+              {outlets.filter(o => o.active).length}
+            </div>
+            <div className="text-[11px] text-stone-400 mt-1">
+              <span>Network branches ready</span>
+            </div>
           </div>
-          <div className="text-2xl font-black text-white">
-            {outlets.filter(o => o.active).length}
-          </div>
-          <div className="text-[11px] text-stone-400 mt-1">
-            <span>Network branches ready</span>
-          </div>
-        </div>
+        )}
 
         <div className="bg-stone-900 border border-stone-800 rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between text-stone-400 text-xs mb-1">
@@ -224,8 +243,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* Stock Health Alerts (Low stock & Expiring soon) */}
-      {(lowStockCount > 0 || expiringSoonCount > 0) && (
+      {/* Stock Health Alerts (Low stock & Expiring soon) - Only for Inventory authorized users */}
+      {hasAccess('inventory', 'view') && (lowStockCount > 0 || expiringSoonCount > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {lowStockCount > 0 && (
             <div className="bg-amber-950/40 border border-amber-800/60 rounded-xl p-4 flex items-center justify-between">
@@ -320,17 +339,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <FileText className="w-4 h-4 text-[#ED5338]" />
             <span>Recent Kitchen Dispatch Logs</span>
           </h3>
-          <button
-            onClick={() => onNavigate('forms')}
-            className="text-xs text-[#FFA594] hover:text-[#ED5338] transition font-semibold"
-          >
-            View All ({dispatchLogs.length})
-          </button>
+          {(hasAccess('forms', 'view') || hasAccess('reports', 'view')) && (
+            <button
+              onClick={() => onNavigate(hasAccess('forms', 'view') ? 'forms' : 'reports')}
+              className="text-xs text-[#FFA594] hover:text-[#ED5338] transition font-semibold cursor-pointer"
+            >
+              View All ({dispatchLogs.length})
+            </button>
+          )}
         </div>
 
         {dispatchLogs.length === 0 ? (
           <div className="text-center py-8 text-stone-500 text-xs">
-            No dispatch logs recorded yet. Use the "Dispatch Forms" button to issue the first delivery.
+            No dispatch logs recorded yet.
           </div>
         ) : (
           <div className="divide-y divide-[#261D1A]">
@@ -350,12 +371,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     Driver: <span className="text-stone-300">{log.driverName}</span> • Supervisor: <span className="text-stone-300">{log.supervisor}</span> • {log.items.length} product line(s)
                   </p>
                 </div>
-                <button
-                  onClick={() => onNavigate('forms')}
-                  className="text-xs bg-[#221A17] hover:bg-[#2C211D] border border-[#382B25] text-stone-300 hover:text-white px-2.5 py-1 rounded transition"
-                >
-                  Details
-                </button>
+                {(hasAccess('forms', 'view') || hasAccess('reports', 'view')) && (
+                  <button
+                    onClick={() => onNavigate(hasAccess('forms', 'view') ? 'forms' : 'reports')}
+                    className="text-xs bg-[#221A17] hover:bg-[#2C211D] border border-[#382B25] text-stone-300 hover:text-white px-2.5 py-1 rounded transition cursor-pointer"
+                  >
+                    Details
+                  </button>
+                )}
               </div>
             ))}
           </div>
