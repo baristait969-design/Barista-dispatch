@@ -121,15 +121,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <h2 className="text-xl sm:text-2xl font-bold text-white">
                   Welcome, {userProfile?.displayName || userProfile?.email}!
                 </h2>
-                <span className={`px-2 py-0.5 text-xs font-bold rounded border uppercase ${
-                  role === 'admin' 
-                    ? 'bg-[#ED5338]/20 text-[#FFA594] border-[#ED5338]/40' 
-                    : role === 'editor' 
-                    ? 'bg-blue-500/20 text-blue-300 border-blue-500/40' 
-                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                }`}>
-                  {role} Role
-                </span>
+                {role === 'admin' && (
+                  <span className="px-2 py-0.5 text-xs font-bold rounded border uppercase bg-[#ED5338]/20 text-[#FFA594] border-[#ED5338]/40">
+                    Admin
+                  </span>
+                )}
               </div>
               <p className="text-xs text-stone-400 mt-1">
                 {userProfile?.designation || 'Central Kitchen Staff'} • {userProfile?.department || 'Quality Assurance & Kitchen Logistics'}

@@ -415,13 +415,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {role === 'viewer' && (
-            <div className="px-3 py-1.5 bg-emerald-950/70 border border-emerald-800 text-emerald-300 rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-sm">
-              <Printer className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Viewer Role: Reports & Print Only</span>
-            </div>
-          )}
-
           <button
             onClick={handleDownloadExecutivePDF}
             className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl text-xs transition flex items-center space-x-1.5 cursor-pointer shadow-md"

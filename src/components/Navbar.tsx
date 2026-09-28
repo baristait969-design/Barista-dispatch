@@ -133,9 +133,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
                   <span className="text-xs font-bold text-white max-w-[110px] sm:max-w-[170px] truncate leading-tight">
                     {userProfile?.displayName || userProfile?.username || 'Barista Staff'}
                   </span>
-                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded border ${getRoleBadgeColor(role)}`}>
-                    {role}
-                  </span>
+                  {role === 'admin' && (
+                    <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded border ${getRoleBadgeColor(role)}`}>
+                      {role}
+                    </span>
+                  )}
                 </div>
                 <div className="text-[10px] text-stone-400 font-mono leading-tight flex items-center space-x-1">
                   <span className="text-[#ED5338] font-bold">{userProfile?.userIdCode || 'USR-ADM-01'}</span>
@@ -185,9 +187,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
                 <p className="text-[10px] text-stone-400 font-mono">{userProfile?.username || 'admin'} • ({userProfile?.userIdCode || 'USR-ADM-01'})</p>
               </div>
             </div>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${getRoleBadgeColor(role)}`}>
-              {role}
-            </span>
+            {role === 'admin' && (
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${getRoleBadgeColor(role)}`}>
+                {role}
+              </span>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">

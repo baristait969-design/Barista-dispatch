@@ -495,7 +495,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
         <div className="bg-stone-900/80 border border-stone-800 rounded-xl p-3.5 flex items-center space-x-3 text-xs text-stone-400">
           <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
           <span>
-            You are viewing the product catalog in read-only mode ({role.toUpperCase()} role). Adding new products, updating names, changing dispatch temperatures, and suspending items require Administrator privileges.
+            You are viewing the product catalog in read-only mode. Adding new products, updating names, changing dispatch temperatures, and suspending items require Administrator privileges.
           </span>
         </div>
       )}

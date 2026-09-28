@@ -510,7 +510,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ usersList }) => {
             </span>
           ) : (
             <span>
-              <strong>Read-Only View:</strong> You are signed in with the <strong>{role.toUpperCase()}</strong> role. Modifying user permissions, resetting passwords, and creating accounts are strictly restricted to <strong>Administrator</strong> accounts.
+              <strong>Read-Only View:</strong> Modifying user permissions, resetting passwords, and creating accounts are strictly restricted to <strong>Administrator</strong> accounts.
             </span>
           )}
         </div>
