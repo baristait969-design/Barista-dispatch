@@ -176,14 +176,6 @@ export const LoginPage: React.FC = () => {
           <p className="text-xs text-stone-400 mt-1">
             Sign in with your staff username and password
           </p>
-
-          {/* Security status badge */}
-          <div className="mt-3 flex items-center justify-center space-x-2">
-            <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800 flex items-center space-x-1">
-              <ShieldCheck className="w-3 h-3" />
-              <span>Anti-Brute Force Protection Active</span>
-            </span>
-          </div>
         </div>
 
         {/* Lockout Active Banner */}
@@ -225,9 +217,6 @@ export const LoginPage: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           <div>
-            <label className="block text-xs font-semibold text-stone-300 mb-1.5">
-              Staff Username or User ID
-            </label>
             <div className="relative">
               <User className="w-4 h-4 text-stone-500 absolute left-3 top-3" />
               <input
@@ -237,18 +226,14 @@ export const LoginPage: React.FC = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"
-                placeholder="e.g. admin or kamal"
+                placeholder="Username"
+                aria-label="Username"
                 className="w-full pl-9 pr-3 py-2.5 bg-[#1C1614] border border-[#382B25] rounded-xl text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-[#ED5338] focus:ring-1 focus:ring-[#ED5338] font-mono transition disabled:opacity-40"
               />
             </div>
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-semibold text-stone-300">
-                Password
-              </label>
-            </div>
             <div className="relative">
               <Lock className="w-4 h-4 text-stone-500 absolute left-3 top-3" />
               <input
@@ -258,7 +243,8 @@ export const LoginPage: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
-                placeholder="••••••••"
+                placeholder="Password"
+                aria-label="Password"
                 className="w-full pl-9 pr-10 py-2.5 bg-[#1C1614] border border-[#382B25] rounded-xl text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-[#ED5338] focus:ring-1 focus:ring-[#ED5338] font-mono transition disabled:opacity-40"
               />
               <button
