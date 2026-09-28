@@ -137,13 +137,6 @@ input[type="number"] {
     margin: 8mm 10mm 8mm 14mm; /* Outer page boundaries: 14mm left for hole-punching */
   }
 
-  body.printing-landscape {
-    @page {
-      size: A4 landscape;
-      margin: 8mm 10mm 8mm 14mm;
-    }
-  }
-
   html, body {
     background-color: #ffffff !important;
     background: #ffffff !important;

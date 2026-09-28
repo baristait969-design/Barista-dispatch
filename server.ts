@@ -1,4 +1,5 @@
 import express from 'express';
+import type { Request, Response } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -29,20 +30,20 @@ if (!fs.existsSync(indexPath)) {
 app.use(express.static(distPath));
 
 // Health check endpoints for Google Cloud Run
-app.get('/healthz', (_req, res) => {
+app.get('/healthz', (_req: Request, res: Response) => {
   res.status(200).send('OK');
 });
 
-app.get('/health', (_req, res) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.status(200).send('OK');
 });
 
-app.get('/_ah/health', (_req, res) => {
+app.get('/_ah/health', (_req: Request, res: Response) => {
   res.status(200).send('OK');
 });
 
 // SPA fallback routing - always returns 200 with HTML so health probes succeed
-app.get('*', (_req, res) => {
+app.get('*', (_req: Request, res: Response) => {
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {
