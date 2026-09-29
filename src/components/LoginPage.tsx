@@ -64,8 +64,8 @@ export const LoginPage: React.FC = () => {
     e.preventDefault();
     if (lockoutRemaining > 0) {
       await showAlert(
-        `Portal is currently under automated security quarantine for ${lockoutRemaining} more seconds. Please wait for the lockout countdown to expire.`,
-        { title: '🔒 Security Quarantine Active', type: 'security' }
+        `Too many failed attempts. Please wait ${lockoutRemaining} seconds before trying again.`,
+        { title: 'Access Locked', type: 'warning' }
       );
       return;
     }
@@ -76,55 +76,44 @@ export const LoginPage: React.FC = () => {
     const cleanUser = username.trim();
     const cleanPass = password.trim();
 
-    // 1. Intrusion Vector Pre-Check (SQL Injection / Script Injection / Attack Payload)
-    const intrusionPattern = /('|\b)(select|union|insert|drop|alter|delete|update|exec|script|declare|or\s+['"\d]=['"\d])\b|--|\/\*|<\s*script/i;
-    if (intrusionPattern.test(cleanUser) || intrusionPattern.test(cleanPass)) {
-      setSubmitting(false);
-      triggerShake();
-      const quarantineUntil = Date.now() + 120000;
-      localStorage.setItem('barista_security_lockout_until', quarantineUntil.toString());
-      setLockoutRemaining(120);
-
-      await showAlert(
-        `CRITICAL SECURITY ALERT: An unauthorized cyber intrusion / SQL injection attack was detected.\n\nPayload has been intercepted and quarantined. Sign-in has been locked for 120 seconds, and the incident details have been logged for administrative audit.`,
-        { title: '🚨 Intrusion Attack Intercepted', type: 'security' }
-      );
-      return;
-    }
-
     try {
-      await loginWithUsername(cleanUser, cleanPass);
+      const result = await loginWithUsername(cleanUser, cleanPass);
+      if (!result.success) {
+        triggerShake();
+        const newAttempts = failedAttempts + 1;
+        setFailedAttempts(newAttempts);
+        localStorage.setItem('barista_security_failed_attempts', newAttempts.toString());
+
+        const commonErrorMessage = 'Invalid username or password. Please try again.';
+        setError(commonErrorMessage);
+
+        if (newAttempts >= MAX_ATTEMPTS) {
+          // Enforce 60-second lockout
+          const lockUntil = Date.now() + 60000;
+          localStorage.setItem('barista_security_lockout_until', lockUntil.toString());
+          setLockoutRemaining(60);
+
+          await showAlert(
+            'Too many failed sign-in attempts. Please try again later.',
+            { title: 'Authentication Failed', type: 'error' }
+          );
+        } else {
+          // Simple and common message for every failure
+          await showAlert(
+            commonErrorMessage,
+            { title: 'Authentication Failed', type: 'error' }
+          );
+        }
+        return;
+      }
+
       // Reset attempts on successful sign-in
       setFailedAttempts(0);
       localStorage.removeItem('barista_security_failed_attempts');
       localStorage.removeItem('barista_security_lockout_until');
-    } catch (err: any) {
-      console.error(err);
-      triggerShake();
-      const newAttempts = failedAttempts + 1;
-      setFailedAttempts(newAttempts);
-      localStorage.setItem('barista_security_failed_attempts', newAttempts.toString());
-
-      const commonErrorMessage = 'Invalid username or password. Please try again.';
-      setError(commonErrorMessage);
-
-      if (newAttempts >= MAX_ATTEMPTS) {
-        // Enforce 60-second lockout
-        const lockUntil = Date.now() + 60000;
-        localStorage.setItem('barista_security_lockout_until', lockUntil.toString());
-        setLockoutRemaining(60);
-
-        await showAlert(
-          'Too many failed sign-in attempts. Please try again later.',
-          { title: 'Authentication Failed', type: 'error' }
-        );
-      } else {
-        // Simple and common message for every failure
-        await showAlert(
-          commonErrorMessage,
-          { title: 'Authentication Failed', type: 'error' }
-        );
-      }
+    } catch {
+      // In case of unexpected network drops
+      setError('Invalid username or password. Please try again.');
     } finally {
       setSubmitting(false);
     }

@@ -63,16 +63,36 @@ export async function seedInitialDataIfNeeded(): Promise<boolean> {
           await setDoc(doc(db, PRODUCTS_COL, p.id), p);
         }
       }
-      // Ensure only the primary Administrator account exists if missing (never recreate deleted staff accounts)
+      // Ensure all valid initial staff accounts exist in Firestore (skipping any accounts explicitly deleted by admin)
       try {
-        const adminDocRef = doc(db, USERS_COL, 'user-admin-main');
-        const adminSnap = await getDoc(adminDocRef);
-        if (!adminSnap.exists()) {
-          const rootAdmin = INITIAL_USERS[0];
-          await setDoc(adminDocRef, rootAdmin);
+        let deletedSet = new Set<string>();
+        try {
+          const deletedSnap = await getDocs(collection(db, 'deleted_users'));
+          deletedSnap.forEach(d => {
+            deletedSet.add(d.id.toLowerCase());
+            const data = d.data();
+            if (data.username) deletedSet.add(data.username.toLowerCase());
+            if (data.userIdCode) deletedSet.add(data.userIdCode.toLowerCase());
+          });
+        } catch (delReadErr) {
+          console.warn('Could not read deleted_users collection:', delReadErr);
         }
-      } catch (adminCheckErr) {
-        console.warn('Could not verify root admin existence:', adminCheckErr);
+
+        for (const u of INITIAL_USERS) {
+          const uName = (u.username || '').toLowerCase();
+          const uCode = (u.userIdCode || '').toLowerCase();
+          // If deleted by an administrator, do not recreate
+          if (deletedSet.has(uName) || deletedSet.has(uCode)) {
+            continue;
+          }
+          const userDocRef = doc(db, USERS_COL, u.id);
+          const uSnap = await getDoc(userDocRef);
+          if (!uSnap.exists()) {
+            await setDoc(userDocRef, u);
+          }
+        }
+      } catch (usersSyncErr) {
+        console.warn('Could not verify initial staff accounts:', usersSyncErr);
       }
       // Sync official 101 outlets if needed
       await syncOfficialOutlets(false);
