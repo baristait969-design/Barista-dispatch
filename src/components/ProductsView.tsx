@@ -170,6 +170,14 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
       });
       return;
     }
+    const parsedNewShelf = Number(newShelfLifeDays);
+    if (isNaN(parsedNewShelf) || parsedNewShelf < 1) {
+      showAlert('Valid Shelf Life Period (minimum 1 day) is required.', {
+        title: 'Validation Error',
+        type: 'warning'
+      });
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -178,7 +186,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
         dispatchTemp: Number(newDispatchTemp),
         category: newCategory.trim() || 'Hot Kitchen',
         unit: newUnit || 'Slices',
-        shelfLifeDays: Number(newShelfLifeDays) || 5,
+        shelfLifeDays: parsedNewShelf,
         active: newActive
       });
 
@@ -223,9 +231,18 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
       });
       return;
     }
-    if (isNaN(editingProduct.dispatchTemp)) {
+    const parsedEditTemp = Number(editingProduct.dispatchTemp);
+    if (isNaN(parsedEditTemp)) {
       showAlert('Valid Dispatch Temperature (°C) is required.', {
         title: 'Invalid Temperature',
+        type: 'warning'
+      });
+      return;
+    }
+    const parsedEditShelf = Number(editingProduct.shelfLifeDays);
+    if (isNaN(parsedEditShelf) || parsedEditShelf < 1) {
+      showAlert('Valid Shelf Life Period (minimum 1 day) is required.', {
+        title: 'Validation Error',
         type: 'warning'
       });
       return;
@@ -235,10 +252,10 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
     try {
       await updateProduct(editingProduct.id, {
         name: trimmed,
-        dispatchTemp: Number(editingProduct.dispatchTemp),
+        dispatchTemp: parsedEditTemp,
         category: editingProduct.category || 'Hot Kitchen',
         unit: editingProduct.unit || 'Slices',
-        shelfLifeDays: Number(editingProduct.shelfLifeDays) || 5,
+        shelfLifeDays: parsedEditShelf,
         active: editingProduct.active
       });
       setEditingProduct(null);
@@ -908,8 +925,11 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
                     type="number"
                     min="1"
                     max="90"
-                    value={newShelfLifeDays}
-                    onChange={(e) => setNewShelfLifeDays(parseInt(e.target.value, 10) || 5)}
+                    value={newShelfLifeDays !== undefined ? newShelfLifeDays : ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setNewShelfLifeDays(v === '' ? ('' as any) : parseInt(v, 10));
+                    }}
                     className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-amber-500"
                   />
                 </div>
@@ -1029,8 +1049,14 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
                     type="number"
                     step="0.1"
                     required
-                    value={editingProduct.dispatchTemp}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, dispatchTemp: parseFloat(e.target.value) })}
+                    value={editingProduct.dispatchTemp !== undefined ? editingProduct.dispatchTemp : ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setEditingProduct({
+                        ...editingProduct,
+                        dispatchTemp: v === '' ? ('' as any) : parseFloat(v)
+                      });
+                    }}
                     className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-xl text-xs font-mono font-bold text-cyan-300 focus:outline-none focus:border-amber-500"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-stone-400">°C</span>
@@ -1103,8 +1129,14 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
                     type="number"
                     min="1"
                     max="90"
-                    value={editingProduct.shelfLifeDays || 5}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, shelfLifeDays: parseInt(e.target.value, 10) || 5 })}
+                    value={editingProduct.shelfLifeDays !== undefined ? editingProduct.shelfLifeDays : ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setEditingProduct({
+                        ...editingProduct,
+                        shelfLifeDays: v === '' ? ('' as any) : parseInt(v, 10)
+                      });
+                    }}
                     className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-amber-500"
                   />
                 </div>

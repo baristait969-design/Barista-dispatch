@@ -531,7 +531,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                     .filter((p) => p.active !== false)
                     .map((p) => (
                     <option key={p.name} value={p.name}>
-                      {p.name} ({p.category || 'Hot Kitchen'}) — {p.unit || 'Slices'}, {p.shelfLifeDays || 5}d shelf life, {Number(('dispatchTemp' in p && p.dispatchTemp !== undefined ? p.dispatchTemp : (p as any).defaultTemp) || 3.5).toFixed(1)}°C
+                      {p.name}
                     </option>
                   ))}
                 </select>
@@ -591,26 +591,33 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
-                    <span>Use-By Date</span>
-                    <span className="text-[10px] text-amber-400 font-mono font-bold">
+                    <span className="flex items-center space-x-1">
+                      <Lock className="w-3 h-3 text-amber-400" />
+                      <span>Use-By / Expiration Date</span>
+                    </span>
+                    <span className="text-[10px] text-amber-400 font-mono font-bold bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800/40">
                       Auto (+{(selectedProductMeta && 'shelfLifeDays' in selectedProductMeta && selectedProductMeta.shelfLifeDays) || 5}d)
                     </span>
                   </label>
                   <input
                     type="date"
-                    required
+                    readOnly
+                    disabled
                     value={formData.useByDate}
-                    onChange={(e) => setFormData({ ...formData, useByDate: e.target.value })}
-                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500 font-mono"
+                    className="w-full px-3 py-2 bg-stone-950 border border-stone-800 rounded-lg text-xs text-amber-400 font-mono font-bold cursor-not-allowed select-none opacity-90 shadow-inner"
+                    title="Expiration date is auto-calculated based on production date and master product shelf life. It cannot be manually modified."
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
-                  <span>Dispatch Temperature (°C) — Target ≤ 5.0 °C (HACCP)</span>
-                  <span className="text-[10px] text-cyan-300 font-mono">
-                    Product Default: {Number((selectedProductMeta && 'dispatchTemp' in selectedProductMeta && selectedProductMeta.dispatchTemp !== undefined) ? selectedProductMeta.dispatchTemp : 3.5).toFixed(1)}°C
+                  <span className="flex items-center space-x-1">
+                    <Lock className="w-3 h-3 text-cyan-400" />
+                    <span>Dispatch Temperature (°C) — Target ≤ 5.0 °C (HACCP)</span>
+                  </span>
+                  <span className="text-[10px] text-cyan-300 font-mono font-bold bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-800/40">
+                    Product Setting ({Number((selectedProductMeta && 'dispatchTemp' in selectedProductMeta && selectedProductMeta.dispatchTemp !== undefined) ? selectedProductMeta.dispatchTemp : 3.5).toFixed(1)}°C)
                   </span>
                 </label>
                 <div className="relative">
@@ -618,17 +625,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   <input
                     type="number"
                     step="0.1"
-                    required
+                    readOnly
+                    disabled
                     value={formData.dispatchTemp}
-                    onChange={(e) => setFormData({ ...formData, dispatchTemp: parseFloat(e.target.value) || 0 })}
-                    className="w-full pl-9 pr-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500 font-mono font-bold"
+                    className="w-full pl-9 pr-3 py-2 bg-stone-950 border border-stone-800 rounded-lg text-xs text-cyan-300 font-mono font-bold cursor-not-allowed select-none opacity-90 shadow-inner"
+                    title="Dispatch temperature is auto-assigned from the product master catalog and cannot be edited."
                   />
                 </div>
-                {formData.dispatchTemp > 5.0 && (
-                  <p className="text-[11px] text-red-400 mt-1">
-                    ⚠️ Warning: Temperature exceeds HACCP maximum limit of 5.0 °C.
-                  </p>
-                )}
               </div>
 
               <div className="pt-3 border-t border-stone-800 flex justify-end space-x-2">
@@ -714,16 +717,20 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-stone-300 mb-1">
-                    Dispatch Temp (°C)
+                  <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
+                    <span>Dispatch Temp (°C)</span>
+                    <span className="text-[10px] text-cyan-400 font-mono font-semibold flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> System Assigned
+                    </span>
                   </label>
                   <input
                     type="number"
                     step="0.1"
-                    required
+                    readOnly
+                    disabled
                     value={editingBatch.dispatchTemp}
-                    onChange={(e) => setEditingBatch({ ...editingBatch, dispatchTemp: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500"
+                    className="w-full px-3 py-2 bg-stone-950 border border-stone-800 rounded-lg text-xs text-cyan-300 font-mono font-bold cursor-not-allowed select-none opacity-90 shadow-inner"
+                    title="Dispatch temperature is fixed based on the product creation setting."
                   />
                 </div>
               </div>
@@ -737,21 +744,32 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                     type="date"
                     required
                     value={editingBatch.prodDate}
-                    onChange={(e) => setEditingBatch({ ...editingBatch, prodDate: e.target.value })}
+                    onChange={(e) => {
+                      const newProd = e.target.value;
+                      const matchedP = (products && products.length > 0 ? products : INITIAL_PRODUCTS)
+                        .find(p => p.name === editingBatch.productName);
+                      const shelf = (matchedP && 'shelfLifeDays' in matchedP && matchedP.shelfLifeDays) ? matchedP.shelfLifeDays : 5;
+                      const newUseBy = calculateFutureDate(newProd, shelf);
+                      setEditingBatch({ ...editingBatch, prodDate: newProd, useByDate: newUseBy });
+                    }}
                     className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-stone-300 mb-1">
-                    Use-By / Expiration Date (Future Date)
+                  <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
+                    <span>Use-By / Expiry Date</span>
+                    <span className="text-[10px] text-amber-400 font-mono font-semibold flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> Auto-Assigned
+                    </span>
                   </label>
                   <input
                     type="date"
-                    required
+                    readOnly
+                    disabled
                     value={editingBatch.useByDate}
-                    onChange={(e) => setEditingBatch({ ...editingBatch, useByDate: e.target.value })}
-                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none"
+                    className="w-full px-3 py-2 bg-stone-950 border border-stone-800 rounded-lg text-xs text-amber-400 font-mono font-bold cursor-not-allowed select-none opacity-90 shadow-inner"
+                    title="Expiration date is auto-calculated based on production date and the product's shelf life period."
                   />
                 </div>
               </div>

@@ -512,7 +512,7 @@ export async function addProduct(product: {
       category: product.category?.trim() || 'Pastry Kitchen Items',
       dispatchTemp: Number(product.dispatchTemp),
       shelfLifeDays: product.shelfLifeDays ? Number(product.shelfLifeDays) : 5,
-      unit: 'NoS',
+      unit: product.unit || 'NoS',
       active: product.active !== undefined ? product.active : true,
       createdAt: new Date().toISOString()
     };
@@ -538,9 +538,8 @@ export async function updateProduct(
   }
 ): Promise<void> {
   try {
-    const safeUpdates: Partial<Product> = {
-      updatedAt: new Date().toISOString(),
-      unit: 'NoS'
+    const safeUpdates: any = {
+      updatedAt: new Date().toISOString()
     };
     if (updates.name !== undefined) {
       const trimmed = updates.name.trim();
@@ -557,6 +556,9 @@ export async function updateProduct(
     if (updates.category !== undefined) {
       safeUpdates.category = updates.category.trim() || 'Pastry Kitchen Items';
     }
+    if (updates.unit !== undefined) {
+      safeUpdates.unit = updates.unit.trim() || 'NoS';
+    }
     if (updates.shelfLifeDays !== undefined) {
       safeUpdates.shelfLifeDays = Number(updates.shelfLifeDays);
     }
@@ -564,8 +566,9 @@ export async function updateProduct(
       safeUpdates.active = updates.active;
     }
 
-    // CRITICAL: Product ID (productId) is deliberately preserved and cannot be updated by any user
-    await updateDoc(doc(db, PRODUCTS_COL, id), safeUpdates);
+    // CRITICAL: Product ID (productId) is deliberately preserved and cannot be updated by any user.
+    // Use setDoc with merge: true so newly created and already existing catalog products update reliably.
+    await setDoc(doc(db, PRODUCTS_COL, id), safeUpdates, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `${PRODUCTS_COL}/${id}`);
     throw error;
