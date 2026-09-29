@@ -251,11 +251,6 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
             )}
           </div>
 
-          {/* Quality & HACCP Certification Banner */}
-          <div className="border border-stone-300 bg-stone-50/70 p-3 rounded-lg mb-4 print:mb-3.5 text-[11px] print:text-[10px] leading-relaxed">
-            <strong className="text-stone-900">Central Kitchen QA Verification:</strong> All refrigerated items listed above have been prepared, packed, and loaded from the Barista Central Kitchen according to HACCP Standard Operating Procedures. Product temperatures were tested using calibrated probe thermometers. Cold-chain integrity must be preserved throughout delivery transit.
-          </div>
-
           {/* Official 3-Party Sign-off Matrix */}
           <div className="border-2 border-stone-900 rounded-lg overflow-hidden mb-3 print:mb-3">
             <div className="bg-stone-900 text-white px-3 py-1 text-[10px] print:text-[9.5px] font-bold uppercase tracking-wider">
