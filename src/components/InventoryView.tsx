@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   Package, 
@@ -23,6 +23,7 @@ import { addInventoryBatch, updateInventoryBatch, deleteInventoryBatch } from '.
 import { getNextBatchNumberForProduct, getProductKeyCode } from '../utils/batchUtils';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { useModal } from '../context/ModalDialogContext';
+import { calculateFutureDate, renderUnitBadge } from '../utils/productUtils';
 
 interface InventoryViewProps {
   batches: InventoryBatch[];
@@ -56,18 +57,23 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     return getNextBatchNumberForProduct(productName, list, products);
   };
 
-  const initialProductName = (products && products.length > 0 ? products[0].name : INITIAL_PRODUCTS[0].name);
+  const initialProduct = (products && products.length > 0 ? products[0] : INITIAL_PRODUCTS[0]);
+  const initialProductName = initialProduct.name;
+  const initialToday = new Date().toISOString().split('T')[0];
+  const initialShelfDays = (initialProduct && 'shelfLifeDays' in initialProduct && initialProduct.shelfLifeDays) ? initialProduct.shelfLifeDays : 5;
+  const initialTemp = (initialProduct && 'dispatchTemp' in initialProduct && initialProduct.dispatchTemp !== undefined) ? initialProduct.dispatchTemp : 3.5;
+  const initialUnit = (initialProduct && 'unit' in initialProduct && initialProduct.unit) ? initialProduct.unit : 'Slices';
 
   // Form State
   const [formData, setFormData] = useState(() => ({
     batchNo: getNextBatchNumberForProduct(initialProductName, batches, products),
     productName: initialProductName,
-    category: (products && products.length > 0 ? products[0].category : INITIAL_PRODUCTS[0].category) || 'Pastry Kitchen Items',
+    category: initialProduct.category || 'Hot Kitchen',
     quantity: 50,
-    prodDate: new Date().toISOString().split('T')[0],
-    useByDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 5 days in future
-    dispatchTemp: 3.5,
-    unit: 'NoS'
+    prodDate: initialToday,
+    useByDate: calculateFutureDate(initialToday, initialShelfDays),
+    dispatchTemp: initialTemp,
+    unit: initialUnit
   }));
 
   // Calculate stats
@@ -82,7 +88,14 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     return matchesSearch && matchesCategory;
   });
 
-  const categories = Array.from(new Set(batches.map(b => b.category || 'Pastry Kitchen Items')));
+  const categories = Array.from(new Set(batches.map(b => b.category || 'Hot Kitchen')));
+
+  // Selected product metadata helper
+  const selectedProductMeta = useMemo(() => {
+    const activeProducts = products && products.length > 0 ? products : [];
+    return activeProducts.find(p => p.name === formData.productName) || 
+           INITIAL_PRODUCTS.find(p => p.name === formData.productName);
+  }, [products, formData.productName]);
 
   const handleProductSelect = (pName: string) => {
     const activeProducts = products && products.length > 0 ? products : [];
@@ -90,21 +103,39 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     const autoBatchNo = getNextBatchNumberForProduct(pName, batches, products);
 
     if (found) {
-      const shelfDays = 'shelfLifeDays' in found && found.shelfLifeDays ? found.shelfLifeDays : 5;
-      const defTemp = 'dispatchTemp' in found ? found.dispatchTemp : (found as any).defaultTemp;
-      const futureDate = new Date(Date.now() + shelfDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const shelfDays = ('shelfLifeDays' in found && found.shelfLifeDays) ? found.shelfLifeDays : 5;
+      const defTemp = ('dispatchTemp' in found && found.dispatchTemp !== undefined) 
+        ? found.dispatchTemp 
+        : (('defaultTemp' in (found as any)) ? (found as any).defaultTemp : 3.5);
+      
+      // Auto-calculate future useByDate based on current prodDate and product's shelfLifeDays
+      const futureDate = calculateFutureDate(formData.prodDate, shelfDays);
+
       setFormData(prev => ({
         ...prev,
         batchNo: autoBatchNo,
         productName: found.name,
-        category: found.category,
-        dispatchTemp: defTemp,
-        unit: found.unit || 'NoS',
+        category: found.category || 'Hot Kitchen',
+        dispatchTemp: Number(defTemp),
+        unit: ('unit' in found && found.unit) ? found.unit : 'Slices',
         useByDate: futureDate
       }));
     } else {
       setFormData(prev => ({ ...prev, productName: pName, batchNo: autoBatchNo }));
     }
+  };
+
+  // When production date changes, auto-recalculate future expiration date based on product's shelf life
+  const handleProdDateChange = (newProdDate: string) => {
+    const shelfDays = (selectedProductMeta && 'shelfLifeDays' in selectedProductMeta && selectedProductMeta.shelfLifeDays) 
+      ? selectedProductMeta.shelfLifeDays 
+      : 5;
+    const autoUseBy = calculateFutureDate(newProdDate, shelfDays);
+    setFormData(prev => ({
+      ...prev,
+      prodDate: newProdDate,
+      useByDate: autoUseBy
+    }));
   };
 
   const handleCreateBatch = async (e: React.FormEvent) => {
@@ -363,14 +394,24 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                       </td>
                       <td className="py-3.5 px-4 font-semibold text-white">
                         <div>{batch.productName}</div>
-                        <span className="text-[10px] text-stone-400 font-normal">{batch.category || 'Pastry'}</span>
+                        <span className={`inline-flex items-center space-x-1 text-[10px] font-semibold mt-0.5 px-1.5 py-0.2 rounded ${
+                          batch.category === 'Hot Kitchen' 
+                            ? 'bg-orange-500/10 text-orange-300 border border-orange-500/20' 
+                            : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
+                        }`}>
+                          <span>{batch.category === 'Hot Kitchen' ? '🔥' : '🥐'}</span>
+                          <span>{batch.category || 'Hot Kitchen'}</span>
+                        </span>
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        <span className={`inline-block px-2.5 py-1 rounded-md font-bold text-xs ${
-                          isLow ? 'bg-amber-950/80 text-amber-300 border border-amber-800' : 'bg-stone-800 text-stone-200'
-                        }`}>
-                          {batch.quantity} {batch.unit}
-                        </span>
+                        <div className="flex items-center justify-center space-x-1.5">
+                          <span className={`font-mono font-bold text-sm px-2 py-0.5 rounded-md ${
+                            isLow ? 'bg-amber-950/80 text-amber-300 border border-amber-800' : 'bg-stone-800 text-stone-100'
+                          }`}>
+                            {batch.quantity}
+                          </span>
+                          {renderUnitBadge(batch.unit)}
+                        </div>
                       </td>
                       <td className="py-3.5 px-4 text-stone-300">
                         {batch.prodDate}
@@ -484,13 +525,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 <select
                   value={formData.productName}
                   onChange={(e) => handleProductSelect(e.target.value)}
-                  className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500"
+                  className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500 font-medium"
                 >
                   {(products && products.length > 0 ? products : INITIAL_PRODUCTS)
                     .filter((p) => p.active !== false)
                     .map((p) => (
                     <option key={p.name} value={p.name}>
-                      {p.name} ({p.category})
+                      {p.name} ({p.category || 'Hot Kitchen'}) — {p.unit || 'Slices'}, {p.shelfLifeDays || 5}d shelf life, {Number(('dispatchTemp' in p && p.dispatchTemp !== undefined ? p.dispatchTemp : (p as any).defaultTemp) || 3.5).toFixed(1)}°C
                     </option>
                   ))}
                 </select>
@@ -518,18 +559,18 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   <label className="block text-xs font-semibold text-stone-300 mb-1">
                     Initial Stock Quantity
                   </label>
-                  <div className="flex space-x-1">
+                  <div className="flex items-center space-x-1.5">
                     <input
                       type="number"
                       required
                       min={1}
                       value={formData.quantity}
                       onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500"
+                      className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500 font-bold"
                     />
-                    <span className="px-2.5 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-400">
-                      {formData.unit}
-                    </span>
+                    <div className="shrink-0">
+                      {renderUnitBadge(formData.unit)}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -543,28 +584,34 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                     type="date"
                     required
                     value={formData.prodDate}
-                    onChange={(e) => setFormData({ ...formData, prodDate: e.target.value })}
-                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500"
+                    onChange={(e) => handleProdDateChange(e.target.value)}
+                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500 font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-stone-300 mb-1">
-                    Use-By / Expiration Date (Future Date)
+                  <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
+                    <span>Use-By Date</span>
+                    <span className="text-[10px] text-amber-400 font-mono font-bold">
+                      Auto (+{(selectedProductMeta && 'shelfLifeDays' in selectedProductMeta && selectedProductMeta.shelfLifeDays) || 5}d)
+                    </span>
                   </label>
                   <input
                     type="date"
                     required
                     value={formData.useByDate}
                     onChange={(e) => setFormData({ ...formData, useByDate: e.target.value })}
-                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500"
+                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500 font-mono"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-stone-300 mb-1">
-                  Dispatch Temperature (°C) — Target ≤ 5.0 °C (HACCP)
+                <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
+                  <span>Dispatch Temperature (°C) — Target ≤ 5.0 °C (HACCP)</span>
+                  <span className="text-[10px] text-cyan-300 font-mono">
+                    Product Default: {Number((selectedProductMeta && 'dispatchTemp' in selectedProductMeta && selectedProductMeta.dispatchTemp !== undefined) ? selectedProductMeta.dispatchTemp : 3.5).toFixed(1)}°C
+                  </span>
                 </label>
                 <div className="relative">
                   <ThermometerSnowflake className="w-4 h-4 text-cyan-400 absolute left-3 top-2.5" />
@@ -574,7 +621,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                     required
                     value={formData.dispatchTemp}
                     onChange={(e) => setFormData({ ...formData, dispatchTemp: parseFloat(e.target.value) || 0 })}
-                    className="w-full pl-9 pr-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500"
+                    className="w-full pl-9 pr-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs text-stone-100 focus:outline-none focus:border-amber-500 font-mono font-bold"
                   />
                 </div>
                 {formData.dispatchTemp > 5.0 && (

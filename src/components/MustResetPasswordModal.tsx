@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   KeyRound, 
@@ -22,6 +22,17 @@ export const MustResetPasswordModal: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+
+  // When administrator sets mustResetPassword in real-time, immediately reopen modal
+  useEffect(() => {
+    if (userProfile?.mustResetPassword || userProfile?.isFirstLogin) {
+      setDismissed(false);
+      setSuccess(false);
+      setNewPassword('');
+      setConfirmPassword('');
+      setError(null);
+    }
+  }, [userProfile?.mustResetPassword, userProfile?.isFirstLogin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

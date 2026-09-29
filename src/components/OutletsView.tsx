@@ -203,10 +203,10 @@ export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
       return;
     }
     const confirmed = await showConfirm(
-      'This will synchronize all 101 official Barista outlets to the database. Continue?',
+      'Sync all outlets to the database?',
       {
-        title: 'Synchronize Official Outlets',
-        confirmText: 'Sync All Outlets',
+        title: 'Sync Outlets',
+        confirmText: 'Sync Outlets',
         type: 'info'
       }
     );
@@ -215,9 +215,9 @@ export const OutletsView: React.FC<OutletsViewProps> = ({ outlets }) => {
     }
     setSyncing(true);
     try {
-      const count = await syncOfficialOutlets(true);
-      showAlert(`Success! Successfully synchronized all ${count || 101} official Barista outlets to the database.`, {
-        title: 'Synchronization Complete',
+      await syncOfficialOutlets(true);
+      showAlert('All outlets synced.', {
+        title: 'Success',
         type: 'success'
       });
     } catch (err: any) {

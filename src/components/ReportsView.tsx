@@ -406,6 +406,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 <span className="text-[10px] bg-[#ED5338]/15 text-[#FFA594] border border-[#ED5338]/30 px-2 py-0.5 rounded font-mono font-bold">
                   OPRP-2 Certified
                 </span>
+                <span className="inline-flex items-center space-x-1 text-[10px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded font-mono font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Real-time Live</span>
+                </span>
               </div>
               <p className="text-xs text-stone-400 mt-0.5">
                 Real-time bakery dispatch analytics, cold-chain compliance (≤5°C), retail outlet volumes, and item performance.

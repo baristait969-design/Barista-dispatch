@@ -1,15 +1,15 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { initializeFirestore } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with long-polling auto-detection for reliable connections in iframe and preview environments
+// Initialize Firestore with force long-polling to prevent WebSocket timeouts in iframe / preview environments
 export const db = initializeFirestore(
   app,
   {
-    experimentalAutoDetectLongPolling: true,
+    experimentalForceLongPolling: true,
   },
   firebaseConfig.firestoreDatabaseId
 );
@@ -65,7 +65,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   };
 
   // If this is a transient offline/connection error, log warning instead of crashing listeners
-  if (errCode === 'unavailable' || errMsg.includes('the client is offline') || errMsg.includes('Could not reach Cloud Firestore')) {
+  if (errCode === 'unavailable' || errMsg.includes('the client is offline') || errMsg.includes('Could not reach Cloud Firestore') || errMsg.includes('Backend didn\'t respond')) {
     console.warn(`Firestore [${operationType}] offline/unavailable for path ${path}:`, errMsg);
     return;
   }
@@ -74,18 +74,3 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Test connection on boot
-export async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error: any) {
-    if (error?.code === 'unavailable' || error?.message?.includes('the client is offline') || error?.message?.includes('Could not reach Cloud Firestore')) {
-      console.warn("Firestore connection: operating in offline cache mode until backend connection is established.");
-    } else {
-      console.warn("Firestore connection check note:", error?.message || error);
-    }
-  }
-}
-
-// Run non-blocking connection check
-testConnection();

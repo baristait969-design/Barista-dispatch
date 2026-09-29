@@ -1,18 +1,18 @@
 import { InventoryBatch, Outlet, Driver, UserProfile, Product } from '../types';
 
 export const INITIAL_PRODUCTS = [
-  { name: 'Blueberry Cold Cheesecake Slices', keyCode: 'BCC', category: 'Pastry Kitchen Items', defaultTemp: 3.5, shelfLifeDays: 5, unit: 'NoS', active: true },
-  { name: 'Brownies Cheesecake Slices', keyCode: 'BCS', category: 'Pastry Kitchen Items', defaultTemp: 3.8, shelfLifeDays: 5, unit: 'NoS', active: true },
-  { name: 'Death By Chocolate Cake (1500gm)', keyCode: 'DBC', category: 'Pastry Kitchen Items', defaultTemp: 4.0, shelfLifeDays: 6, unit: 'NoS', active: true },
-  { name: 'Red velvet cake (1500gm)', keyCode: 'RVC', category: 'Pastry Kitchen Items', defaultTemp: 3.6, shelfLifeDays: 6, unit: 'NoS', active: true },
-  { name: 'Mocha Cake', keyCode: 'MC', category: 'Pastry Kitchen Items', defaultTemp: 4.1, shelfLifeDays: 6, unit: 'NoS', active: true },
-  { name: 'Caramel Macchiato Tart', keyCode: 'CMT', category: 'Pastry Kitchen Items', defaultTemp: 3.4, shelfLifeDays: 4, unit: 'NoS', active: true },
-  { name: 'Almond Croissant Slices', keyCode: 'ACS', category: 'Bakery & Pastry', defaultTemp: 4.5, shelfLifeDays: 3, unit: 'NoS', active: true },
-  { name: 'Tiramisu Cold Cups', keyCode: 'TCC', category: 'Pastry Kitchen Items', defaultTemp: 3.2, shelfLifeDays: 4, unit: 'NoS', active: true },
-  { name: 'Classic Dark Chocolate Mousse', keyCode: 'CDM', category: 'Pastry Kitchen Items', defaultTemp: 3.2, shelfLifeDays: 4, unit: 'NoS', active: true },
-  { name: 'Iced Latte Mix Cold Base', keyCode: 'ILM', category: 'Beverage Bases', defaultTemp: 2.8, shelfLifeDays: 7, unit: 'NoS', active: true },
-  { name: 'Chicken & Mushroom Savory Pie', keyCode: 'CMS', category: 'Savory Kitchen', defaultTemp: 4.2, shelfLifeDays: 3, unit: 'NoS', active: true },
-  { name: 'Butter Croissants 4-Pack', keyCode: 'BCP', category: 'Bakery & Pastry', defaultTemp: 4.5, shelfLifeDays: 3, unit: 'NoS', active: true }
+  { name: 'Blueberry Cold Cheesecake Slices', keyCode: 'BCC', category: 'Pastry Kitchen', defaultTemp: 3.5, shelfLifeDays: 5, unit: 'Slices', active: true },
+  { name: 'Brownies Cheesecake Slices', keyCode: 'BCS', category: 'Pastry Kitchen', defaultTemp: 3.8, shelfLifeDays: 5, unit: 'Slices', active: true },
+  { name: 'Death By Chocolate Cake (1500gm)', keyCode: 'DBC', category: 'Pastry Kitchen', defaultTemp: 4.0, shelfLifeDays: 6, unit: 'NoS', active: true },
+  { name: 'Red velvet cake (1500gm)', keyCode: 'RVC', category: 'Pastry Kitchen', defaultTemp: 3.6, shelfLifeDays: 6, unit: 'NoS', active: true },
+  { name: 'Mocha Cake', keyCode: 'MC', category: 'Pastry Kitchen', defaultTemp: 4.1, shelfLifeDays: 6, unit: 'NoS', active: true },
+  { name: 'Caramel Macchiato Tart', keyCode: 'CMT', category: 'Pastry Kitchen', defaultTemp: 3.4, shelfLifeDays: 4, unit: 'NoS', active: true },
+  { name: 'Almond Croissant Slices', keyCode: 'ACS', category: 'Pastry Kitchen', defaultTemp: 4.5, shelfLifeDays: 3, unit: 'Slices', active: true },
+  { name: 'Tiramisu Cold Cups', keyCode: 'TCC', category: 'Pastry Kitchen', defaultTemp: 3.2, shelfLifeDays: 4, unit: 'Cups', active: true },
+  { name: 'Classic Dark Chocolate Mousse', keyCode: 'CDM', category: 'Pastry Kitchen', defaultTemp: 3.2, shelfLifeDays: 4, unit: 'Grams (g)', active: true },
+  { name: 'Iced Latte Mix Cold Base', keyCode: 'ILM', category: 'Hot Kitchen', defaultTemp: 2.8, shelfLifeDays: 7, unit: 'Liters (L)', active: true },
+  { name: 'Chicken & Mushroom Savory Pie', keyCode: 'CMS', category: 'Hot Kitchen', defaultTemp: 4.2, shelfLifeDays: 3, unit: 'NoS', active: true },
+  { name: 'Butter Croissants 4-Pack', keyCode: 'BCP', category: 'Pastry Kitchen', defaultTemp: 4.5, shelfLifeDays: 3, unit: 'Packs', active: true }
 ];
 
 export const INITIAL_PRODUCT_CATALOG: Product[] = INITIAL_PRODUCTS.map((p, idx) => ({
@@ -23,7 +23,7 @@ export const INITIAL_PRODUCT_CATALOG: Product[] = INITIAL_PRODUCTS.map((p, idx) 
   category: p.category,
   dispatchTemp: p.defaultTemp,
   shelfLifeDays: p.shelfLifeDays,
-  unit: 'NoS',
+  unit: p.unit || 'NoS',
   active: true,
   createdAt: '2025-01-01T00:00:00.000Z'
 }));

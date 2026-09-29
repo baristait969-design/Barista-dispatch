@@ -41,29 +41,33 @@ const DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     dashboard: { view: true, edit: false },
     inventory: { view: true, edit: true },
     forms: { view: true, edit: true },
-    outlets: { view: false, edit: false }, // Strictly hidden for editor
-    products: { view: false, edit: false }, // Strictly hidden for editor
+    outlets: { view: false, edit: false },
+    products: { view: false, edit: false },
     reports: { view: true, edit: false },
-    users: { view: false, edit: false } // Strictly hidden for editor
+    users: { view: false, edit: false }
   },
-  viewer: { // Report Only role
+  viewer: {
     dashboard: { view: false, edit: false },
-    inventory: { view: false, edit: false }, // Strictly hidden for report only
-    forms: { view: false, edit: false }, // Strictly hidden for report only
-    outlets: { view: false, edit: false }, // Strictly hidden for report only
-    products: { view: false, edit: false }, // Strictly hidden for report only
+    inventory: { view: false, edit: false },
+    forms: { view: false, edit: false },
+    outlets: { view: false, edit: false },
+    products: { view: false, edit: false },
     reports: { view: true, edit: false },
-    users: { view: false, edit: false } // Strictly hidden for report only
+    users: { view: false, edit: false }
   },
   driver: {
     dashboard: { view: true, edit: false },
-    inventory: { view: false, edit: false }, // Strictly hidden for driver
-    forms: { view: false, edit: false }, // Strictly hidden for driver
-    outlets: { view: false, edit: false }, // Strictly hidden for driver
-    products: { view: false, edit: false }, // Strictly hidden for driver
+    inventory: { view: false, edit: false },
+    forms: { view: false, edit: false },
+    outlets: { view: false, edit: false },
+    products: { view: false, edit: false },
     reports: { view: true, edit: false },
-    users: { view: false, edit: false } // Strictly hidden for driver
+    users: { view: false, edit: false }
   }
+};
+
+const generateSessionToken = () => {
+  return 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -80,7 +84,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const savedSimulated = localStorage.getItem('barista_simulated_user');
     if (savedSimulated) {
       try {
-        const parsed = JSON.parse(savedSimulated);
+        const parsed: UserProfile = JSON.parse(savedSimulated);
+        if (!sessionStorage.getItem('barista_active_session_id') && parsed.activeSessionId) {
+          sessionStorage.setItem('barista_active_session_id', parsed.activeSessionId);
+        }
         setUserProfile(parsed);
         setRole(parsed.role || 'admin');
         setIsSimulated(true);
@@ -108,21 +115,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
-  // Real-time synchronization of active user's profile and permissions from Firestore
+  // Real-time synchronization of active user's profile, permissions, and single-session enforcement from Firestore
   useEffect(() => {
     if (!userProfile?.id) return;
     const unsub = onSnapshot(doc(db, 'users', userProfile.id), (docSnap) => {
       if (docSnap.exists()) {
         const latest = { ...docSnap.data(), id: docSnap.id } as UserProfile;
-        // Check if account was suspended by admin
+
+        // 1. Single Active Session Enforcement:
+        // If a new login occurs for this same user account elsewhere, terminate this previous session!
+        const currentLocalSessionId = sessionStorage.getItem('barista_active_session_id');
+        if (
+          currentLocalSessionId &&
+          latest.activeSessionId &&
+          latest.activeSessionId !== currentLocalSessionId
+        ) {
+          console.warn(`Concurrent login detected for user account "${latest.username || latest.id}". Terminating previous session.`);
+          setUserProfile(null);
+          setRole('viewer');
+          setIsSimulated(false);
+          sessionStorage.removeItem('barista_active_session_id');
+          localStorage.removeItem('barista_active_session_id');
+          localStorage.removeItem('barista_simulated_user');
+          window.dispatchEvent(new CustomEvent('barista-session-terminated', {
+            detail: {
+              username: latest.displayName || latest.username,
+              lastLoginAt: latest.lastLoginAt
+            }
+          }));
+          return;
+        }
+
+        // 2. Check if account was suspended by admin
         if (latest.status === 'suspended') {
           setUserProfile(null);
           setRole('viewer');
           setIsSimulated(false);
+          sessionStorage.removeItem('barista_active_session_id');
+          localStorage.removeItem('barista_active_session_id');
           localStorage.removeItem('barista_simulated_user');
           window.dispatchEvent(new CustomEvent('barista-account-suspended'));
           return;
         }
+
+        // Sync local session ID if not set yet
+        if (!currentLocalSessionId && latest.activeSessionId) {
+          sessionStorage.setItem('barista_active_session_id', latest.activeSessionId);
+        }
+
         setUserProfile(latest);
         setRole(latest.role || 'viewer');
         localStorage.setItem('barista_simulated_user', JSON.stringify(latest));
@@ -131,6 +171,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserProfile(null);
         setRole('viewer');
         setIsSimulated(false);
+        sessionStorage.removeItem('barista_active_session_id');
+        localStorage.removeItem('barista_active_session_id');
         localStorage.removeItem('barista_simulated_user');
         window.dispatchEvent(new CustomEvent('barista-account-deleted'));
       }
@@ -140,14 +182,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsub();
   }, [userProfile?.id]);
 
+  // Real-time cross-tab concurrent session listener for instant termination
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'barista_active_session_id' && e.newValue) {
+        const localSession = sessionStorage.getItem('barista_active_session_id');
+        if (localSession && e.newValue !== localSession) {
+          console.warn('Concurrent login detected in another tab for this account. Terminating previous tab.');
+          setUserProfile(null);
+          setRole('viewer');
+          setIsSimulated(false);
+          sessionStorage.removeItem('barista_active_session_id');
+          localStorage.removeItem('barista_simulated_user');
+          window.dispatchEvent(new CustomEvent('barista-session-terminated', {
+            detail: { username: userProfile?.displayName || userProfile?.username }
+          }));
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [userProfile?.displayName, userProfile?.username]);
+
   const loadOrCreateUserProfile = async (user: User) => {
     try {
       const userRef = doc(db, 'users', user.uid);
       const userSnap = await getDoc(userRef);
 
+      const newSessionId = generateSessionToken();
+      sessionStorage.setItem('barista_active_session_id', newSessionId);
+      localStorage.setItem('barista_active_session_id', newSessionId);
+
       if (userSnap.exists()) {
         const data = userSnap.data() as UserProfile;
-        setUserProfile(data);
+        await setDoc(userRef, {
+          activeSessionId: newSessionId,
+          lastLoginAt: new Date().toISOString()
+        }, { merge: true });
+        setUserProfile({
+          ...data,
+          activeSessionId: newSessionId,
+          lastLoginAt: new Date().toISOString()
+        });
         setRole(data.role || 'viewer');
       } else {
         const uName = user.email ? user.email.split('@')[0] : 'admin';
@@ -165,6 +241,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           department: 'Pastry Kitchen & Central Logistics',
           permissions: DEFAULT_PERMISSIONS[assignedRole],
           mustResetPassword: false,
+          activeSessionId: newSessionId,
+          lastLoginAt: new Date().toISOString(),
           createdAt: new Date().toISOString()
         };
 
@@ -178,6 +256,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const isOwnerAdmin = user.email?.includes('admin') || false;
       const fallbackRole: UserRole = isOwnerAdmin ? 'admin' : 'editor';
       const uName = user.email ? user.email.split('@')[0] : 'admin';
+      const fallbackSessionId = generateSessionToken();
+      sessionStorage.setItem('barista_active_session_id', fallbackSessionId);
       const profile: UserProfile = {
         id: user.uid,
         uid: user.uid,
@@ -188,6 +268,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: fallbackRole,
         permissions: DEFAULT_PERMISSIONS[fallbackRole],
         mustResetPassword: false,
+        activeSessionId: fallbackSessionId,
         createdAt: new Date().toISOString()
       };
       setUserProfile(profile);
@@ -315,10 +396,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('barista_security_failed_attempts');
       localStorage.removeItem('barista_security_lockout_until');
 
-      setUserProfile(matchedUser);
-      setRole(matchedUser.role || 'viewer');
+      // Generate unique single active session token
+      const newSessionId = generateSessionToken();
+      sessionStorage.setItem('barista_active_session_id', newSessionId);
+      localStorage.setItem('barista_active_session_id', newSessionId);
+
+      const loginTimestamp = new Date().toISOString();
+
+      // Persist activeSessionId to Firestore users collection
+      try {
+        await setDoc(doc(db, 'users', matchedUser.id), {
+          activeSessionId: newSessionId,
+          lastLoginAt: loginTimestamp,
+          updatedAt: loginTimestamp
+        }, { merge: true });
+      } catch (sessErr) {
+        console.warn('Could not record activeSessionId in Firestore:', sessErr);
+      }
+
+      const userWithSession: UserProfile = {
+        ...matchedUser,
+        activeSessionId: newSessionId,
+        lastLoginAt: loginTimestamp
+      };
+
+      setUserProfile(userWithSession);
+      setRole(userWithSession.role || 'viewer');
       setIsSimulated(true);
-      localStorage.setItem('barista_simulated_user', JSON.stringify(matchedUser));
+      localStorage.setItem('barista_simulated_user', JSON.stringify(userWithSession));
       return { success: true };
     } finally {
       setLoading(false);
@@ -353,16 +458,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
+      if (userProfile?.id) {
+        try {
+          await updateDoc(doc(db, 'users', userProfile.id), {
+            activeSessionId: null,
+            updatedAt: new Date().toISOString()
+          });
+        } catch (e) {
+          // ignore write errors during sign out
+        }
+      }
       if (currentUser) {
         await fbSignOut(auth);
       }
     } catch (e) {
       console.warn(e);
     }
+    sessionStorage.removeItem('barista_active_session_id');
+    localStorage.removeItem('barista_active_session_id');
+    localStorage.removeItem('barista_simulated_user');
     setCurrentUser(null);
     setUserProfile(null);
     setIsSimulated(false);
-    localStorage.removeItem('barista_simulated_user');
   };
 
   const refreshProfile = async () => {
@@ -380,32 +497,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Administrator has unrestricted full access to all system modules and actions
     if (currentRole === 'admin') return true;
 
-    // Explicit Policy 1: For Editor role - Strictly hide Outlets, Products, Users & Access
-    if (currentRole === 'editor' && (module === 'outlets' || module === 'products' || module === 'users')) {
+    // Safety lock: Users management & credential controls are strictly restricted to Administrators
+    if (module === 'users') {
       return false;
     }
 
-    // Explicit Policy 2: For Driver role - Strictly hide Inventory, Dispatch Forms, Outlets, Products, Users & Access
-    if (currentRole === 'driver' && (module === 'inventory' || module === 'forms' || module === 'outlets' || module === 'products' || module === 'users')) {
-      return false;
-    }
-
-    // Explicit Policy 3: For Report Only (Viewer) role - Strictly hide Inventory, Dispatch Forms, Outlets, Products, Users & Access
-    if (currentRole === 'viewer' && (module === 'inventory' || module === 'forms' || module === 'outlets' || module === 'products' || module === 'users')) {
-      return false;
-    }
-
-    // Safety lock: Outlets, Products, and Users management actions are strictly restricted to Administrators
-    if ((module === 'outlets' || module === 'products' || module === 'users') && action === 'edit') {
-      return false;
-    }
-
-    // Granular permissions assigned to this user profile
+    // Granular permissions assigned to this user profile in real-time from Firestore
     if (userProfile.permissions && userProfile.permissions[module] !== undefined) {
-      return !!userProfile.permissions[module]?.[action];
+      const permObj = userProfile.permissions[module];
+      if (permObj && typeof permObj[action] === 'boolean') {
+        return permObj[action];
+      }
     }
 
-    // Role-based defaults
+    // Role-based defaults fallback
     const defaults = DEFAULT_PERMISSIONS[currentRole];
     if (defaults && defaults[module]) {
       return !!defaults[module][action];

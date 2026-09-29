@@ -21,6 +21,8 @@ export interface UserProfile {
   isFirstLogin?: boolean; // True on user's first login until they create their own password
   tempPasswordSetAt?: string;
   status?: 'active' | 'suspended'; // Account access status - suspended users cannot log in
+  activeSessionId?: string; // Unique single active session token (terminates older logins upon concurrent sign-in)
+  lastLoginAt?: string; // Timestamp of latest session establishment
   displayName: string;
   role: UserRole;
   permissions?: Partial<ModulePermissions>;

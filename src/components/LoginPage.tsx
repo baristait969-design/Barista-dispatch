@@ -52,8 +52,44 @@ export const LoginPage: React.FC = () => {
 
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, []);
+
+    const handleSuspended = () => {
+      setError('Your staff account has been suspended by an Administrator. Access is revoked.');
+      showAlert('Your staff account has been suspended by a Barista Administrator. Please contact your manager or QA Executive.', {
+        title: 'Account Suspended',
+        type: 'warning'
+      });
+    };
+
+    const handleDeleted = () => {
+      setError('Your staff account has been removed or deactivated.');
+      showAlert('Your staff account has been deactivated. Please contact your System Administrator.', {
+        title: 'Account Deactivated',
+        type: 'warning'
+      });
+    };
+
+    const handleSessionTerminated = (e: any) => {
+      const uName = e?.detail?.username ? `Staff account "${e.detail.username}"` : 'This account';
+      const msg = `${uName} has signed in from another window or device. Your previous session has been automatically terminated.`;
+      setError(msg);
+      showAlert(msg, {
+        title: 'Session Terminated (Concurrent Login)',
+        type: 'warning'
+      });
+    };
+
+    window.addEventListener('barista-account-suspended', handleSuspended);
+    window.addEventListener('barista-account-deleted', handleDeleted);
+    window.addEventListener('barista-session-terminated', handleSessionTerminated);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('barista-account-suspended', handleSuspended);
+      window.removeEventListener('barista-account-deleted', handleDeleted);
+      window.removeEventListener('barista-session-terminated', handleSessionTerminated);
+    };
+  }, [showAlert]);
 
   const triggerShake = () => {
     setIsShaking(true);

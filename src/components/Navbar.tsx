@@ -62,7 +62,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
           </span>
         </div>
         
-        <div className="flex items-center space-x-2 shrink-0">
+        <div className="flex items-center space-x-3 shrink-0">
+          <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[10px] text-emerald-400 font-mono font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="hidden sm:inline">Real-time Active</span>
+          </span>
           <span className="text-stone-400 text-[11px] hidden sm:inline">Enterprise QA Portal:</span>
           <span className="text-[10px] sm:text-[11px] font-bold uppercase text-[#ED5338] font-mono tracking-wider">
             Barista Sri Lanka

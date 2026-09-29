@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   FileText, 
@@ -25,7 +25,8 @@ import {
   Zap,
   Info,
   Lock,
-  X
+  X,
+  MapPin
 } from 'lucide-react';
 import { InventoryBatch, Outlet, Driver, DispatchLog, DispatchLineItem, Product, UserProfile } from '../types';
 import { INITIAL_PRODUCTS } from '../data/seedData';
@@ -106,9 +107,25 @@ export const FormsView: React.FC<FormsViewProps> = ({
     return list;
   }, [usersList, drivers]);
 
-  // Selected Outlets (Compulsory - starts empty so user must explicitly choose)
+  // Selected Outlets (Compulsory single outlet selection)
   const [selectedOutletIds, setSelectedOutletIds] = useState<string[]>([]);
   const [outletSearch, setOutletSearch] = useState('');
+  const [isOutletDropdownOpen, setIsOutletDropdownOpen] = useState(false);
+  const outletDropdownRef = useRef<HTMLDivElement>(null);
+  const outletInputRef = useRef<HTMLInputElement>(null);
+
+  // Close outlet search dropdown when clicked outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (outletDropdownRef.current && !outletDropdownRef.current.contains(event.target as Node)) {
+        setIsOutletDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const [date, setDate] = useState<string>(getTodayDate());
   const [dispatchTime, setDispatchTime] = useState<string>(getCurrentTime());
@@ -308,8 +325,8 @@ export const FormsView: React.FC<FormsViewProps> = ({
     }
   };
 
-  // Toggle Outlet in Multi-select (strictly blocks suspended outlets when creating dispatch)
-  const toggleOutlet = (outletId: string) => {
+  // Select Single Outlet (strictly blocks suspended outlets when creating dispatch)
+  const selectOutlet = (outletId: string) => {
     const targetOutlet = outlets.find(o => o.id === outletId);
     if (!editingLogId && targetOutlet && targetOutlet.active === false) {
       showAlert(`Outlet "${targetOutlet.name}" is currently suspended and cannot receive dispatches.`, {
@@ -318,23 +335,21 @@ export const FormsView: React.FC<FormsViewProps> = ({
       });
       return;
     }
-    if (selectedOutletIds.includes(outletId)) {
-      setSelectedOutletIds(selectedOutletIds.filter(id => id !== outletId));
-    } else {
-      setSelectedOutletIds([...selectedOutletIds, outletId]);
-    }
+    // Single outlet selection
+    setSelectedOutletIds([outletId]);
+    setIsOutletDropdownOpen(false);
+    setOutletSearch('');
   };
 
-  const selectAllOutlets = () => {
-    // Only select active operational outlets, strictly excluding suspended outlets
-    const activeOutlets = outlets.filter(o => o.active !== false);
-    setSelectedOutletIds(activeOutlets.map(o => o.id));
+  const toggleOutlet = (outletId: string) => {
+    selectOutlet(outletId);
   };
 
-  // Reset Outlet Selection completely clears selected outlets
+  // Clear Outlet Selection
   const clearOutletSelection = () => {
     setSelectedOutletIds([]);
     setOutletSearch('');
+    setIsOutletDropdownOpen(false);
   };
 
   // Unique list of all available active products (strictly excluding any suspended products)
@@ -674,18 +689,20 @@ export const FormsView: React.FC<FormsViewProps> = ({
     );
   });
 
-  // Dynamic sorting: selected outlets come up to the top, and when deselected return to their original sequential place
+  // Selected single outlet object
+  const selectedOutlet = useMemo(() => {
+    if (selectedOutletIds.length === 0) return null;
+    return outlets.find(o => o.id === selectedOutletIds[0]) || null;
+  }, [outlets, selectedOutletIds]);
+
+  // Dynamic sorting by sequential outlet code number
   const displayOutlets = useMemo(() => {
     return [...filteredOutlets].sort((a, b) => {
-      const aSelected = selectedOutletIds.includes(a.id);
-      const bSelected = selectedOutletIds.includes(b.id);
-      if (aSelected && !bSelected) return -1;
-      if (!aSelected && bSelected) return 1;
       const numA = parseInt(a.outletId?.replace(/\D/g, '') || '0', 10);
       const numB = parseInt(b.outletId?.replace(/\D/g, '') || '0', 10);
       return numA - numB;
     });
-  }, [filteredOutlets, selectedOutletIds]);
+  }, [filteredOutlets]);
 
   // Summary calculations
   const totalUnits = lineItems.reduce((acc, item) => acc + (item.quantity || 0), 0);
@@ -704,7 +721,7 @@ export const FormsView: React.FC<FormsViewProps> = ({
     }
 
     if (selectedOutletIds.length === 0) {
-      showAlert('Please select at least one delivery outlet first.', {
+      showAlert('Please search and select a delivery destination outlet first.', {
         title: 'Destination Outlet Compulsory',
         type: 'warning'
       });
@@ -1109,106 +1126,176 @@ export const FormsView: React.FC<FormsViewProps> = ({
             <div className="bg-stone-850/70 print:bg-white border border-stone-800 print:border-black rounded-xl p-4 sm:p-5 mb-6 space-y-4">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                 
-                {/* Outlets Selection (6 columns) - Compulsory Selection */}
+                {/* Outlets Selection (6 columns) - Compulsory Single Outlet Selection */}
                 <div className="lg:col-span-6 space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-white print:text-black flex items-center space-x-1.5">
                       <Building2 className="w-4 h-4 text-amber-400 print:text-black" />
-                      <span>Destination Outlets</span>
+                      <span>Destination Outlet</span>
                       <span className="text-red-400 font-extrabold text-xs">*</span>
-                      {selectedOutletIds.length > 0 ? (
-                        <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded border border-amber-500/30 font-bold">
-                          {selectedOutletIds.length} Selected
+                      {selectedOutlet ? (
+                        <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30 font-bold flex items-center space-x-1">
+                          <Check className="w-3 h-3 stroke-[3]" />
+                          <span>Selected</span>
                         </span>
                       ) : (
-                        <span className="text-[10px] bg-red-950/80 text-red-300 px-1.5 py-0.2 rounded border border-red-800 font-bold animate-pulse">
-                          Compulsory: Select Outlet
-                        </span>
-                      )}
-                      {outlets.some(o => o.active === false) && (
-                        <span className="text-[10px] text-stone-400 font-mono hidden sm:inline">
-                          ({outlets.filter(o => o.active === false).length} suspended excluded)
+                        <span className="text-[10px] bg-red-950/80 text-red-300 px-1.5 py-0.5 rounded border border-red-800 font-bold animate-pulse">
+                          Compulsory: Select 1 Outlet
                         </span>
                       )}
                     </label>
-                    <div className="flex items-center space-x-2 print:hidden text-[11px]">
-                      <button
-                        type="button"
-                        onClick={selectAllOutlets}
-                        className="text-amber-400 hover:text-amber-300 hover:underline cursor-pointer font-medium"
-                      >
-                        Select All
-                      </button>
-                      <span className="text-stone-600">•</span>
+                    {selectedOutlet && (
                       <button
                         type="button"
                         onClick={clearOutletSelection}
-                        className="text-stone-300 hover:text-amber-400 hover:underline cursor-pointer flex items-center space-x-1 font-medium"
-                        title="Clear all selected outlets"
+                        className="text-stone-400 hover:text-amber-400 text-[11px] hover:underline cursor-pointer flex items-center space-x-1 font-medium print:hidden"
+                        title="Clear selected outlet"
                       >
                         <RotateCcw className="w-3 h-3" />
-                        <span>Reset Selection</span>
+                        <span>Clear</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Selected Outlet Display Card */}
+                  {selectedOutlet && !isOutletDropdownOpen ? (
+                    <div className="p-3 bg-stone-900 print:bg-white border-2 border-amber-500/80 print:border-black rounded-xl flex items-center justify-between shadow-sm">
+                      <div className="flex items-center space-x-3 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0 print:border-black">
+                          <Building2 className="w-5 h-5 text-amber-400 print:text-black" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-mono text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30 shrink-0 print:border-black print:text-black">
+                              {selectedOutlet.outletId}
+                            </span>
+                            <span className="text-sm font-bold text-white print:text-black truncate">
+                              {selectedOutlet.name}
+                            </span>
+                          </div>
+                          {selectedOutlet.location && (
+                            <div className="text-[11px] text-stone-400 print:text-stone-700 truncate flex items-center space-x-1 mt-0.5">
+                              <MapPin className="w-3 h-3 text-stone-500 shrink-0 print:hidden" />
+                              <span>{selectedOutlet.location}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsOutletDropdownOpen(true);
+                          setTimeout(() => outletInputRef.current?.focus(), 50);
+                        }}
+                        className="ml-3 px-3 py-1.5 bg-stone-800 hover:bg-stone-750 text-amber-400 hover:text-amber-300 border border-stone-700 rounded-lg text-xs font-semibold cursor-pointer transition shrink-0 flex items-center space-x-1 print:hidden"
+                        title="Change destination outlet"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>Change</span>
                       </button>
                     </div>
-                  </div>
-
-                  {/* Outlets Search Filter */}
-                  <div className="relative print:hidden">
-                    <Search className="w-3.5 h-3.5 text-stone-500 absolute left-2.5 top-2.5" />
-                    <input
-                      type="text"
-                      value={outletSearch}
-                      onChange={(e) => setOutletSearch(e.target.value)}
-                      placeholder="Quick filter outlets..."
-                      className="w-full pl-8 pr-3 py-1.5 bg-stone-900 border border-stone-700 rounded-lg text-xs text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-
-                  {outlets.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-stone-400 bg-stone-900 border border-stone-800 rounded-xl space-y-1">
-                      <p className="text-amber-400 font-semibold">No outlets registered in system yet.</p>
-                      <p className="text-[11px] text-stone-400">
-                        Please go to the <strong>Retail Outlets</strong> tab to sync or add your branch list.
-                      </p>
-                    </div>
-                  ) : displayOutlets.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-stone-400 bg-stone-900 border border-stone-800 rounded-xl space-y-1">
-                      <p className="text-amber-400 font-semibold">No active operational outlets available.</p>
-                      <p className="text-[11px] text-stone-400">
-                        {outletSearch ? 'No active outlets match your search query.' : 'All registered outlets are currently suspended. Please reactivate in the Retail Outlets tab.'}
-                      </p>
-                    </div>
                   ) : (
-                    <div className={`flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2.5 bg-stone-900 print:bg-white border rounded-xl transition ${
-                      selectedOutletIds.length === 0 
-                        ? 'border-amber-500/70 ring-1 ring-amber-500/30' 
-                        : 'border-stone-700 print:border-black'
-                    }`}>
-                      {displayOutlets.map((outlet) => {
-                        const isSelected = selectedOutletIds.includes(outlet.id);
-                        return (
+                    /* Search and Suggestion Dropdown */
+                    <div className="relative print:hidden" ref={outletDropdownRef}>
+                      <div className="relative">
+                        <Search className="w-4 h-4 text-stone-400 absolute left-3 top-3 pointer-events-none" />
+                        <input
+                          type="text"
+                          ref={outletInputRef}
+                          value={outletSearch}
+                          onChange={(e) => {
+                            setOutletSearch(e.target.value);
+                            setIsOutletDropdownOpen(true);
+                          }}
+                          onFocus={() => setIsOutletDropdownOpen(true)}
+                          placeholder="Type outlet name, code (e.g. BIA, OUT-01), or location..."
+                          className="w-full pl-9 pr-9 py-2.5 bg-stone-900 border border-stone-700 focus:border-amber-500 rounded-xl text-xs text-stone-100 placeholder-stone-500 focus:outline-none focus:ring-1 focus:ring-amber-500/30 transition font-medium"
+                        />
+                        {outletSearch ? (
                           <button
-                            key={outlet.id}
                             type="button"
-                            onClick={() => toggleOutlet(outlet.id)}
-                            className={`px-2.5 py-1 rounded-lg text-xs transition cursor-pointer flex items-center space-x-1.5 border ${
-                              isSelected
-                                ? 'bg-amber-600 text-stone-950 border-amber-500 font-bold shadow-sm print:bg-gray-200 print:text-black'
-                                : 'bg-stone-800 text-stone-300 border-stone-700 hover:bg-stone-750 print:bg-white print:text-black'
-                            }`}
+                            onClick={() => {
+                              setOutletSearch('');
+                              outletInputRef.current?.focus();
+                            }}
+                            className="absolute right-3 top-2.5 text-stone-400 hover:text-stone-200 cursor-pointer p-0.5"
                           >
-                            <span className="font-mono text-[10px]">{outlet.outletId}:</span>
-                            <span>{outlet.name}</span>
-                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                            <X className="w-4 h-4" />
                           </button>
-                        );
-                      })}
+                        ) : null}
+                      </div>
+
+                      {/* Suggestions Dropdown */}
+                      {isOutletDropdownOpen && (
+                        <div className="absolute z-30 left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-stone-900 border border-stone-700 rounded-xl shadow-2xl shadow-black/80 py-1 divide-y divide-stone-800/80">
+                          <div className="px-3 py-1.5 text-[10px] font-semibold text-stone-400 uppercase tracking-wider bg-stone-950/90 flex justify-between items-center sticky top-0 backdrop-blur-sm z-10 border-b border-stone-800">
+                            <span>Suggested Outlets ({displayOutlets.length})</span>
+                            <span className="text-amber-400/90 font-mono lowercase">click to select</span>
+                          </div>
+
+                          {outlets.length === 0 ? (
+                            <div className="p-4 text-center text-xs text-stone-400">
+                              No outlets registered in system yet.
+                            </div>
+                          ) : displayOutlets.length === 0 ? (
+                            <div className="p-4 text-center text-xs text-stone-400">
+                              No active outlets match &quot;{outletSearch}&quot;.
+                            </div>
+                          ) : (
+                            displayOutlets.map((outlet) => {
+                              const isSelected = selectedOutletIds.includes(outlet.id);
+                              return (
+                                <button
+                                  key={outlet.id}
+                                  type="button"
+                                  onClick={() => selectOutlet(outlet.id)}
+                                  className={`w-full px-3 py-2 text-left transition flex items-center justify-between group cursor-pointer ${
+                                    isSelected 
+                                      ? 'bg-amber-500/20 text-white font-bold' 
+                                      : 'hover:bg-amber-600/10 text-stone-200 hover:text-white'
+                                  }`}
+                                >
+                                  <div className="flex items-center space-x-2.5 min-w-0">
+                                    <span className="font-mono text-[11px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 shrink-0">
+                                      {outlet.outletId}
+                                    </span>
+                                    <div className="min-w-0">
+                                      <div className="text-xs font-medium group-hover:text-amber-300 truncate">
+                                        {outlet.name}
+                                      </div>
+                                      {outlet.location && (
+                                        <div className="text-[10px] text-stone-400 truncate flex items-center space-x-1">
+                                          <MapPin className="w-2.5 h-2.5 text-stone-500 shrink-0" />
+                                          <span>{outlet.location}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center space-x-1 shrink-0 ml-2">
+                                    {isSelected ? (
+                                      <span className="text-[10px] font-bold text-amber-400 flex items-center space-x-1">
+                                        <Check className="w-3 h-3 stroke-[3]" />
+                                        <span>Selected</span>
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] text-stone-500 group-hover:text-amber-400">
+                                        Select →
+                                      </span>
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
-                  {selectedOutletIds.length === 0 && (
+
+                  {!selectedOutlet && (
                     <p className="text-[11px] text-amber-400 font-semibold flex items-center space-x-1 print:hidden">
                       <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
-                      <span>Please click on an outlet above to assign dispatch destination (Compulsory).</span>
+                      <span>Please search and select 1 destination outlet above (Compulsory).</span>
                     </p>
                   )}
                 </div>

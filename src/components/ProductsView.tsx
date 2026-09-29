@@ -31,13 +31,18 @@ import {
 } from '../services/dataService';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { useModal } from '../context/ModalDialogContext';
+import { 
+  PRODUCT_CATEGORIES, 
+  STANDARD_UNITS, 
+  renderUnitBadge 
+} from '../utils/productUtils';
 
 interface ProductsViewProps {
   products: Product[];
 }
 
 const DEFAULT_CATEGORIES = [
-  'Pastry Kitchen Items',
+  ...PRODUCT_CATEGORIES,
   'Bakery & Pastry',
   'Cakes & Desserts',
   'Savory Kitchen',
@@ -82,8 +87,8 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
   // Note: Product ID (productId) is strictly system-generated and read-only; not editable by user!
   const [newName, setNewName] = useState('');
   const [newDispatchTemp, setNewDispatchTemp] = useState<number>(3.5);
-  const [newCategory, setNewCategory] = useState('Pastry Kitchen Items');
-  const [newUnit] = useState('NoS');
+  const [newCategory, setNewCategory] = useState<string>('Hot Kitchen');
+  const [newUnit, setNewUnit] = useState<string>('Slices');
   const [newShelfLifeDays, setNewShelfLifeDays] = useState<number>(5);
   const [newActive, setNewActive] = useState(true);
 
@@ -171,8 +176,8 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
       await addProduct({
         name: trimmed,
         dispatchTemp: Number(newDispatchTemp),
-        category: newCategory.trim() || 'Pastry Kitchen Items',
-        unit: 'NoS',
+        category: newCategory.trim() || 'Hot Kitchen',
+        unit: newUnit || 'Slices',
         shelfLifeDays: Number(newShelfLifeDays) || 5,
         active: newActive
       });
@@ -180,7 +185,8 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
       // Reset form
       setNewName('');
       setNewDispatchTemp(3.5);
-      setNewCategory('Pastry Kitchen Items');
+      setNewCategory('Hot Kitchen');
+      setNewUnit('Slices');
       setNewShelfLifeDays(5);
       setNewActive(true);
       setShowAddModal(false);
@@ -198,7 +204,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
     }
   };
 
-  // Handle Update Product (Product ID and Standard Unit are immutable and cannot be changed)
+  // Handle Update Product (Product ID is immutable and cannot be changed)
   const handleUpdateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) {
@@ -230,8 +236,8 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
       await updateProduct(editingProduct.id, {
         name: trimmed,
         dispatchTemp: Number(editingProduct.dispatchTemp),
-        category: editingProduct.category,
-        unit: 'NoS',
+        category: editingProduct.category || 'Hot Kitchen',
+        unit: editingProduct.unit || 'Slices',
         shelfLifeDays: Number(editingProduct.shelfLifeDays) || 5,
         active: editingProduct.active
       });
@@ -281,9 +287,9 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
       return;
     }
     const confirmed = await showConfirm(
-      'This will synchronize the official Barista master product catalog to the database. Continue?',
+      'Sync master product catalog to database?',
       {
-        title: 'Sync Official Catalog',
+        title: 'Sync Catalog',
         confirmText: 'Sync Catalog',
         type: 'info'
       }
@@ -293,9 +299,9 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
     }
     setSyncing(true);
     try {
-      const count = await syncOfficialProducts(true);
-      showAlert(`Success! Successfully synchronized ${count} official Barista products to the catalog.`, {
-        title: 'Catalog Synchronized',
+      await syncOfficialProducts(true);
+      showAlert('All catalog products synced.', {
+        title: 'Success',
         type: 'success'
       });
     } catch (err: any) {
@@ -687,9 +693,15 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
                   </h3>
 
                   {/* Category Pill */}
-                  <div className="flex items-center space-x-1 text-[11px] text-stone-400 mb-3">
-                    <Tag className="w-3 h-3 text-stone-500 shrink-0" />
-                    <span className="truncate">{prod.category || 'Pastry Kitchen'}</span>
+                  <div className="flex items-center space-x-1.5 text-[11px] mb-3">
+                    <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-md font-semibold ${
+                      prod.category === 'Hot Kitchen'
+                        ? 'bg-orange-500/15 text-orange-300 border border-orange-500/30'
+                        : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                    }`}>
+                      <span>{prod.category === 'Hot Kitchen' ? '🔥' : '🥐'}</span>
+                      <span className="truncate">{prod.category || 'Hot Kitchen'}</span>
+                    </span>
                   </div>
 
                   {/* Temperature & Cold-Chain Badge */}
@@ -717,13 +729,13 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
 
                   {/* Unit & Shelf Life */}
                   <div className="grid grid-cols-2 gap-1.5 text-[10px] text-stone-400 font-mono mt-2">
-                    <div className="bg-stone-800/60 px-2 py-1 rounded border border-stone-800 flex items-center justify-between">
-                      <span>Unit:</span>
-                      <span className="text-stone-200 font-bold">{prod.unit || 'Slices'}</span>
+                    <div className="bg-stone-800/60 px-2 py-1.5 rounded border border-stone-800 flex items-center justify-between">
+                      <span className="text-stone-400">Unit:</span>
+                      {renderUnitBadge(prod.unit)}
                     </div>
-                    <div className="bg-stone-800/60 px-2 py-1 rounded border border-stone-800 flex items-center justify-between">
-                      <span>Shelf Life:</span>
-                      <span className="text-stone-200 font-bold">{prod.shelfLifeDays || 5}d</span>
+                    <div className="bg-stone-800/60 px-2 py-1.5 rounded border border-stone-800 flex items-center justify-between">
+                      <span className="text-stone-400">Shelf Life:</span>
+                      <span className="text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">{prod.shelfLifeDays || 5}d</span>
                     </div>
                   </div>
                 </div>
@@ -834,40 +846,54 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 mb-1">
-                    Category
+                    Category <span className="text-amber-400">*</span>
                   </label>
-                  <input
-                    type="text"
-                    list="add-category-options"
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
-                    placeholder="e.g. Pastry Kitchen Items"
-                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-xl text-xs text-white placeholder-stone-500 focus:outline-none focus:border-amber-500"
-                  />
-                  <datalist id="add-category-options">
-                    {DEFAULT_CATEGORIES.map(c => (
-                      <option key={c} value={c} />
-                    ))}
-                  </datalist>
+                  <div className="flex flex-col gap-1.5">
+                    {PRODUCT_CATEGORIES.map(cat => {
+                      const isSelected = newCategory === cat;
+                      const isHot = cat === 'Hot Kitchen';
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setNewCategory(cat)}
+                          className={`w-full px-3 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 border cursor-pointer ${
+                            isSelected
+                              ? isHot
+                                ? 'bg-orange-500/20 text-orange-300 border-orange-500 shadow-sm'
+                                : 'bg-amber-500/20 text-amber-300 border-amber-500 shadow-sm'
+                              : 'bg-stone-800 text-stone-400 border-stone-700 hover:text-stone-200 hover:border-stone-600'
+                          }`}
+                        >
+                          <span className="text-sm">{isHot ? '🔥' : '🥐'}</span>
+                          <span className="font-semibold">{cat}</span>
+                          {isSelected && (
+                            <span className="ml-auto text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">
+                              Selected
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
                     <span>Standard Unit</span>
-                    <span className="text-[10px] text-amber-400 font-medium flex items-center space-x-1">
-                      <Lock className="w-3 h-3" />
-                      <span>Standard Fixed</span>
-                    </span>
+                    <span className="text-[10px] text-stone-400 font-mono">Select Unit</span>
                   </label>
-                  <input
-                    type="text"
-                    readOnly
-                    disabled
-                    value="NoS"
-                    className="w-full px-3 py-2 bg-stone-900 border border-stone-800 rounded-xl text-xs font-mono font-bold text-amber-400 cursor-not-allowed select-none opacity-90 shadow-inner"
-                    title="Standard unit is set to NoS for all items across the kitchen and cannot be changed"
-                  />
-                  <p className="text-[10px] text-stone-500 mt-1">Universal standard unit: Numbers (NoS)</p>
+                  <select
+                    value={newUnit}
+                    onChange={(e) => setNewUnit(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-stone-800 border border-stone-700 rounded-xl text-xs font-semibold text-white focus:outline-none focus:border-amber-500 cursor-pointer"
+                  >
+                    {STANDARD_UNITS.map(u => (
+                      <option key={u.value} value={u.value}>
+                        {u.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -1015,39 +1041,54 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 mb-1">
-                    Category
+                    Category <span className="text-amber-400">*</span>
                   </label>
-                  <input
-                    type="text"
-                    list="edit-category-options"
-                    value={editingProduct.category || ''}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, category: e.target.value })}
-                    className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-xl text-xs text-white placeholder-stone-500 focus:outline-none focus:border-amber-500"
-                  />
-                  <datalist id="edit-category-options">
-                    {DEFAULT_CATEGORIES.map(c => (
-                      <option key={c} value={c} />
-                    ))}
-                  </datalist>
+                  <div className="flex flex-col gap-1.5">
+                    {PRODUCT_CATEGORIES.map(cat => {
+                      const isSelected = editingProduct.category === cat;
+                      const isHot = cat === 'Hot Kitchen';
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setEditingProduct({ ...editingProduct, category: cat })}
+                          className={`w-full px-3 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 border cursor-pointer ${
+                            isSelected
+                              ? isHot
+                                ? 'bg-orange-500/20 text-orange-300 border-orange-500 shadow-sm'
+                                : 'bg-amber-500/20 text-amber-300 border-amber-500 shadow-sm'
+                              : 'bg-stone-800 text-stone-400 border-stone-700 hover:text-stone-200 hover:border-stone-600'
+                          }`}
+                        >
+                          <span className="text-sm">{isHot ? '🔥' : '🥐'}</span>
+                          <span className="font-semibold">{cat}</span>
+                          {isSelected && (
+                            <span className="ml-auto text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">
+                              Selected
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
                     <span>Standard Unit</span>
-                    <span className="text-[10px] text-amber-400 font-medium flex items-center space-x-1">
-                      <Lock className="w-3 h-3" />
-                      <span>Standard Fixed</span>
-                    </span>
+                    <span className="text-[10px] text-stone-400 font-mono">Select Unit</span>
                   </label>
-                  <input
-                    type="text"
-                    readOnly
-                    disabled
-                    value="NoS"
-                    className="w-full px-3 py-2 bg-stone-900 border border-stone-800 rounded-xl text-xs font-mono font-bold text-amber-400 cursor-not-allowed select-none opacity-90 shadow-inner"
-                    title="Standard unit is set to NoS for all items across the kitchen and cannot be changed"
-                  />
-                  <p className="text-[10px] text-stone-500 mt-1">Universal standard unit: Numbers (NoS)</p>
+                  <select
+                    value={editingProduct.unit || 'NoS'}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, unit: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-stone-800 border border-stone-700 rounded-xl text-xs font-semibold text-white focus:outline-none focus:border-amber-500 cursor-pointer"
+                  >
+                    {STANDARD_UNITS.map(u => (
+                      <option key={u.value} value={u.value}>
+                        {u.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
