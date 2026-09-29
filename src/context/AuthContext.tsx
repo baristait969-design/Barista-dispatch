@@ -242,10 +242,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const deletedSnap = await getDoc(doc(db, 'deleted_users', cleanUser));
         if (deletedSnap.exists()) {
-          throw new Error(`This user account "${usernameInput}" has been removed and access is permanently revoked.`);
+          throw new Error('Invalid username or password.');
         }
       } catch (delErr: any) {
-        if (delErr.message?.includes('access is permanently revoked')) throw delErr;
+        if (delErr.message?.includes('Invalid username or password')) throw delErr;
       }
 
       // 2. Direct query against Firestore 'users' collection
@@ -277,17 +277,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (!matchedUser) {
-        throw new Error(`User account "${usernameInput}" was not found or has been removed. Please verify your username or contact the Administrator.`);
+        throw new Error('Invalid username or password.');
       }
 
-      // 3. Check account active status
+      // 4. Check account active status
       if (matchedUser.status === 'suspended') {
-        throw new Error('This user account has been suspended by an Administrator. Please contact IT.');
+        throw new Error('Invalid username or password.');
       }
 
-      // 4. Password verification
+      // 5. Password verification
       if (matchedUser.password && matchedUser.password !== cleanPass) {
-        throw new Error('Incorrect password. If you forgot your password, an Administrator can reset it for you.');
+        throw new Error('Invalid username or password.');
       }
 
       // Success: Clear failed attempts and lockouts

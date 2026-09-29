@@ -10,7 +10,6 @@ import {
   Eye,
   EyeOff,
   ShieldCheck,
-  ShieldAlert,
   Timer
 } from 'lucide-react';
 import { BaristaLogo } from './BaristaLogo';
@@ -106,8 +105,8 @@ export const LoginPage: React.FC = () => {
       setFailedAttempts(newAttempts);
       localStorage.setItem('barista_security_failed_attempts', newAttempts.toString());
 
-      const errorMessage = err?.message || 'Authentication failed. Please verify credentials.';
-      setError(errorMessage);
+      const commonErrorMessage = 'Invalid username or password. Please try again.';
+      setError(commonErrorMessage);
 
       if (newAttempts >= MAX_ATTEMPTS) {
         // Enforce 60-second lockout
@@ -116,21 +115,14 @@ export const LoginPage: React.FC = () => {
         setLockoutRemaining(60);
 
         await showAlert(
-          `AUTOMATED SECURITY LOCKOUT: 5 consecutive invalid sign-in attempts detected.\n\nTo prevent automated credential-stuffing and hacker brute-force activities, access to the portal has been temporarily locked for 60 seconds.\n\nIf you have forgotten your password, contact your QA System Administrator.`,
-          { title: '🛡️ Brute-Force Defense Triggered', type: 'security' }
-        );
-      } else if (newAttempts >= 3) {
-        // Warning modal dialog when 3 or 4 attempts used
-        const remaining = MAX_ATTEMPTS - newAttempts;
-        await showAlert(
-          `SECURITY WARNING: Incorrect username or password entered.\n\nYou have ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before automated security quarantine locks this terminal.\n\nAll unauthorized access attempts are monitored and recorded under Barista IT Policy.`,
-          { title: '⚠️ Multiple Failed Attempts Warning', type: 'warning' }
+          'Too many failed sign-in attempts. Please try again later.',
+          { title: 'Authentication Failed', type: 'error' }
         );
       } else {
-        // Standard security alert modal on 1st or 2nd invalid attempt
+        // Simple and common message for every failure
         await showAlert(
-          `Authentication failed: ${errorMessage}\n\nPlease verify your staff username and case-sensitive password. (Attempt ${newAttempts} of ${MAX_ATTEMPTS})`,
-          { title: 'Authentication Security Alert', type: 'security' }
+          commonErrorMessage,
+          { title: 'Authentication Failed', type: 'error' }
         );
       }
     } finally {
@@ -182,28 +174,15 @@ export const LoginPage: React.FC = () => {
           <div className="mb-5 p-4 bg-red-950/90 border border-red-700 rounded-2xl text-red-100 text-xs shadow-xl animate-pulse">
             <div className="flex items-center space-x-2 font-bold text-red-200 mb-1">
               <Timer className="w-4 h-4 text-red-400" />
-              <span>SECURITY QUARANTINE ENGAGED</span>
+              <span>Access Temporarily Locked</span>
             </div>
             <p className="text-[11px] text-red-300">
-              Sign-in is temporarily frozen to prevent automated password hacking attempts.
+              Too many failed sign-in attempts. Please wait before trying again.
             </p>
             <div className="mt-2.5 flex items-center justify-between bg-black/40 p-2 rounded-xl border border-red-900/60 font-mono text-xs">
               <span>Time Remaining:</span>
               <span className="text-red-400 font-extrabold text-sm">{lockoutRemaining} seconds</span>
             </div>
-          </div>
-        )}
-
-        {/* Failed Attempt Warning Counter */}
-        {failedAttempts > 0 && lockoutRemaining === 0 && (
-          <div className="mb-4 p-3 bg-amber-950/40 border border-amber-800/60 rounded-xl text-amber-200 text-xs flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>Failed Attempts: <strong>{failedAttempts} / {MAX_ATTEMPTS}</strong></span>
-            </div>
-            <span className="text-[10px] text-amber-300/80 font-mono">
-              {MAX_ATTEMPTS - failedAttempts} left
-            </span>
           </div>
         )}
 
