@@ -247,9 +247,9 @@ export function buildExecutiveReportDoc(
   });
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const startX = 20; // 20mm left margin for binder punching
+  const startX = 18; // 18mm left margin for binder punching
   const startY = 8;
-  const totalWidth = 267; // 297mm - 20mm (left) - 10mm (right) = 267mm balanced content width
+  const totalWidth = 267; // 297mm - 18mm (left) - 12mm (right) = 267mm balanced content width
 
   // Draw the official centered HACCP Header
   const nextY = drawHaccpHeaderToPdf(
@@ -285,51 +285,51 @@ export function buildExecutiveReportDoc(
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   doc.setTextColor(80, 80, 80);
-  doc.text('TOTAL DISPATCHES', startX + 4, kpiY + 5);
+  doc.text('TOTAL DISPATCHES', 20, kpiY + 5);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(20, 20, 20);
-  doc.text(String(stats.totalDispatches), startX + 4, kpiY + 11.5);
+  doc.text(String(stats.totalDispatches), 20, kpiY + 11.5);
 
   // KPI 2: Total Units
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   doc.setTextColor(80, 80, 80);
-  doc.text('TOTAL OUTPUT', startX + 50, kpiY + 5);
+  doc.text('TOTAL OUTPUT', 65, kpiY + 5);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(20, 20, 20);
-  doc.text(`${stats.totalUnitsDispatched} Units`, startX + 50, kpiY + 11.5);
+  doc.text(`${stats.totalUnitsDispatched} Units`, 65, kpiY + 11.5);
 
   // KPI 3: HACCP Rate
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   doc.setTextColor(80, 80, 80);
-  doc.text('COLD-CHAIN ADHERENCE', startX + 105, kpiY + 5);
+  doc.text('COLD-CHAIN ADHERENCE', 120, kpiY + 5);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(stats.haccpComplianceRate >= 95 ? 16 : 180, stats.haccpComplianceRate >= 95 ? 140 : 80, 50);
-  doc.text(`${stats.haccpComplianceRate}% (OPRP-2)`, startX + 105, kpiY + 11.5);
+  doc.text(`${stats.haccpComplianceRate}% (OPRP-2)`, 120, kpiY + 11.5);
 
   // KPI 4: Avg Temp
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   doc.setTextColor(80, 80, 80);
-  doc.text('AVG DISPATCH TEMP', startX + 170, kpiY + 5);
+  doc.text('AVG DISPATCH TEMP', 190, kpiY + 5);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(20, 20, 20);
-  doc.text(`${stats.averageTemp} °C`, startX + 170, kpiY + 11.5);
+  doc.text(`${stats.averageTemp} °C`, 190, kpiY + 11.5);
 
   // KPI 5: Outlets
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   doc.setTextColor(80, 80, 80);
-  doc.text('ACTIVE OUTLETS', startX + 225, kpiY + 5);
+  doc.text('ACTIVE OUTLETS', 245, kpiY + 5);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(20, 20, 20);
-  doc.text(String(stats.outletsCount), startX + 225, kpiY + 11.5);
+  doc.text(String(stats.outletsCount), 245, kpiY + 11.5);
 
   // Table Data
   const tableRows: any[] = [];
@@ -530,7 +530,7 @@ export function buildSingleDispatchDoc(log: Partial<DispatchLog> & {
 
   const startX = 20; // 20mm left margin for punch-hole and binder clearance
   const startY = 10;
-  const totalWidth = 180; // 210mm - 20mm (left) - 10mm (right) = 180mm balanced content width
+  const totalWidth = 178; // 210mm - 20mm (left) - 12mm (right) = 178mm balanced content width
 
   // Draw the official centered HACCP Header
   const nextY = drawHaccpHeaderToPdf(

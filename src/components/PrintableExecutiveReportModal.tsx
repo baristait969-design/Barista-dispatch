@@ -4,7 +4,7 @@ import { DispatchLog } from '../types';
 import { BaristaLogo } from './BaristaLogo';
 import { DocumentHaccpHeader } from './DocumentHaccpHeader';
 import { generateExecutiveReportPDF } from '../utils/pdfExport';
-import { printHtmlElement } from '../utils/printUtils';
+import { printHtmlElement, syncToPrintRoot, clearPrintRoot } from '../utils/printUtils';
 
 interface PrintableExecutiveReportModalProps {
   logs: DispatchLog[];
@@ -39,9 +39,20 @@ export const PrintableExecutiveReportModal: React.FC<PrintableExecutiveReportMod
     generateExecutiveReportPDF(logs, stats, generatedBy, filterPeriod);
   };
 
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      syncToPrintRoot('printable-executive-report-content');
+    }, 50);
+
+    return () => {
+      clearTimeout(timer);
+      clearPrintRoot();
+    };
+  }, [logs, stats, generatedBy, filterPeriod]);
+
   return (
-    <div className="printable-modal-overlay fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-2 sm:p-6 print:p-0 print:m-0 print:bg-white print:static print:inset-auto print:backdrop-blur-none">
-      <div className="printable-card-container relative w-full max-w-5xl bg-[#171311] border border-[#382B25] text-stone-100 rounded-2xl shadow-2xl p-4 sm:p-6 print:p-0 print:m-0 print:border-none print:shadow-none print:rounded-none print:w-full print:max-w-none print:bg-white">
+    <div className="printable-modal-overlay fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-2 sm:p-6 print:p-0 print:bg-white print:static print:inset-auto print:backdrop-blur-none">
+      <div className="printable-card-container relative w-full max-w-5xl bg-[#171311] border border-[#382B25] text-stone-100 rounded-2xl shadow-2xl p-4 sm:p-6 print:p-0 print:border-none print:shadow-none print:rounded-none print:w-full print:max-w-none print:bg-white">
         
         {/* Modal Action Bar */}
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#2C211C] print:hidden">
@@ -84,7 +95,7 @@ export const PrintableExecutiveReportModal: React.FC<PrintableExecutiveReportMod
         </div>
 
         {/* PRINTABLE CONTENT CONTAINER */}
-        <div id="printable-executive-report-content" className="print-content bg-white text-stone-900 rounded-xl p-5 sm:p-8 print:p-0 print:m-0 print:rounded-none shadow-md print:shadow-none w-full">
+        <div id="printable-executive-report-content" className="print-content bg-white text-stone-900 rounded-xl p-5 sm:p-8 print:p-2 shadow-md print:shadow-none">
           
           {/* Header Grid - Centered HACCP Standard Header */}
           <DocumentHaccpHeader
