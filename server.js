@@ -11,33 +11,23 @@ const PORT = parseInt(process.env.PORT || '8080', 10);
 
 app.use(express.json());
 
+// Immediate health check endpoints for Cloud Run & Google App Engine
+app.get(['/healthz', '/health', '/_ah/health', '/api/health'], (_req, res) => {
+  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
 const distPath = path.resolve(__dirname, 'dist');
 const indexPath = path.join(distPath, 'index.html');
 
 // Serve static assets from dist
-if (fs.existsSync(distPath)) {
-  app.use(express.static(distPath));
-}
-
-// Health check endpoints for Google Cloud Run
-app.get('/healthz', (_req, res) => {
-  res.status(200).send('OK');
-});
-
-app.get('/health', (_req, res) => {
-  res.status(200).send('OK');
-});
-
-app.get('/_ah/health', (_req, res) => {
-  res.status(200).send('OK');
-});
+app.use(express.static(distPath, { maxAge: '1h' }));
 
 // SPA fallback routing
 app.get('*', (_req, res) => {
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {
-    res.status(200).send(`<!DOCTYPE html><html><head><title>Barista Central Kitchen</title></head><body style="background:#0D0B0A;color:#F5F0EB;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;"><div>Loading Barista Central Kitchen...</div></body></html>`);
+    res.status(200).send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Barista Central Kitchen</title></head><body style="background:#0D0B0A;color:#F5F0EB;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;"><div>Loading Barista Central Kitchen...</div></body></html>`);
   }
 });
 
@@ -61,3 +51,4 @@ process.on('SIGINT', () => {
     process.exit(0);
   });
 });
+

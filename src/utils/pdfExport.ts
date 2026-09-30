@@ -612,14 +612,14 @@ export function buildSingleDispatchDoc(log: Partial<DispatchLog> & {
       textColor: [30, 30, 30]
     },
     columnStyles: {
-      0: { halign: 'center', cellWidth: 10 },
-      1: { fontStyle: 'bold', cellWidth: 46 },
-      2: { cellWidth: 26 },
-      3: { halign: 'center', cellWidth: 18 },
-      4: { halign: 'center', cellWidth: 20 },
-      5: { halign: 'center', cellWidth: 20 },
-      6: { halign: 'center', fontStyle: 'bold', cellWidth: 14 },
-      7: { halign: 'center', fontStyle: 'bold', cellWidth: 14 },
+      0: { halign: 'center', cellWidth: 8 },
+      1: { fontStyle: 'bold', cellWidth: 60 },
+      2: { cellWidth: 20 },
+      3: { halign: 'center', cellWidth: 15 },
+      4: { halign: 'center', cellWidth: 18 },
+      5: { halign: 'center', cellWidth: 19 },
+      6: { halign: 'center', fontStyle: 'bold', cellWidth: 12 },
+      7: { halign: 'center', fontStyle: 'bold', cellWidth: 12 },
       8: { halign: 'center', fontStyle: 'bold', cellWidth: 14 }
     },
     didParseCell: function(data) {

@@ -195,13 +195,13 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
                 <thead>
                   <tr className="bg-stone-100 text-stone-900 border-b-2 border-stone-900 font-bold uppercase text-[10px] tracking-wider">
                     <th className="p-2 border-r border-stone-400 w-8 text-center">#</th>
-                    <th className="p-2 border-r border-stone-400">Product Description</th>
-                    <th className="p-2 border-r border-stone-400 w-28">Batch No</th>
-                    <th className="p-2 border-r border-stone-400 w-20 text-center">Dispatch Time</th>
-                    <th className="p-2 border-r border-stone-400 w-24">Prod Date</th>
-                    <th className="p-2 border-r border-stone-400 w-24">Expiration Date</th>
-                    <th className="p-2 border-r border-stone-400 w-20 text-center">Qty (Units)</th>
-                    <th className="p-2 w-24 text-center">Dispatch Temp</th>
+                    <th className="p-2 border-r border-stone-400 w-[35%]">Product Description</th>
+                    <th className="p-2 border-r border-stone-400 w-[14%]">Batch No</th>
+                    <th className="p-2 border-r border-stone-400 w-[10%] text-center">Dispatch Time</th>
+                    <th className="p-2 border-r border-stone-400 w-[11%]">Prod Date</th>
+                    <th className="p-2 border-r border-stone-400 w-[11%]">Expiration Date</th>
+                    <th className="p-2 border-r border-stone-400 w-[9%] text-center">Qty (Units)</th>
+                    <th className="p-2 w-[10%] text-center">Dispatch Temp</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-300">
@@ -210,25 +210,25 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
                       <td className="p-2 border-r border-stone-300 text-center font-mono font-bold text-stone-500">
                         {index + 1}
                       </td>
-                      <td className="p-2 border-r border-stone-300 font-bold">
+                      <td className="p-2 border-r border-stone-300 font-bold text-stone-900 leading-tight">
                         {item.productName}
                       </td>
-                      <td className="p-2 border-r border-stone-300 font-mono font-semibold text-stone-800">
+                      <td className="p-2 border-r border-stone-300 font-mono font-semibold text-stone-800 whitespace-nowrap">
                         {item.batchNo || 'N/A'}
                       </td>
-                      <td className="p-2 border-r border-stone-300 text-center font-mono">
+                      <td className="p-2 border-r border-stone-300 text-center font-mono whitespace-nowrap">
                         {item.dispatchTime || dispatchLog.dispatchTime}
                       </td>
-                      <td className="p-2 border-r border-stone-300 font-mono text-stone-700">
+                      <td className="p-2 border-r border-stone-300 font-mono text-stone-700 whitespace-nowrap">
                         {item.prodDate || '-'}
                       </td>
-                      <td className="p-2 border-r border-stone-300 font-mono text-stone-700">
+                      <td className="p-2 border-r border-stone-300 font-mono text-stone-700 whitespace-nowrap">
                         {item.useByDate || '-'}
                       </td>
-                      <td className="p-2 border-r border-stone-300 text-center font-mono font-bold text-sm bg-stone-50/70">
+                      <td className="p-2 border-r border-stone-300 text-center font-mono font-bold text-sm bg-stone-50/70 whitespace-nowrap">
                         {item.quantity}
                       </td>
-                      <td className="p-2 text-center font-mono font-bold text-stone-900">
+                      <td className="p-2 text-center font-mono font-bold text-stone-900 whitespace-nowrap">
                         {item.dispatchTemp.toFixed(1)}°C
                       </td>
                     </tr>
