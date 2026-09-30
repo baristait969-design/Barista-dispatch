@@ -157,21 +157,15 @@ input[type="number"] {
   }
 
   /* Strip all dark backgrounds from all wrapper containers */
-  html, body, #root, #root > div, main, div, section, article {
+  html, body, #root, #root > div, main {
     background: transparent !important;
     background-color: transparent !important;
     color: #000000 !important;
     min-height: 0 !important;
-    border-color: #000000 !important;
-  }
-
-  /* When printing from modal or sheet, hide all background application views (nav, headers, background tables) */
-  body:has(.printable-modal-overlay) #root > div > *:not(.printable-modal-overlay),
-  body:has(#printable-dispatch-sheet-content) nav,
-  body:has(#printable-dispatch-sheet-content) footer,
-  body:has(#printable-executive-report-content) nav,
-  body:has(#printable-executive-report-content) footer {
-    display: none !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
   }
 
   /* Strip outer modal overlays completely so no dark backdrop prints */
@@ -211,6 +205,7 @@ input[type="number"] {
   #printable-dispatch-sheet-content,
   #printable-executive-report-content {
     display: block !important;
+    visibility: visible !important;
     position: static !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -224,6 +219,12 @@ input[type="number"] {
     box-shadow: none !important;
     box-sizing: border-box !important;
     overflow: visible !important;
+  }
+
+  .print-content *,
+  #printable-dispatch-sheet-content *,
+  #printable-executive-report-content * {
+    visibility: visible !important;
   }
 
   /* Explicitly suppress all elements marked with print:hidden */
