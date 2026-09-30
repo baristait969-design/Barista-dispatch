@@ -4,7 +4,7 @@ import { DispatchLog } from '../types';
 import { BaristaLogo } from './BaristaLogo';
 import { DocumentHaccpHeader } from './DocumentHaccpHeader';
 import { generateExecutiveReportPDF } from '../utils/pdfExport';
-import { printHtmlElement, syncToPrintRoot, clearPrintRoot } from '../utils/printUtils';
+import { printHtmlElement } from '../utils/printUtils';
 
 interface PrintableExecutiveReportModalProps {
   logs: DispatchLog[];
@@ -38,17 +38,6 @@ export const PrintableExecutiveReportModal: React.FC<PrintableExecutiveReportMod
   const handleDownloadPDF = () => {
     generateExecutiveReportPDF(logs, stats, generatedBy, filterPeriod);
   };
-
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      syncToPrintRoot('printable-executive-report-content');
-    }, 50);
-
-    return () => {
-      clearTimeout(timer);
-      clearPrintRoot();
-    };
-  }, [logs, stats, generatedBy, filterPeriod]);
 
   return (
     <div className="printable-modal-overlay fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-2 sm:p-6 print:p-0 print:m-0 print:bg-white print:static print:inset-auto print:backdrop-blur-none">

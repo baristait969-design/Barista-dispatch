@@ -1,42 +1,9 @@
 /**
  * Universal single-window print helper.
- * Clones the printable document element into #print-root so that @media print
- * completely suppresses #root and prints ONLY the targeted document on a single clean page.
+ * Formats the title and page orientation for clean, full-size A4 printing.
  */
-export function syncToPrintRoot(elementId: string) {
-  try {
-    const sourceEl = document.getElementById(elementId);
-    let printRoot = document.getElementById('print-root');
-    if (!printRoot) {
-      printRoot = document.createElement('div');
-      printRoot.id = 'print-root';
-      document.body.appendChild(printRoot);
-    }
-    if (sourceEl) {
-      printRoot.innerHTML = sourceEl.outerHTML;
-    }
-  } catch (err) {
-    console.error('Error syncing to print root:', err);
-  }
-}
-
-export function clearPrintRoot() {
-  try {
-    const printRoot = document.getElementById('print-root');
-    if (printRoot) {
-      printRoot.innerHTML = '';
-    }
-  } catch (err) {
-    console.error('Error clearing print root:', err);
-  }
-}
-
 export function printHtmlElement(elementId?: string, title?: string) {
   try {
-    if (elementId) {
-      syncToPrintRoot(elementId);
-    }
-
     const isLandscape = elementId === 'printable-executive-report-content';
     if (isLandscape) {
       document.body.classList.add('printing-landscape');

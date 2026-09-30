@@ -125,12 +125,6 @@ input[type="number"] {
   appearance: textfield !important;
 }
 
-@media screen {
-  #print-root {
-    display: none !important;
-  }
-}
-
 @media print {
   @page {
     size: A4 portrait;
@@ -144,63 +138,79 @@ input[type="number"] {
     }
   }
 
+  /* Force light color-scheme during print */
+  :root, html, body {
+    color-scheme: light !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
   /* Universal reset: Force pure white paper background and remove all drop shadows, dark backdrops */
   *, *::before, *::after {
     box-shadow: none !important;
     text-shadow: none !important;
+    filter: none !important;
+    -webkit-filter: none !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  html, body {
-    background-color: #ffffff !important;
-    background: #ffffff !important;
+  /* Strip all dark backgrounds from all wrapper containers */
+  html, body, #root, #root > div, main, div, section, article {
+    background: transparent !important;
+    background-color: transparent !important;
     color: #000000 !important;
-    width: 100% !important;
-    height: auto !important;
     min-height: 0 !important;
-    overflow: visible !important;
-    position: static !important;
-    margin: 0 !important;
-    padding: 0 !important;
+    border-color: #000000 !important;
   }
 
-  /* ----------------------------------------------------
-     STRICT PRINT ISOLATION & FULL A4 PAPER ADAPTATION:
-     Suppress interactive screen tree if #print-root has content.
-     ---------------------------------------------------- */
-  body:has(#print-root:not(:empty)) #root {
+  /* When printing from modal or sheet, hide all background application views (nav, headers, background tables) */
+  body:has(.printable-modal-overlay) #root > div > *:not(.printable-modal-overlay),
+  body:has(#printable-dispatch-sheet-content) nav,
+  body:has(#printable-dispatch-sheet-content) footer,
+  body:has(#printable-executive-report-content) nav,
+  body:has(#printable-executive-report-content) footer {
     display: none !important;
   }
 
-  /* Reset all outer modal overlays and dark card wrappers */
-  #root,
-  #print-root,
+  /* Strip outer modal overlays completely so no dark backdrop prints */
   .printable-modal-overlay,
-  .printable-card-container,
-  main {
-    display: block !important;
+  .fixed.inset-0 {
     position: static !important;
+    inset: auto !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
-    height: auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background: #ffffff !important;
-    background-color: #ffffff !important;
-    color: #000000 !important;
-    box-shadow: none !important;
-    border: none !important;
-    border-radius: 0 !important;
     overflow: visible !important;
-    box-sizing: border-box !important;
-    inset: auto !important;
+    display: block !important;
+  }
+
+  /* Strip dark card wrappers completely so no dark rounded box prints */
+  .printable-card-container {
+    position: static !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
   }
 
   /* Document body: Spans 100% full A4 width without inner card shrinkage */
   .print-content,
   #printable-dispatch-sheet-content,
   #printable-executive-report-content {
+    display: block !important;
     position: static !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -209,25 +219,24 @@ input[type="number"] {
     background: #ffffff !important;
     background-color: #ffffff !important;
     color: #000000 !important;
-    box-shadow: none !important;
     border: none !important;
     border-radius: 0 !important;
+    box-shadow: none !important;
     box-sizing: border-box !important;
     overflow: visible !important;
   }
 
   /* Explicitly suppress all elements marked with print:hidden */
   .print\:hidden,
-  #print-root .print\:hidden,
   button:not(.print\:block),
   nav,
-  footer {
+  footer,
+  aside {
     display: none !important;
     visibility: hidden !important;
   }
 
-  .print\:block,
-  #print-root .print\:block {
+  .print\:block {
     display: block !important;
   }
 

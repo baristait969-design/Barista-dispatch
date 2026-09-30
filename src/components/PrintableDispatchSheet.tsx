@@ -4,7 +4,7 @@ import { DispatchLog, DispatchLineItem } from '../types';
 import { BaristaLogo } from './BaristaLogo';
 import { DocumentHaccpHeader } from './DocumentHaccpHeader';
 import { generateSingleDispatchPDF } from '../utils/pdfExport';
-import { printHtmlElement, syncToPrintRoot, clearPrintRoot } from '../utils/printUtils';
+import { printHtmlElement } from '../utils/printUtils';
 
 interface PrintableDispatchSheetProps {
   dispatchLog: Partial<DispatchLog> & {
@@ -50,21 +50,15 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
   };
 
   React.useEffect(() => {
-    const syncTimer = setTimeout(() => {
-      syncToPrintRoot('printable-dispatch-sheet-content');
-    }, 50);
-
     let printTimer: any;
     if (autoPrint) {
       printTimer = setTimeout(() => {
         handlePrint();
-      }, 400);
+      }, 300);
     }
 
     return () => {
-      clearTimeout(syncTimer);
       if (printTimer) clearTimeout(printTimer);
-      clearPrintRoot();
     };
   }, [dispatchLog, autoPrint]);
 
