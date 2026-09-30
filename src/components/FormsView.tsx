@@ -1623,15 +1623,6 @@ export const FormsView: React.FC<FormsViewProps> = ({
                     <Clock className="w-3 h-3 text-amber-400" />
                     <span>Auto-fill All Times</span>
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={addCustomRow}
-                    className="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-stone-950 rounded-lg text-[11px] font-bold transition flex items-center space-x-1 cursor-pointer shadow-sm"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Product Row</span>
-                  </button>
                 </div>
               </div>
 
@@ -1653,7 +1644,7 @@ export const FormsView: React.FC<FormsViewProps> = ({
                       <th className="py-2.5 px-3 min-w-[130px] w-32">Prod. Date</th>
                       <th className="py-2.5 px-3 min-w-[130px] w-32">Expiration Date</th>
                       <th className="py-2.5 px-3 min-w-[130px] w-32">Dispatch Temp °C</th>
-                      <th className="py-2.5 px-3 min-w-[70px] text-right print:hidden">Actions</th>
+                      <th className="py-2.5 px-3 w-12 text-right print:hidden"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-800 print:divide-black">
@@ -1698,15 +1689,8 @@ export const FormsView: React.FC<FormsViewProps> = ({
                           <td className="py-2 px-3 font-semibold text-white print:text-black min-w-[260px]">
                             {item.productName ? (
                               <div className="py-1">
-                                <div className="flex items-center space-x-2">
-                                  <div className="font-bold text-white print:text-black text-xs tracking-wide">
-                                    {item.productName}
-                                  </div>
-                                  {isExtraBatch && (
-                                    <span className="text-[9px] font-semibold text-amber-400 bg-amber-950/80 border border-amber-800/80 px-1.5 py-0.5 rounded font-mono print:hidden">
-                                      Batch #{batchIndex + 1}
-                                    </span>
-                                  )}
+                                <div className="font-bold text-white print:text-black text-xs tracking-wide">
+                                  {item.productName}
                                 </div>
 
                                 <div className="flex flex-wrap items-center gap-1.5 mt-1 print:hidden">
@@ -1717,11 +1701,19 @@ export const FormsView: React.FC<FormsViewProps> = ({
                                   }`}>
                                     In Stock: {item.availableStock ?? 0}
                                   </span>
+
+                                  {rowsForThisProduct.length > 1 && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-950/80 text-amber-400 border border-amber-800/80">
+                                      Batch #{batchIndex + 1}
+                                    </span>
+                                  )}
+
                                   {isQtyExceeded && (
                                     <span className="text-[10px] text-red-400 font-bold animate-pulse">
                                       Exceeds stock!
                                     </span>
                                   )}
+
                                   {canAddMoreBatches && nextUnassignedBatch && (
                                     <button
                                       type="button"
@@ -1734,11 +1726,6 @@ export const FormsView: React.FC<FormsViewProps> = ({
                                         {nextUnassignedBatch.batchNo} ({nextUnassignedBatch.quantity})
                                       </span>
                                     </button>
-                                  )}
-                                  {isPrimaryRow && availableBatches.length > 1 && !canAddMoreBatches && (
-                                    <span className="text-[10px] text-stone-400 bg-stone-850 border border-stone-700/60 px-2 py-0.5 rounded font-mono">
-                                      All {availableBatches.length} Batches Added ✓
-                                    </span>
                                   )}
                                 </div>
                               </div>
@@ -1938,37 +1925,25 @@ export const FormsView: React.FC<FormsViewProps> = ({
                             </div>
                           </td>
 
-                          {/* Actions column */}
-                          <td className="py-2 px-3 text-right print:hidden min-w-[70px]">
-                            <div className="inline-flex items-center justify-end space-x-1.5">
-                              {canAddMoreBatches && nextUnassignedBatch && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleAddNextBatchForProduct(item.id)}
-                                  className="text-amber-400 hover:text-amber-300 p-1 bg-amber-950/60 hover:bg-amber-900/80 rounded-md border border-amber-800/80 cursor-pointer transition"
-                                  title={`Add next FIFO batch (${nextUnassignedBatch.batchNo})`}
-                                >
-                                  <Plus className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                              {(item.isCustom || isExtraBatch || !item.productName) ? (
-                                <button
-                                  type="button"
-                                  onClick={() => removeRow(item.id)}
-                                  className="text-stone-500 hover:text-red-400 p-1 cursor-pointer transition"
-                                  title={isExtraBatch ? "Remove this extra batch row" : "Remove product row"}
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              ) : (
-                                <span
-                                  className="inline-flex p-1 text-stone-600 cursor-not-allowed select-none"
-                                  title="Core product row is protected"
-                                >
-                                  <Lock className="w-3.5 h-3.5" />
-                                </span>
-                              )}
-                            </div>
+                          {/* Row Action / Protection Column */}
+                          <td className="py-2 px-3 text-right print:hidden w-12">
+                            {(item.isCustom || isExtraBatch || !item.productName) ? (
+                              <button
+                                type="button"
+                                onClick={() => removeRow(item.id)}
+                                className="text-stone-500 hover:text-red-400 p-1 cursor-pointer transition"
+                                title={isExtraBatch ? "Remove this extra batch row" : "Remove product row"}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            ) : (
+                              <span
+                                className="inline-flex p-1 text-stone-600 cursor-not-allowed select-none"
+                                title="Core product row is protected"
+                              >
+                                <Lock className="w-3.5 h-3.5" />
+                              </span>
+                            )}
                           </td>
                         </tr>
                       );
