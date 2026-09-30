@@ -613,8 +613,8 @@ export function buildSingleDispatchDoc(log: Partial<DispatchLog> & {
     },
     columnStyles: {
       0: { halign: 'center', cellWidth: 10 },
-      1: { fontStyle: 'bold', cellWidth: 46 },
-      2: { cellWidth: 26 },
+      1: { fontStyle: 'bold', cellWidth: 56 },
+      2: { cellWidth: 16 },
       3: { halign: 'center', cellWidth: 18 },
       4: { halign: 'center', cellWidth: 20 },
       5: { halign: 'center', cellWidth: 20 },

@@ -1630,8 +1630,8 @@ export const FormsView: React.FC<FormsViewProps> = ({
                 <table className="w-full text-left text-xs">
                   <thead className="bg-stone-850 print:bg-gray-100 text-stone-300 print:text-black font-bold uppercase tracking-wider border-b border-stone-700 print:border-black select-none text-[11px]">
                     <tr>
-                      <th className="py-2 px-3 w-[26%]">Product Name</th>
-                      <th className="py-2 px-2.5 w-[14%]">
+                      <th className="py-2 px-3 w-[33%]">Product Name</th>
+                      <th className="py-2 px-2 w-[12%]">
                         <div className="flex items-center justify-between">
                           <span>Dispatch Time</span>
                           <span className="text-[9px] font-normal text-amber-400 lowercase print:hidden">
@@ -1639,11 +1639,11 @@ export const FormsView: React.FC<FormsViewProps> = ({
                           </span>
                         </div>
                       </th>
-                      <th className="py-2 px-2.5 w-[19%]">Batch No</th>
-                      <th className="py-2 px-2 w-[11%] text-center">Qty</th>
-                      <th className="py-2 px-2 w-[10%] text-center">Prod. Date</th>
-                      <th className="py-2 px-2 w-[10%] text-center">Exp. Date</th>
-                      <th className="py-2 px-2 w-[8%] text-center">Temp °C</th>
+                      <th className="py-2 px-2 w-[14%]">Batch No</th>
+                      <th className="py-2 px-2 w-[10%] text-center">Qty</th>
+                      <th className="py-2 px-2 w-[11%] text-center">Prod. Date</th>
+                      <th className="py-2 px-2 w-[11%] text-center">Exp. Date</th>
+                      <th className="py-2 px-2 w-[9%] text-center">Temp °C</th>
                       <th className="py-2 px-1.5 w-7 text-right print:hidden"></th>
                     </tr>
                   </thead>

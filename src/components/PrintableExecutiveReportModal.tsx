@@ -193,9 +193,9 @@ export const PrintableExecutiveReportModal: React.FC<PrintableExecutiveReportMod
                         <td className="p-2 border-r border-stone-300 text-[11px]">
                           <div className="space-y-0.5">
                             {log.items.filter(i => (i.quantity || 0) > 0).slice(0, 3).map((item, idx) => (
-                              <div key={idx} className="flex items-center justify-between text-[10px]">
-                                <span className="truncate max-w-[180px] font-medium">{item.productName}</span>
-                                <span className="font-mono text-stone-600 ml-1">({item.batchNo} • {item.quantity}u)</span>
+                              <div key={idx} className="flex items-center justify-between text-[10px] gap-2">
+                                <span className="truncate flex-1 font-medium">{item.productName}</span>
+                                <span className="font-mono text-stone-600 whitespace-nowrap">({item.batchNo} • {item.quantity}u)</span>
                               </div>
                             ))}
                             {log.items.filter(i => (i.quantity || 0) > 0).length > 3 && (
