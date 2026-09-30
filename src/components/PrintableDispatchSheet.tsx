@@ -69,8 +69,8 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
   }, [dispatchLog, autoPrint]);
 
   return (
-    <div className="printable-modal-overlay fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-2 sm:p-6 print:p-0 print:bg-white print:static print:inset-auto print:backdrop-blur-none">
-      <div className="printable-card-container relative w-full max-w-4xl bg-[#171311] border border-[#382B25] text-stone-100 rounded-2xl shadow-2xl p-4 sm:p-6 print:p-0 print:border-none print:shadow-none print:rounded-none print:w-full print:max-w-none print:bg-white">
+    <div className="printable-modal-overlay fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-2 sm:p-6 print:p-0 print:m-0 print:bg-white print:static print:inset-auto print:backdrop-blur-none">
+      <div className="printable-card-container relative w-full max-w-4xl bg-[#171311] border border-[#382B25] text-stone-100 rounded-2xl shadow-2xl p-4 sm:p-6 print:p-0 print:m-0 print:border-none print:shadow-none print:rounded-none print:w-full print:max-w-none print:bg-white">
         
         {/* Screen Action Bar (Hidden in Print) */}
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#2C211C] print:hidden">
@@ -113,7 +113,7 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
         </div>
 
         {/* PRINTABLE OFFICIAL HACCP DOCUMENT */}
-        <div id="printable-dispatch-sheet-content" className="print-content bg-white text-stone-900 rounded-xl p-5 sm:p-8 print:p-2 shadow-md print:shadow-none">
+        <div id="printable-dispatch-sheet-content" className="print-content bg-white text-stone-900 rounded-xl p-5 sm:p-8 print:p-0 print:m-0 print:rounded-none shadow-md print:shadow-none w-full">
           
           {/* Header Grid - Centered HACCP Standard Header */}
           <DocumentHaccpHeader

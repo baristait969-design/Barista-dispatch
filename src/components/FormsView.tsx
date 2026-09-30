@@ -1287,7 +1287,7 @@ export const FormsView: React.FC<FormsViewProps> = ({
           )}
 
           {/* PRINTABLE OFFICIAL HACCP DOCUMENT WRAPPER */}
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4 sm:p-6 shadow-xl print:bg-white print:text-black print:p-2 print:border-none print:shadow-none">
+          <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4 sm:p-6 shadow-xl print:bg-white print:text-black print:p-0 print:m-0 print:border-none print:shadow-none print:rounded-none w-full">
             {/* Header Document Table - Centered HACCP Standard Header */}
             <DocumentHaccpHeader
               title="Central Kitchen Dispatch Log"
