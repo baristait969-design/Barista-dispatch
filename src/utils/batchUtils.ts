@@ -136,15 +136,33 @@ export function getNextBatchNumberForProduct(
 }
 
 /**
+ * Checks if a batch's expiration date has passed (strictly expired).
+ */
+export function isBatchExpired(useByDate?: string): boolean {
+  if (!useByDate) return false;
+  const todayStr = new Date().toISOString().split('T')[0];
+  return useByDate < todayStr;
+}
+
+/**
  * Returns available batches for a product sorted in strict FIFO order (First-In, First-Out: earliest production date / oldest batch first)
- * and strictly filters out batches with zero or finished stock (quantity <= 0).
+ * and strictly filters out:
+ * 1. Batches with zero or finished stock (quantity <= 0)
+ * 2. Batches that have expired (useByDate < today)
  */
 export function getAvailableFIFOBatches(productName: string, batches: InventoryBatch[]): InventoryBatch[] {
   if (!productName || !productName.trim()) return [];
   const trimmed = productName.trim().toLowerCase();
+  const todayStr = new Date().toISOString().split('T')[0];
 
   return batches
-    .filter(b => b.productName && b.productName.trim().toLowerCase() === trimmed && (b.quantity || 0) > 0)
+    .filter(b => {
+      if (!b.productName || b.productName.trim().toLowerCase() !== trimmed) return false;
+      if ((b.quantity || 0) <= 0) return false;
+      // Strictly exclude expired batches from dispatch selection
+      if (b.useByDate && b.useByDate < todayStr) return false;
+      return true;
+    })
     .sort((a, b) => {
       // 1. Sort by production date ascending (earliest first)
       const dateA = a.prodDate ? new Date(a.prodDate).getTime() : 0;

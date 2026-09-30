@@ -2,7 +2,6 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import { execSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,18 +14,10 @@ app.use(express.json());
 const distPath = path.resolve(__dirname, 'dist');
 const indexPath = path.join(distPath, 'index.html');
 
-// Ensure dist/ exists on startup if build was skipped by deployment platform
-if (!fs.existsSync(indexPath)) {
-  console.log('Production build dist/ not found. Running vite build on startup...');
-  try {
-    execSync('npx vite build', { stdio: 'inherit' });
-  } catch (err) {
-    console.error('Failed to run vite build:', err);
-  }
-}
-
 // Serve static assets from dist
-app.use(express.static(distPath));
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+}
 
 // Health check endpoints for Google Cloud Run
 app.get('/healthz', (_req, res) => {
@@ -41,17 +32,17 @@ app.get('/_ah/health', (_req, res) => {
   res.status(200).send('OK');
 });
 
-// SPA fallback routing - always returns 200 with HTML so health probes succeed
+// SPA fallback routing
 app.get('*', (_req, res) => {
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {
-    res.status(200).send(`<!DOCTYPE html><html><head><meta http-equiv="refresh" content="2"><title>Barista Central Kitchen</title></head><body style="background:#0D0B0A;color:#F5F0EB;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;"><div>Loading Barista Central Kitchen...</div></body></html>`);
+    res.status(200).send(`<!DOCTYPE html><html><head><title>Barista Central Kitchen</title></head><body style="background:#0D0B0A;color:#F5F0EB;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;"><div>Loading Barista Central Kitchen...</div></body></html>`);
   }
 });
 
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Barista Central Kitchen server listening on port ${PORT}`);
+  console.log(`Barista Central Kitchen server listening on 0.0.0.0:${PORT}`);
 });
 
 // Graceful shutdown handlers for Cloud Run

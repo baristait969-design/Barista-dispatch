@@ -598,7 +598,7 @@ export function buildSingleDispatchDoc(log: Partial<DispatchLog> & {
 
   autoTable(doc, {
     startY: logBoxY + logBoxH + 4,
-    head: [['#', 'Product Description', 'Batch No', 'Time', 'Prod Date', 'Use-By Date', 'Qty', 'Temp', 'HACCP Check']],
+    head: [['#', 'Product Description', 'Batch No', 'Time', 'Prod Date', 'Expiration Date', 'Qty', 'Temp', 'HACCP Check']],
     body: tableRows,
     theme: 'grid',
     headStyles: {

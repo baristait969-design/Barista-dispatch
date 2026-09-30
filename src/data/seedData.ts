@@ -29,6 +29,11 @@ export const INITIAL_PRODUCT_CATALOG: Product[] = INITIAL_PRODUCTS.map((p, idx) 
 }));
 
 const getTodayDateStr = () => new Date().toISOString().split('T')[0];
+const getFutureDateStr = (days: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+};
 
 export const INITIAL_BATCHES: InventoryBatch[] = [
   {
@@ -39,7 +44,7 @@ export const INITIAL_BATCHES: InventoryBatch[] = [
     initialQuantity: 120,
     quantity: 94,
     prodDate: getTodayDateStr(),
-    useByDate: getTodayDateStr(),
+    useByDate: getFutureDateStr(5),
     dispatchTemp: 3.5,
     unit: 'NoS',
     createdAt: new Date().toISOString()
@@ -52,7 +57,7 @@ export const INITIAL_BATCHES: InventoryBatch[] = [
     initialQuantity: 80,
     quantity: 65,
     prodDate: getTodayDateStr(),
-    useByDate: getTodayDateStr(),
+    useByDate: getFutureDateStr(5),
     dispatchTemp: 3.8,
     unit: 'NoS',
     createdAt: new Date().toISOString()
@@ -65,7 +70,7 @@ export const INITIAL_BATCHES: InventoryBatch[] = [
     initialQuantity: 30,
     quantity: 18,
     prodDate: getTodayDateStr(),
-    useByDate: getTodayDateStr(),
+    useByDate: getFutureDateStr(6),
     dispatchTemp: 4.0,
     unit: 'NoS',
     createdAt: new Date().toISOString()
@@ -78,7 +83,7 @@ export const INITIAL_BATCHES: InventoryBatch[] = [
     initialQuantity: 25,
     quantity: 20,
     prodDate: getTodayDateStr(),
-    useByDate: getTodayDateStr(),
+    useByDate: getFutureDateStr(6),
     dispatchTemp: 3.6,
     unit: 'NoS',
     createdAt: new Date().toISOString()
@@ -91,7 +96,7 @@ export const INITIAL_BATCHES: InventoryBatch[] = [
     initialQuantity: 40,
     quantity: 32,
     prodDate: getTodayDateStr(),
-    useByDate: getTodayDateStr(),
+    useByDate: getFutureDateStr(6),
     dispatchTemp: 4.1,
     unit: 'NoS',
     createdAt: new Date().toISOString()
@@ -104,7 +109,7 @@ export const INITIAL_BATCHES: InventoryBatch[] = [
     initialQuantity: 60,
     quantity: 50,
     prodDate: getTodayDateStr(),
-    useByDate: getTodayDateStr(),
+    useByDate: getFutureDateStr(5),
     dispatchTemp: 3.5,
     unit: 'NoS',
     createdAt: new Date().toISOString()

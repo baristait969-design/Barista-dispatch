@@ -34,7 +34,8 @@ import { createDispatchLogWithDeduction, updateDispatchLog } from '../services/d
 import { PrintableDispatchSheet } from './PrintableDispatchSheet';
 import { BaristaLogo } from './BaristaLogo';
 import { DocumentHaccpHeader } from './DocumentHaccpHeader';
-import { getAvailableFIFOBatches } from '../utils/batchUtils';
+import { getAvailableFIFOBatches, isBatchExpired } from '../utils/batchUtils';
+import { calculateFutureDate } from '../utils/productUtils';
 import { useModal } from '../context/ModalDialogContext';
 
 interface FormsViewProps {
@@ -147,35 +148,63 @@ export const FormsView: React.FC<FormsViewProps> = ({
     }
   }, [allDriversList, selectedDriverName]);
 
-  // Line Items state - default prodDate and useByDate to TODAY, auto-select oldest available batch with stock > 0
+  // Line Items state - populate only products that currently have available unexpired stock > 0
   const [lineItems, setLineItems] = useState<DispatchLineItem[]>(() => {
     const today = getTodayDate();
     const usedBatches = new Set<string>();
     const catalog = (products && products.length > 0 ? products : INITIAL_PRODUCTS)
       .filter(p => p.active !== false); // Exclude suspended products
 
-    return catalog.slice(0, 5).map((prod, idx) => {
-      const availableBatches = getAvailableFIFOBatches(prod.name, batches).filter(
-        b => !usedBatches.has(b.batchNo)
-      );
-      const oldestBatchWithStock = availableBatches.length > 0 ? availableBatches[0] : null;
-      if (oldestBatchWithStock) usedBatches.add(oldestBatchWithStock.batchNo);
-      const defTemp = 'dispatchTemp' in prod ? prod.dispatchTemp : (prod as any).defaultTemp;
-
-      return {
-        id: `row-${idx}-${Date.now()}`,
-        productName: prod.name,
-        batchNo: oldestBatchWithStock ? oldestBatchWithStock.batchNo : '',
-        batchId: oldestBatchWithStock ? oldestBatchWithStock.id : undefined,
-        dispatchTime: getCurrentTime(),
-        prodDate: oldestBatchWithStock?.prodDate || today,
-        useByDate: oldestBatchWithStock?.useByDate || today,
-        dispatchTemp: oldestBatchWithStock ? oldestBatchWithStock.dispatchTemp : (defTemp || 3.5),
-        quantity: 0,
-        availableStock: oldestBatchWithStock ? oldestBatchWithStock.quantity : 0,
-        isCustom: false
-      };
+    // Filter to only products that currently have available stock in batches
+    const productsWithStock = catalog.filter(prod => {
+      const avail = getAvailableFIFOBatches(prod.name, batches);
+      return avail.length > 0;
     });
+
+    if (productsWithStock.length > 0) {
+      return productsWithStock.map((prod, idx) => {
+        const availableBatches = getAvailableFIFOBatches(prod.name, batches);
+        const oldestBatchWithStock = availableBatches[0] || null;
+        if (oldestBatchWithStock) usedBatches.add(oldestBatchWithStock.batchNo);
+        const defTemp = 'dispatchTemp' in prod ? prod.dispatchTemp : (prod as any).defaultTemp;
+        const shelfLife = 'shelfLifeDays' in prod && prod.shelfLifeDays ? prod.shelfLifeDays : 5;
+
+        const prodDate = oldestBatchWithStock?.prodDate || today;
+        let useByDate = oldestBatchWithStock?.useByDate;
+        if (!useByDate || useByDate === prodDate) {
+          useByDate = calculateFutureDate(prodDate, shelfLife);
+        }
+
+        return {
+          id: `row-${idx}-${Date.now()}`,
+          productName: prod.name,
+          batchNo: oldestBatchWithStock ? oldestBatchWithStock.batchNo : '',
+          batchId: oldestBatchWithStock ? oldestBatchWithStock.id : undefined,
+          dispatchTime: getCurrentTime(),
+          prodDate: prodDate,
+          useByDate: useByDate || calculateFutureDate(prodDate, shelfLife),
+          dispatchTemp: oldestBatchWithStock ? oldestBatchWithStock.dispatchTemp : (defTemp || 3.5),
+          quantity: 0,
+          availableStock: oldestBatchWithStock ? oldestBatchWithStock.quantity : 0,
+          isCustom: false
+        };
+      });
+    }
+
+    // Fallback if no inventory batches are in stock: 1 clean empty custom line
+    return [{
+      id: `row-0-${Date.now()}`,
+      productName: '',
+      batchNo: '',
+      batchId: undefined,
+      dispatchTime: getCurrentTime(),
+      prodDate: today,
+      useByDate: today,
+      dispatchTemp: 3.5,
+      quantity: 0,
+      availableStock: 0,
+      isCustom: true
+    }];
   });
 
   // Automatically remove suspended products from current dispatch form when creating new dispatch
@@ -248,8 +277,8 @@ export const FormsView: React.FC<FormsViewProps> = ({
         const availableBatches = getAvailableFIFOBatches(row.productName, batches);
         const currentBatch = batches.find(b => b.batchNo === row.batchNo);
 
-        // Check if current batch is still valid and has stock > 0
-        if (currentBatch && (currentBatch.quantity || 0) > 0) {
+        // Check if current batch is still valid, has stock > 0, and is NOT expired
+        if (currentBatch && (currentBatch.quantity || 0) > 0 && !isBatchExpired(currentBatch.useByDate)) {
           usedBatchesInForm.add(currentBatch.batchNo);
           return {
             ...row,
@@ -262,14 +291,23 @@ export const FormsView: React.FC<FormsViewProps> = ({
         const nextBatch = availableBatches.find(b => !usedBatchesInForm.has(b.batchNo)) || availableBatches[0] || null;
         if (nextBatch) {
           usedBatchesInForm.add(nextBatch.batchNo);
+          const prodDef = (products || []).find(p => p.name.trim().toLowerCase() === row.productName.trim().toLowerCase()) ||
+            INITIAL_PRODUCTS.find(p => p.name.trim().toLowerCase() === row.productName.trim().toLowerCase());
+          const shelfLife = (prodDef && 'shelfLifeDays' in prodDef && prodDef.shelfLifeDays) ? prodDef.shelfLifeDays : 5;
+          const prodDate = nextBatch.prodDate || row.prodDate || getTodayDate();
+          let useByDate = nextBatch.useByDate;
+          if (!useByDate || useByDate === prodDate) {
+            useByDate = calculateFutureDate(prodDate, shelfLife);
+          }
+
           return {
             ...row,
             batchNo: nextBatch.batchNo,
             batchId: nextBatch.id,
             availableStock: nextBatch.quantity,
-            prodDate: nextBatch.prodDate || row.prodDate,
-            useByDate: nextBatch.useByDate || row.useByDate,
-            dispatchTemp: nextBatch.dispatchTemp || row.dispatchTemp,
+            prodDate: prodDate,
+            useByDate: useByDate,
+            dispatchTemp: nextBatch.dispatchTemp !== undefined ? nextBatch.dispatchTemp : row.dispatchTemp,
             quantity: Math.min(row.quantity, nextBatch.quantity)
           };
         }
@@ -384,7 +422,13 @@ export const FormsView: React.FC<FormsViewProps> = ({
       }
     });
 
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => {
+      const stockA = getAvailableFIFOBatches(a, batches).reduce((acc, batch) => acc + (batch.quantity || 0), 0);
+      const stockB = getAvailableFIFOBatches(b, batches).reduce((acc, batch) => acc + (batch.quantity || 0), 0);
+      if (stockA > 0 && stockB === 0) return -1;
+      if (stockB > 0 && stockA === 0) return 1;
+      return a.localeCompare(b);
+    });
   }, [products, batches]);
 
   // Reset entire form back to defaults (excluding suspended products and suspended outlets)
@@ -404,32 +448,123 @@ export const FormsView: React.FC<FormsViewProps> = ({
     const catalog = (products && products.length > 0 ? products : INITIAL_PRODUCTS)
       .filter(p => p.active !== false && !suspendedNames.has(p.name.trim().toLowerCase()));
 
-    setLineItems(
-      catalog.slice(0, 5).map((prod, idx) => {
-        const availableBatches = getAvailableFIFOBatches(prod.name, batches).filter(
-          b => !usedBatches.has(b.batchNo)
-        );
-        const chosenBatch = availableBatches.length > 0 ? availableBatches[0] : null;
-        if (chosenBatch) usedBatches.add(chosenBatch.batchNo);
-        const defTemp = 'dispatchTemp' in prod ? prod.dispatchTemp : (prod as any).defaultTemp;
+    const productsWithStock = catalog.filter(prod => {
+      const avail = getAvailableFIFOBatches(prod.name, batches);
+      return avail.length > 0;
+    });
 
-        return {
-          id: `row-${idx}-${Date.now()}`,
-          productName: prod.name,
-          batchNo: chosenBatch ? chosenBatch.batchNo : '',
-          batchId: chosenBatch ? chosenBatch.id : undefined,
-          dispatchTime: getCurrentTime(),
-          prodDate: chosenBatch?.prodDate || today,
-          useByDate: chosenBatch?.useByDate || today,
-          dispatchTemp: chosenBatch ? chosenBatch.dispatchTemp : (defTemp || 3.5),
-          quantity: 0,
-          availableStock: chosenBatch ? chosenBatch.quantity : 0,
-          isCustom: false
-        };
-      })
-    );
+    if (productsWithStock.length > 0) {
+      setLineItems(
+        productsWithStock.map((prod, idx) => {
+          const availableBatches = getAvailableFIFOBatches(prod.name, batches);
+          const chosenBatch = availableBatches[0] || null;
+          if (chosenBatch) usedBatches.add(chosenBatch.batchNo);
+          const defTemp = 'dispatchTemp' in prod ? prod.dispatchTemp : (prod as any).defaultTemp;
+
+          return {
+            id: `row-${idx}-${Date.now()}`,
+            productName: prod.name,
+            batchNo: chosenBatch ? chosenBatch.batchNo : '',
+            batchId: chosenBatch ? chosenBatch.id : undefined,
+            dispatchTime: getCurrentTime(),
+            prodDate: chosenBatch?.prodDate || today,
+            useByDate: chosenBatch?.useByDate || today,
+            dispatchTemp: chosenBatch?.dispatchTemp !== undefined ? chosenBatch.dispatchTemp : (defTemp || 3.5),
+            quantity: 0,
+            availableStock: chosenBatch ? chosenBatch.quantity : 0,
+            isCustom: false
+          };
+        })
+      );
+    } else {
+      setLineItems([{
+        id: `row-0-${Date.now()}`,
+        productName: '',
+        batchNo: '',
+        batchId: undefined,
+        dispatchTime: getCurrentTime(),
+        prodDate: today,
+        useByDate: today,
+        dispatchTemp: 3.5,
+        quantity: 0,
+        availableStock: 0,
+        isCustom: true
+      }]);
+    }
     setEditingLogId(null);
-    triggerTimeToast('Reset form to default state (today dates & cleared selection)');
+    triggerTimeToast('Reset form to default state (in-stock items only)');
+  };
+
+  // Quick Action: Add next FIFO batch for the same product, grouped directly next to it
+  const handleAddNextBatchForProduct = (sourceRowId: string) => {
+    const sourceRow = lineItems.find(r => r.id === sourceRowId);
+    if (!sourceRow || !sourceRow.productName) return;
+
+    const trimmed = sourceRow.productName.trim();
+    const availableBatches = getAvailableFIFOBatches(trimmed, batches);
+    
+    // Check how many rows currently exist for this product
+    const rowsForThisProduct = lineItems.filter(
+      r => r.productName && r.productName.trim().toLowerCase() === trimmed.toLowerCase()
+    );
+
+    if (rowsForThisProduct.length >= availableBatches.length) {
+      showAlert(`All ${availableBatches.length} available batches for "${trimmed}" are already added to this dispatch form.`, {
+        title: 'All Batches in Form',
+        type: 'info'
+      });
+      return;
+    }
+
+    // Find batches already in use on existing rows for this product
+    const usedBatchNos = new Set(
+      rowsForThisProduct.filter(r => r.batchNo).map(r => r.batchNo)
+    );
+
+    const nextBatch = availableBatches.find(b => !usedBatchNos.has(b.batchNo)) || availableBatches[rowsForThisProduct.length] || null;
+
+    if (!nextBatch) {
+      showAlert(`No further unassigned batches available for "${trimmed}".`, {
+        title: 'All Batches Added',
+        type: 'info'
+      });
+      return;
+    }
+
+    const prodDef = (products || []).find(p => p.name.trim().toLowerCase() === trimmed.toLowerCase()) ||
+      INITIAL_PRODUCTS.find(p => p.name.trim().toLowerCase() === trimmed.toLowerCase());
+    const fallbackTemp = prodDef ? ('dispatchTemp' in prodDef ? prodDef.dispatchTemp : prodDef.defaultTemp) : 3.5;
+    const shelfLife = (prodDef && 'shelfLifeDays' in prodDef && prodDef.shelfLifeDays) ? prodDef.shelfLifeDays : 5;
+    const prodDate = nextBatch.prodDate || getTodayDate();
+    let useByDate = nextBatch.useByDate;
+    if (!useByDate || useByDate === prodDate) {
+      useByDate = calculateFutureDate(prodDate, shelfLife);
+    }
+
+    const newRow: DispatchLineItem = {
+      id: `row-batch-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      productName: sourceRow.productName,
+      batchNo: nextBatch.batchNo,
+      batchId: nextBatch.id,
+      dispatchTime: sourceRow.dispatchTime || dispatchTime || getCurrentTime(),
+      prodDate: prodDate,
+      useByDate: useByDate,
+      dispatchTemp: nextBatch.dispatchTemp !== undefined ? nextBatch.dispatchTemp : fallbackTemp,
+      availableStock: nextBatch.quantity,
+      quantity: 0,
+      isCustom: true
+    };
+
+    // Insert the new batch row DIRECTLY after the last existing batch of this same product
+    setLineItems(prev => {
+      const lastIndex = prev.map(r => r.productName?.trim().toLowerCase()).lastIndexOf(trimmed.toLowerCase());
+      if (lastIndex === -1) return [...prev, newRow];
+      const next = [...prev];
+      next.splice(lastIndex + 1, 0, newRow);
+      return next;
+    });
+
+    triggerTimeToast(`Added next FIFO batch (${nextBatch.batchNo}) for ${trimmed}`);
   };
 
   // Handle product selection / change with automatic FIFO batch assignment (only batches with stock > 0)
@@ -483,38 +618,68 @@ export const FormsView: React.FC<FormsViewProps> = ({
       INITIAL_PRODUCTS.find(p => p.name.trim().toLowerCase() === trimmed.toLowerCase());
     const fallbackTemp = prodDef ? ('dispatchTemp' in prodDef ? prodDef.dispatchTemp : prodDef.defaultTemp) : 3.5;
 
-    setLineItems(prev =>
-      prev.map(row => {
-        if (row.id === rowId) {
-          if (availableBatch) {
-            return {
-              ...row,
-              productName: availableBatch.productName || newProductName,
-              batchNo: availableBatch.batchNo,
-              batchId: availableBatch.id,
-              prodDate: availableBatch.prodDate || getTodayDate(),
-              useByDate: availableBatch.useByDate || getTodayDate(),
-              dispatchTemp: availableBatch.dispatchTemp || fallbackTemp,
-              availableStock: availableBatch.quantity,
-              quantity: 0
-            };
-          } else {
-            return {
-              ...row,
-              productName: newProductName,
-              batchNo: '',
-              batchId: undefined,
-              prodDate: getTodayDate(),
-              useByDate: getTodayDate(),
-              dispatchTemp: fallbackTemp,
-              availableStock: 0,
-              quantity: 0
-            };
-          }
+    let updatedRow: DispatchLineItem;
+    if (availableBatch) {
+      const prodDate = availableBatch.prodDate || getTodayDate();
+      const shelfLife = (prodDef && 'shelfLifeDays' in prodDef && prodDef.shelfLifeDays) ? prodDef.shelfLifeDays : 5;
+      let useByDate = availableBatch.useByDate;
+      if (!useByDate || useByDate === prodDate) {
+        useByDate = calculateFutureDate(prodDate, shelfLife);
+      }
+
+      updatedRow = {
+        id: rowId,
+        productName: availableBatch.productName || newProductName,
+        batchNo: availableBatch.batchNo,
+        batchId: availableBatch.id,
+        dispatchTime: dispatchTime || getCurrentTime(),
+        prodDate: prodDate,
+        useByDate: useByDate,
+        dispatchTemp: availableBatch.dispatchTemp !== undefined ? availableBatch.dispatchTemp : fallbackTemp,
+        availableStock: availableBatch.quantity,
+        quantity: 0,
+        isCustom: true
+      };
+    } else {
+      const prodDate = getTodayDate();
+      const shelfLife = (prodDef && 'shelfLifeDays' in prodDef && prodDef.shelfLifeDays) ? prodDef.shelfLifeDays : 5;
+      const useByDate = calculateFutureDate(prodDate, shelfLife);
+      updatedRow = {
+        id: rowId,
+        productName: newProductName,
+        batchNo: '',
+        batchId: undefined,
+        dispatchTime: dispatchTime || getCurrentTime(),
+        prodDate: prodDate,
+        useByDate: useByDate,
+        dispatchTemp: fallbackTemp,
+        availableStock: 0,
+        quantity: 0,
+        isCustom: true
+      };
+    }
+
+    setLineItems(prev => {
+      // If other rows for the same product exist, group this new row near that same product
+      const matchingProductIndex = prev.findIndex(
+        r => r.id !== rowId && r.productName.trim().toLowerCase() === trimmed.toLowerCase()
+      );
+
+      if (matchingProductIndex !== -1) {
+        const withoutCurrent = prev.filter(r => r.id !== rowId);
+        let insertPos = matchingProductIndex;
+        while (
+          insertPos < withoutCurrent.length &&
+          withoutCurrent[insertPos].productName.trim().toLowerCase() === trimmed.toLowerCase()
+        ) {
+          insertPos++;
         }
-        return row;
-      })
-    );
+        withoutCurrent.splice(insertPos, 0, updatedRow);
+        return withoutCurrent;
+      }
+
+      return prev.map(r => (r.id === rowId ? updatedRow : r));
+    });
   };
 
   // Clear product name from a line item
@@ -560,18 +725,34 @@ export const FormsView: React.FC<FormsViewProps> = ({
     }
 
     const selectedBatch = batches.find(b => b.batchNo === batchNo);
+    if (selectedBatch && isBatchExpired(selectedBatch.useByDate)) {
+      showAlert(`Batch "${selectedBatch.batchNo}" expired on ${selectedBatch.useByDate} and cannot be dispatched under HACCP food safety standards.`, {
+        title: 'Expired Batch Blocked',
+        type: 'danger'
+      });
+      return;
+    }
     setLineItems(prev =>
       prev.map(row => {
         if (row.id === rowId) {
           if (selectedBatch) {
+            const prodDef = (products || []).find(p => p.name.trim().toLowerCase() === selectedBatch.productName.trim().toLowerCase()) ||
+              INITIAL_PRODUCTS.find(p => p.name.trim().toLowerCase() === selectedBatch.productName.trim().toLowerCase());
+            const shelfLife = (prodDef && 'shelfLifeDays' in prodDef && prodDef.shelfLifeDays) ? prodDef.shelfLifeDays : 5;
+            const prodDate = selectedBatch.prodDate || getTodayDate();
+            let useByDate = selectedBatch.useByDate;
+            if (!useByDate || useByDate === prodDate) {
+              useByDate = calculateFutureDate(prodDate, shelfLife);
+            }
+
             return {
               ...row,
               batchNo: selectedBatch.batchNo,
               batchId: selectedBatch.id,
               productName: selectedBatch.productName,
-              prodDate: selectedBatch.prodDate || getTodayDate(),
-              useByDate: selectedBatch.useByDate || getTodayDate(),
-              dispatchTemp: selectedBatch.dispatchTemp,
+              prodDate: prodDate,
+              useByDate: useByDate,
+              dispatchTemp: selectedBatch.dispatchTemp !== undefined ? selectedBatch.dispatchTemp : (prodDef && 'dispatchTemp' in prodDef ? prodDef.dispatchTemp : (prodDef as any)?.defaultTemp || 3.5),
               availableStock: selectedBatch.quantity,
               quantity: Math.min(row.quantity, selectedBatch.quantity)
             };
@@ -1467,22 +1648,40 @@ export const FormsView: React.FC<FormsViewProps> = ({
                           </span>
                         </div>
                       </th>
-                      <th className="py-2.5 px-3 min-w-[240px] w-64">Batch No (FIFO)</th>
+                      <th className="py-2.5 px-3 min-w-[240px] w-64">Batch No</th>
                       <th className="py-2.5 px-3 min-w-[130px] w-32 text-center">Qty (Manual)</th>
                       <th className="py-2.5 px-3 min-w-[130px] w-32">Prod. Date</th>
-                      <th className="py-2.5 px-3 min-w-[130px] w-32">Use-By Date</th>
+                      <th className="py-2.5 px-3 min-w-[130px] w-32">Expiration Date</th>
                       <th className="py-2.5 px-3 min-w-[130px] w-32">Dispatch Temp °C</th>
-                      <th className="py-2.5 px-3 w-12 text-right print:hidden">Del</th>
+                      <th className="py-2.5 px-3 min-w-[70px] text-right print:hidden">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-800 print:divide-black">
                     {lineItems.map((item) => {
-                      const itemNorm = item.productName.trim().toLowerCase();
-                      const availableBatches = getAvailableFIFOBatches(item.productName, batches);
+                      const itemNorm = item.productName ? item.productName.trim().toLowerCase() : '';
+                      const availableBatches = item.productName ? getAvailableFIFOBatches(item.productName, batches) : [];
+
+                      // Rows for this same product
+                      const rowsForThisProduct = item.productName
+                        ? lineItems.filter(r => r.productName && r.productName.trim().toLowerCase() === itemNorm)
+                        : [];
+                      const batchIndex = rowsForThisProduct.findIndex(r => r.id === item.id);
+                      const isPrimaryRow = batchIndex <= 0;
+                      const isExtraBatch = batchIndex > 0;
+
                       // Collect batches already selected on other rows for this same product
-                      const otherRowBatchNos = lineItems
-                        .filter(r => r.id !== item.id && r.productName.trim().toLowerCase() === itemNorm && r.batchNo)
+                      const otherRowBatchNos = rowsForThisProduct
+                        .filter(r => r.id !== item.id && r.batchNo)
                         .map(r => r.batchNo);
+
+                      const allAssignedBatchNos = rowsForThisProduct
+                        .filter(r => r.batchNo)
+                        .map(r => r.batchNo);
+
+                      const nextUnassignedBatch = availableBatches.find(b => !allAssignedBatchNos.includes(b.batchNo)) || 
+                        (rowsForThisProduct.length < availableBatches.length ? availableBatches[rowsForThisProduct.length] : undefined);
+                      
+                      const canAddMoreBatches = isPrimaryRow && availableBatches.length > 1 && rowsForThisProduct.length < availableBatches.length && !!nextUnassignedBatch;
 
                       const isTempWarm = item.dispatchTemp > 5.0;
                       const isOutOfStock = item.availableStock !== undefined && item.availableStock <= 0;
@@ -1495,14 +1694,60 @@ export const FormsView: React.FC<FormsViewProps> = ({
                             item.quantity === 0 ? 'print:hidden' : ''
                           }`}
                         >
-                          {/* Product Name with search / clear only for newly added rows */}
+                          {/* Product Name Display / Search */}
                           <td className="py-2 px-3 font-semibold text-white print:text-black min-w-[260px]">
-                            {item.isCustom ? (
+                            {item.productName ? (
+                              <div className="py-1">
+                                <div className="flex items-center space-x-2">
+                                  <div className="font-bold text-white print:text-black text-xs tracking-wide">
+                                    {item.productName}
+                                  </div>
+                                  {isExtraBatch && (
+                                    <span className="text-[9px] font-semibold text-amber-400 bg-amber-950/80 border border-amber-800/80 px-1.5 py-0.5 rounded font-mono print:hidden">
+                                      Batch #{batchIndex + 1}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-1.5 mt-1 print:hidden">
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                                    isOutOfStock
+                                      ? 'bg-red-950 text-red-400 border border-red-800'
+                                      : 'bg-stone-800 text-stone-300 border border-stone-700'
+                                  }`}>
+                                    In Stock: {item.availableStock ?? 0}
+                                  </span>
+                                  {isQtyExceeded && (
+                                    <span className="text-[10px] text-red-400 font-bold animate-pulse">
+                                      Exceeds stock!
+                                    </span>
+                                  )}
+                                  {canAddMoreBatches && nextUnassignedBatch && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAddNextBatchForProduct(item.id)}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold text-amber-300 bg-amber-950/80 hover:bg-amber-900 border border-amber-700/80 shadow-sm transition cursor-pointer"
+                                      title={`Add next FIFO batch (${nextUnassignedBatch.batchNo} • ${nextUnassignedBatch.quantity} in stock) grouped with this product`}
+                                    >
+                                      <span>+ Add Next Batch</span>
+                                      <span className="font-mono text-[9px] text-amber-400 bg-black/40 px-1 py-0.2 rounded">
+                                        {nextUnassignedBatch.batchNo} ({nextUnassignedBatch.quantity})
+                                      </span>
+                                    </button>
+                                  )}
+                                  {isPrimaryRow && availableBatches.length > 1 && !canAddMoreBatches && (
+                                    <span className="text-[10px] text-stone-400 bg-stone-850 border border-stone-700/60 px-2 py-0.5 rounded font-mono">
+                                      All {availableBatches.length} Batches Added ✓
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
                               <div>
                                 <div className="flex items-center justify-between mb-1 print:hidden">
                                   <span className="text-[10px] font-semibold text-amber-400 flex items-center space-x-1">
                                     <Plus className="w-3 h-3" />
-                                    <span>Added Product Row</span>
+                                    <span>New Product Row</span>
                                   </span>
                                 </div>
                                 <div className="relative flex items-center">
@@ -1519,71 +1764,10 @@ export const FormsView: React.FC<FormsViewProps> = ({
                                       <option key={p} value={p} />
                                     ))}
                                   </datalist>
-
-                                  {item.productName ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleClearProduct(item.id)}
-                                      className="absolute right-2 text-stone-400 hover:text-red-400 p-0.5 rounded cursor-pointer transition print:hidden"
-                                      title="Clear product name"
-                                    >
-                                      <X className="w-3.5 h-3.5" />
-                                    </button>
-                                  ) : (
-                                    <Search className="w-3.5 h-3.5 text-amber-400 absolute right-2 pointer-events-none print:hidden" />
-                                  )}
+                                  <Search className="w-3.5 h-3.5 text-amber-400 absolute right-2 pointer-events-none print:hidden" />
                                 </div>
-
-                                {item.productName ? (
-                                  <div className="flex items-center space-x-1.5 mt-1 print:hidden">
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
-                                      isOutOfStock
-                                        ? 'bg-red-950 text-red-400 border border-red-800'
-                                        : 'bg-stone-800 text-stone-300 border border-stone-700'
-                                    }`}>
-                                      In Stock: {item.availableStock ?? 0}
-                                    </span>
-                                    {isQtyExceeded && (
-                                      <span className="text-[10px] text-red-400 font-bold animate-pulse">
-                                        Exceeds stock!
-                                      </span>
-                                    )}
-                                    {availableBatches.length > 1 && (
-                                      <span className="text-[10px] text-amber-400/90 font-mono">
-                                        {availableBatches.length} batches available
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="text-[10px] text-amber-400/80 italic mt-0.5 print:hidden">
-                                    Click or type to search & select from catalog
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="py-1">
-                                <div className="font-bold text-white print:text-black text-xs tracking-wide">
-                                  {item.productName}
-                                </div>
-
-                                <div className="flex items-center space-x-1.5 mt-1 print:hidden">
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
-                                    isOutOfStock
-                                      ? 'bg-red-950 text-red-400 border border-red-800'
-                                      : 'bg-stone-800 text-stone-300 border border-stone-700'
-                                  }`}>
-                                    In Stock: {item.availableStock ?? 0}
-                                  </span>
-                                  {isQtyExceeded && (
-                                    <span className="text-[10px] text-red-400 font-bold animate-pulse">
-                                      Exceeds stock!
-                                    </span>
-                                  )}
-                                  {availableBatches.length > 1 && (
-                                    <span className="text-[10px] text-amber-400/90 font-mono">
-                                      {availableBatches.length} batches available
-                                    </span>
-                                  )}
+                                <div className="text-[10px] text-amber-400/80 italic mt-0.5 print:hidden">
+                                  Click or type to search & select from catalog
                                 </div>
                               </div>
                             )}
@@ -1623,11 +1807,10 @@ export const FormsView: React.FC<FormsViewProps> = ({
                             ) : (
                               <div>
                                 <select
-                                  value={item.batchNo}
+                                  value={item.batchNo || (availableBatches[0] ? availableBatches[0].batchNo : '')}
                                   onChange={(e) => handleBatchSelect(item.id, e.target.value)}
                                   className="w-full px-2.5 py-1.5 bg-stone-800 print:bg-white border border-stone-700 print:border-black rounded-lg text-xs text-amber-400 print:text-black font-mono font-bold focus:outline-none focus:border-amber-500 cursor-pointer shadow-sm"
                                 >
-                                  <option value="">-- Select Batch --</option>
                                   {availableBatches.map((b) => {
                                     const isUsedInOther = otherRowBatchNos.includes(b.batchNo);
                                     return (
@@ -1637,13 +1820,13 @@ export const FormsView: React.FC<FormsViewProps> = ({
                                         disabled={isUsedInOther}
                                         className={isUsedInOther ? 'text-stone-500 bg-stone-900' : 'text-stone-100 bg-stone-800 font-bold'}
                                       >
-                                        {b.batchNo} (Stock: {b.quantity})
+                                        {b.batchNo} (Stock: {b.quantity}) {isUsedInOther ? '— [In use]' : ''}
                                       </option>
                                     );
                                   })}
-                                  {item.batchNo && !availableBatches.some(b => b.batchNo === item.batchNo) && (
+                                  {editingLogId && item.batchNo && !availableBatches.some(b => b.batchNo === item.batchNo) && (
                                     <option value={item.batchNo}>
-                                      {item.batchNo} (Depleted / Prior Batch)
+                                      {item.batchNo} (Historical Batch)
                                     </option>
                                   )}
                                 </select>
@@ -1706,80 +1889,86 @@ export const FormsView: React.FC<FormsViewProps> = ({
                             </div>
                           </td>
 
-                          {/* Prod. Date */}
+                          {/* Prod. Date - Auto-retrieved and locked */}
                           <td className="py-2 px-3 min-w-[130px]">
                             <div className="relative">
                               <input
                                 type="date"
                                 value={item.prodDate}
-                                readOnly={!!item.batchNo}
-                                onChange={(e) => handleRowProdDateChange(item.id, e.target.value)}
-                                className={`w-full px-2 py-1.5 bg-stone-800 print:bg-white border border-stone-700 print:border-black rounded text-xs text-stone-300 print:text-black font-mono focus:outline-none ${
-                                  item.batchNo ? 'opacity-90 cursor-not-allowed bg-stone-900/80' : ''
-                                }`}
-                                title={item.batchNo ? 'Validated from batch record' : 'Production date'}
+                                readOnly
+                                disabled
+                                className="w-full pl-2 pr-6 py-1.5 bg-stone-900/90 print:bg-white border border-stone-800 print:border-black rounded text-xs text-stone-200 print:text-black font-mono select-none cursor-not-allowed opacity-90 shadow-inner"
+                                title="Production date is auto-retrieved from the inventory batch record and cannot be edited."
                               />
-                              {item.batchNo && (
-                                <Lock className="w-2.5 h-2.5 text-stone-500 absolute right-1.5 top-2.5 pointer-events-none print:hidden" />
-                              )}
+                              <Lock className="w-3 h-3 text-stone-500 absolute right-2 top-2.5 pointer-events-none print:hidden" />
                             </div>
                           </td>
 
-                          {/* Use-By Date */}
+                          {/* Expiration Date - Auto-retrieved and locked */}
                           <td className="py-2 px-3 min-w-[130px]">
                             <div className="relative">
                               <input
                                 type="date"
                                 value={item.useByDate}
-                                readOnly={!!item.batchNo}
-                                onChange={(e) => handleRowUseByChange(item.id, e.target.value)}
-                                className={`w-full px-2 py-1.5 bg-stone-800 print:bg-white border border-stone-700 print:border-black rounded text-xs text-stone-300 print:text-black font-mono focus:outline-none ${
-                                  item.batchNo ? 'opacity-90 cursor-not-allowed bg-stone-900/80' : ''
-                                }`}
-                                title={item.batchNo ? 'Validated from batch record' : 'Use-by date'}
+                                readOnly
+                                disabled
+                                className="w-full pl-2 pr-6 py-1.5 bg-stone-900/90 print:bg-white border border-stone-800 print:border-black rounded text-xs text-amber-400/90 print:text-black font-mono select-none cursor-not-allowed opacity-90 shadow-inner"
+                                title="Expiration date is auto-retrieved from the inventory batch record and cannot be edited."
                               />
-                              {item.batchNo && (
-                                <Lock className="w-2.5 h-2.5 text-stone-500 absolute right-1.5 top-2.5 pointer-events-none print:hidden" />
-                              )}
+                              <Lock className="w-3 h-3 text-amber-500/70 absolute right-2 top-2.5 pointer-events-none print:hidden" />
                             </div>
                           </td>
 
-                          {/* Dispatch Temp °C */}
+                          {/* Dispatch Temp °C - Auto-retrieved and locked */}
                           <td className="py-2 px-3 min-w-[130px]">
-                            <input
-                              type="number"
-                              step="0.1"
-                              value={item.dispatchTemp}
-                              readOnly={!!item.batchNo}
-                              onChange={(e) => handleRowTempChange(item.id, parseFloat(e.target.value) || 0)}
-                              className={`w-full px-2 py-1.5 bg-stone-800 print:bg-white border rounded text-xs font-mono font-bold focus:outline-none ${
-                                isTempWarm
-                                  ? 'border-red-600 text-red-400 print:text-black'
-                                  : 'border-cyan-600 text-cyan-300 print:text-black'
-                              } ${item.batchNo ? 'opacity-90 cursor-not-allowed bg-stone-900/80' : ''}`}
-                              title={item.batchNo ? 'Validated from batch record' : 'Dispatch temperature'}
-                            />
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={`${Number(item.dispatchTemp !== undefined ? item.dispatchTemp : 3.5).toFixed(1)} °C`}
+                                readOnly
+                                disabled
+                                className={`w-full pl-2 pr-6 py-1.5 bg-stone-900/90 print:bg-white border rounded text-xs font-mono font-bold select-none cursor-not-allowed opacity-90 shadow-inner ${
+                                  isTempWarm
+                                    ? 'border-red-900/70 text-red-400 print:text-black'
+                                    : 'border-stone-800 text-cyan-300 print:text-black'
+                                }`}
+                                title="Dispatch temperature is auto-retrieved from the inventory batch record and cannot be edited."
+                              />
+                              <Lock className="w-3 h-3 text-cyan-500/70 absolute right-2 top-2.5 pointer-events-none print:hidden" />
+                            </div>
                           </td>
 
-                          {/* Delete row: only custom added rows can be removed */}
-                          <td className="py-2 px-3 text-right print:hidden w-12">
-                            {item.isCustom ? (
-                              <button
-                                type="button"
-                                onClick={() => removeRow(item.id)}
-                                className="text-stone-500 hover:text-red-400 p-1 cursor-pointer transition"
-                                title="Remove added product row"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            ) : (
-                              <span
-                                className="inline-flex p-1 text-stone-600 cursor-not-allowed select-none"
-                                title="Core product row is protected and cannot be deleted"
-                              >
-                                <Lock className="w-3.5 h-3.5" />
-                              </span>
-                            )}
+                          {/* Actions column */}
+                          <td className="py-2 px-3 text-right print:hidden min-w-[70px]">
+                            <div className="inline-flex items-center justify-end space-x-1.5">
+                              {canAddMoreBatches && nextUnassignedBatch && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddNextBatchForProduct(item.id)}
+                                  className="text-amber-400 hover:text-amber-300 p-1 bg-amber-950/60 hover:bg-amber-900/80 rounded-md border border-amber-800/80 cursor-pointer transition"
+                                  title={`Add next FIFO batch (${nextUnassignedBatch.batchNo})`}
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              {(item.isCustom || isExtraBatch || !item.productName) ? (
+                                <button
+                                  type="button"
+                                  onClick={() => removeRow(item.id)}
+                                  className="text-stone-500 hover:text-red-400 p-1 cursor-pointer transition"
+                                  title={isExtraBatch ? "Remove this extra batch row" : "Remove product row"}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              ) : (
+                                <span
+                                  className="inline-flex p-1 text-stone-600 cursor-not-allowed select-none"
+                                  title="Core product row is protected"
+                                >
+                                  <Lock className="w-3.5 h-3.5" />
+                                </span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );

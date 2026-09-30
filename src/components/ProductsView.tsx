@@ -751,8 +751,8 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
                       {renderUnitBadge(prod.unit)}
                     </div>
                     <div className="bg-stone-800/60 px-2 py-1.5 rounded border border-stone-800 flex items-center justify-between">
-                      <span className="text-stone-400">Shelf Life:</span>
-                      <span className="text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">{prod.shelfLifeDays || 5}d</span>
+                      <span className="text-stone-400">Expires In:</span>
+                      <span className="text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">{prod.shelfLifeDays || 5} days</span>
                     </div>
                   </div>
                 </div>
@@ -919,7 +919,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center space-x-1">
                     <Clock className="w-3 h-3 text-stone-400" />
-                    <span>Default Shelf Life (Days)</span>
+                    <span>Expiration Period in Days (Shelf Life)</span>
                   </label>
                   <input
                     type="number"
@@ -932,6 +932,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
                     }}
                     className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-amber-500"
                   />
+                  <p className="text-[10px] text-stone-500 mt-1">Days until batch reaches expiration date</p>
                 </div>
 
                 <div className="pt-5">
@@ -1123,7 +1124,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center space-x-1">
                     <Clock className="w-3 h-3 text-stone-400" />
-                    <span>Default Shelf Life (Days)</span>
+                    <span>Expiration Period in Days (Shelf Life)</span>
                   </label>
                   <input
                     type="number"
@@ -1139,6 +1140,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ products }) => {
                     }}
                     className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-amber-500"
                   />
+                  <p className="text-[10px] text-stone-500 mt-1">Days until batch reaches expiration date</p>
                 </div>
 
                 <div className="pt-5">

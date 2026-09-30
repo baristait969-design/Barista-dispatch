@@ -196,10 +196,10 @@ export const PrintableDispatchSheet: React.FC<PrintableDispatchSheetProps> = ({
                   <tr className="bg-stone-100 text-stone-900 border-b-2 border-stone-900 font-bold uppercase text-[10px] tracking-wider">
                     <th className="p-2 border-r border-stone-400 w-8 text-center">#</th>
                     <th className="p-2 border-r border-stone-400">Product Description</th>
-                    <th className="p-2 border-r border-stone-400 w-28">Batch No (FIFO)</th>
+                    <th className="p-2 border-r border-stone-400 w-28">Batch No</th>
                     <th className="p-2 border-r border-stone-400 w-20 text-center">Dispatch Time</th>
                     <th className="p-2 border-r border-stone-400 w-24">Prod Date</th>
-                    <th className="p-2 border-r border-stone-400 w-24">Use-By Date</th>
+                    <th className="p-2 border-r border-stone-400 w-24">Expiration Date</th>
                     <th className="p-2 border-r border-stone-400 w-20 text-center">Qty (Units)</th>
                     <th className="p-2 w-24 text-center">Dispatch Temp</th>
                   </tr>

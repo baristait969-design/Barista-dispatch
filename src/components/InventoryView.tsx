@@ -246,7 +246,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       'Initial Qty',
       'Unit',
       'Production Date',
-      'Use-By / Expiration Date',
+      'Expiration Date',
       'Dispatch Temp (C)',
       'HACCP Status'
     ];
@@ -362,9 +362,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               <tr>
                 <th className="py-3 px-4">Batch No</th>
                 <th className="py-3 px-4">Product Name</th>
-                <th className="py-3 px-4 text-center">Remaining Stock</th>
+                <th className="py-3 px-4">Remaining Stock</th>
                 <th className="py-3 px-4">Production Date</th>
-                <th className="py-3 px-4">Use-By / Expiry</th>
+                <th className="py-3 px-4">Expiration Date</th>
                 <th className="py-3 px-4">Dispatch Temp (°C)</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4 text-right">Actions</th>
@@ -403,15 +403,29 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                           <span>{batch.category || 'Hot Kitchen'}</span>
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center space-x-1.5">
-                          <span className={`font-mono font-bold text-sm px-2 py-0.5 rounded-md ${
-                            isLow ? 'bg-amber-950/80 text-amber-300 border border-amber-800' : 'bg-stone-800 text-stone-100'
-                          }`}>
-                            {batch.quantity}
+                      <td className="py-3.5 px-4 font-mono text-stone-200">
+                        <span className={`font-bold text-sm ${
+                          batch.quantity <= 0 
+                            ? 'text-stone-500' 
+                            : batch.quantity <= 15 
+                            ? 'text-amber-400' 
+                            : 'text-stone-100'
+                        }`}>
+                          {batch.quantity}
+                        </span>{' '}
+                        <span className="text-xs text-stone-400 font-sans">
+                          {batch.unit || 'NoS'}
+                        </span>
+                        {batch.quantity <= 0 && (
+                          <span className="ml-2 text-[11px] text-stone-500 italic font-sans">
+                            (Depleted)
                           </span>
-                          {renderUnitBadge(batch.unit)}
-                        </div>
+                        )}
+                        {batch.quantity > 0 && batch.quantity <= 15 && (
+                          <span className="ml-2 text-[11px] text-amber-400/90 font-sans">
+                            (Low)
+                          </span>
+                        )}
                       </td>
                       <td className="py-3.5 px-4 text-stone-300">
                         {batch.prodDate}
@@ -591,9 +605,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
-                    <span className="flex items-center space-x-1">
-                      <Lock className="w-3 h-3 text-amber-400" />
-                      <span>Use-By / Expiration Date</span>
+                    <span className="flex items-center space-x-1.5">
+                      <Lock className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Expiration Date</span>
                     </span>
                     <span className="text-[10px] text-amber-400 font-mono font-bold bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800/40">
                       Auto (+{(selectedProductMeta && 'shelfLifeDays' in selectedProductMeta && selectedProductMeta.shelfLifeDays) || 5}d)
@@ -605,30 +619,26 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                     disabled
                     value={formData.useByDate}
                     className="w-full px-3 py-2 bg-stone-950 border border-stone-800 rounded-lg text-xs text-amber-400 font-mono font-bold cursor-not-allowed select-none opacity-90 shadow-inner"
-                    title="Expiration date is auto-calculated based on production date and master product shelf life. It cannot be manually modified."
+                    title="Expiration date is auto-calculated based on production date and master product expiration period. It cannot be manually modified."
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
-                  <span className="flex items-center space-x-1">
-                    <Lock className="w-3 h-3 text-cyan-400" />
-                    <span>Dispatch Temperature (°C) — Target ≤ 5.0 °C (HACCP)</span>
-                  </span>
-                  <span className="text-[10px] text-cyan-300 font-mono font-bold bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-800/40">
-                    Product Setting ({Number((selectedProductMeta && 'dispatchTemp' in selectedProductMeta && selectedProductMeta.dispatchTemp !== undefined) ? selectedProductMeta.dispatchTemp : 3.5).toFixed(1)}°C)
-                  </span>
+                <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center space-x-1.5">
+                  <Lock className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Dispatch Temperature (°C) — Target ≤ 5.0 °C (HACCP)</span>
                 </label>
-                <div className="relative">
-                  <ThermometerSnowflake className="w-4 h-4 text-cyan-400 absolute left-3 top-2.5" />
+                <div className="relative flex items-center">
+                  <div className="absolute left-3 flex items-center pointer-events-none text-cyan-400">
+                    <ThermometerSnowflake className="w-4 h-4 text-cyan-400 shrink-0" />
+                  </div>
                   <input
-                    type="number"
-                    step="0.1"
+                    type="text"
                     readOnly
                     disabled
-                    value={formData.dispatchTemp}
-                    className="w-full pl-9 pr-3 py-2 bg-stone-950 border border-stone-800 rounded-lg text-xs text-cyan-300 font-mono font-bold cursor-not-allowed select-none opacity-90 shadow-inner"
+                    value={`${Number(formData.dispatchTemp !== undefined ? formData.dispatchTemp : 3.5).toFixed(1)} °C`}
+                    className="w-full pl-9 pr-3 py-2 bg-stone-950 border border-stone-700/80 rounded-lg text-xs text-cyan-300 font-mono font-bold cursor-not-allowed select-none shadow-inner"
                     title="Dispatch temperature is auto-assigned from the product master catalog and cannot be edited."
                   />
                 </div>
@@ -718,20 +728,27 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
-                    <span>Dispatch Temp (°C)</span>
-                    <span className="text-[10px] text-cyan-400 font-mono font-semibold flex items-center gap-1">
-                      <Lock className="w-3 h-3" /> System Assigned
+                    <span className="flex items-center space-x-1">
+                      <Lock className="w-3 h-3 text-cyan-400" />
+                      <span>Dispatch Temp (°C)</span>
+                    </span>
+                    <span className="text-[10px] text-cyan-400 font-mono font-semibold">
+                      System Assigned
                     </span>
                   </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    readOnly
-                    disabled
-                    value={editingBatch.dispatchTemp}
-                    className="w-full px-3 py-2 bg-stone-950 border border-stone-800 rounded-lg text-xs text-cyan-300 font-mono font-bold cursor-not-allowed select-none opacity-90 shadow-inner"
-                    title="Dispatch temperature is fixed based on the product creation setting."
-                  />
+                  <div className="relative flex items-center">
+                    <div className="absolute left-3 flex items-center pointer-events-none text-cyan-400">
+                      <ThermometerSnowflake className="w-4 h-4 text-cyan-400 shrink-0" />
+                    </div>
+                    <input
+                      type="text"
+                      readOnly
+                      disabled
+                      value={`${Number(editingBatch.dispatchTemp !== undefined ? editingBatch.dispatchTemp : 3.5).toFixed(1)} °C`}
+                      className="w-full pl-9 pr-3 py-2 bg-stone-950 border border-stone-700/80 rounded-lg text-xs text-cyan-300 font-mono font-bold cursor-not-allowed select-none shadow-inner"
+                      title="Dispatch temperature is fixed based on the product creation setting."
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -758,9 +775,12 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 mb-1 flex items-center justify-between">
-                    <span>Use-By / Expiry Date</span>
-                    <span className="text-[10px] text-amber-400 font-mono font-semibold flex items-center gap-1">
-                      <Lock className="w-3 h-3" /> Auto-Assigned
+                    <span className="flex items-center space-x-1">
+                      <Lock className="w-3 h-3 text-amber-400" />
+                      <span>Expiration Date</span>
+                    </span>
+                    <span className="text-[10px] text-amber-400 font-mono font-semibold">
+                      Auto-Assigned
                     </span>
                   </label>
                   <input
@@ -769,7 +789,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                     disabled
                     value={editingBatch.useByDate}
                     className="w-full px-3 py-2 bg-stone-950 border border-stone-800 rounded-lg text-xs text-amber-400 font-mono font-bold cursor-not-allowed select-none opacity-90 shadow-inner"
-                    title="Expiration date is auto-calculated based on production date and the product's shelf life period."
+                    title="Expiration date is auto-calculated based on production date and the product's expiration period."
                   />
                 </div>
               </div>

@@ -83,7 +83,7 @@ const MainContent: React.FC = () => {
     seedInitialDataIfNeeded();
 
     const unsubBatches = subscribeBatches((data) => {
-      if (data && data.length > 0) setBatches(data);
+      setBatches(data || []);
     });
 
     const unsubOutlets = subscribeOutlets((data) => {

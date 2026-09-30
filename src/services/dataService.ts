@@ -30,13 +30,33 @@ const USERS_COL = 'users';
 // Seed Database with initial Barista Central Kitchen items if empty
 export async function seedInitialDataIfNeeded(): Promise<boolean> {
   try {
+    // Check if initial system seed has already been marked as complete
+    const metaDoc = await getDoc(doc(db, 'system_metadata', 'init_state'));
+    if (metaDoc.exists() && metaDoc.data()?.seeded) {
+      return false;
+    }
+
     const snap = await getDocs(collection(db, BATCHES_COL));
     if (snap.empty) {
       console.log('Seeding initial central kitchen inventory, outlets, and products...');
       
-      // Seed Batches
+      let deletedBatchesSet = new Set<string>();
+      try {
+        const delSnap = await getDocs(collection(db, 'deleted_batches'));
+        delSnap.forEach(d => {
+          deletedBatchesSet.add(d.id);
+          const data = d.data();
+          if (data.batchNo) deletedBatchesSet.add(data.batchNo);
+        });
+      } catch (delErr) {
+        console.warn('Could not read deleted_batches:', delErr);
+      }
+
+      // Seed Batches (excluding any that were previously deleted)
       for (const b of INITIAL_BATCHES) {
-        await setDoc(doc(db, BATCHES_COL, b.id), b);
+        if (!deletedBatchesSet.has(b.id) && !deletedBatchesSet.has(b.batchNo)) {
+          await setDoc(doc(db, BATCHES_COL, b.id), b);
+        }
       }
       // Seed Outlets
       for (const o of INITIAL_OUTLETS) {
@@ -54,6 +74,17 @@ export async function seedInitialDataIfNeeded(): Promise<boolean> {
       for (const u of INITIAL_USERS) {
         await setDoc(doc(db, USERS_COL, u.id), u, { merge: true });
       }
+
+      // Mark system initialization as complete
+      try {
+        await setDoc(doc(db, 'system_metadata', 'init_state'), {
+          seeded: true,
+          seededAt: new Date().toISOString()
+        });
+      } catch (metaErr) {
+        console.warn('Could not write system_metadata/init_state:', metaErr);
+      }
+
       return true;
     } else {
       // Ensure products collection is also seeded if empty
@@ -179,7 +210,29 @@ export async function updateInventoryBatch(id: string, updates: Partial<Inventor
 
 export async function deleteInventoryBatch(id: string): Promise<void> {
   try {
+    // 1. Delete document directly by ID
     await deleteDoc(doc(db, BATCHES_COL, id));
+
+    // 2. Also clean up any batches matching batch ID or batchNo
+    try {
+      const q = query(collection(db, BATCHES_COL), where('id', '==', id));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        await deleteDoc(d.ref);
+      }
+    } catch (qErr) {
+      // Non-fatal query cleanup
+    }
+
+    // 3. Record permanent deletion tombstone in deleted_batches
+    try {
+      await setDoc(doc(db, 'deleted_batches', id), {
+        id,
+        deletedAt: new Date().toISOString()
+      });
+    } catch (tombErr) {
+      console.warn('Could not record deleted_batches tombstone:', tombErr);
+    }
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, `${BATCHES_COL}/${id}`);
     throw error;

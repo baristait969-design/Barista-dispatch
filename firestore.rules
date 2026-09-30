@@ -42,6 +42,15 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Deleted batch tombstones and metadata
+    match /deleted_batches/{batchId} {
+      allow read, write: if true;
+    }
+
+    match /system_metadata/{metaId} {
+      allow read, write: if true;
+    }
+
     // Fallback rule to support external hosting (Vercel, custom domains, internal authentication)
     match /{document=**} {
       allow read, write: if true;
