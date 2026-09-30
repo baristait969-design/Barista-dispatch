@@ -1626,12 +1626,12 @@ export const FormsView: React.FC<FormsViewProps> = ({
                 </div>
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-stone-800">
-                <table className="w-full min-w-[1100px] text-left text-xs">
-                  <thead className="bg-stone-850 print:bg-gray-100 text-stone-300 print:text-black font-bold uppercase tracking-wider border-b border-stone-700 print:border-black select-none">
+              <div className="rounded-xl border border-stone-800 overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-stone-850 print:bg-gray-100 text-stone-300 print:text-black font-bold uppercase tracking-wider border-b border-stone-700 print:border-black select-none text-[11px]">
                     <tr>
-                      <th className="py-2.5 px-3 min-w-[260px] w-80">Product Name</th>
-                      <th className="py-2.5 px-3 min-w-[150px] w-36">
+                      <th className="py-2 px-3 w-[26%]">Product Name</th>
+                      <th className="py-2 px-2.5 w-[14%]">
                         <div className="flex items-center justify-between">
                           <span>Dispatch Time</span>
                           <span className="text-[9px] font-normal text-amber-400 lowercase print:hidden">
@@ -1639,12 +1639,12 @@ export const FormsView: React.FC<FormsViewProps> = ({
                           </span>
                         </div>
                       </th>
-                      <th className="py-2.5 px-3 min-w-[240px] w-64">Batch No</th>
-                      <th className="py-2.5 px-3 min-w-[130px] w-32 text-center">Qty (Manual)</th>
-                      <th className="py-2.5 px-3 min-w-[130px] w-32">Prod. Date</th>
-                      <th className="py-2.5 px-3 min-w-[130px] w-32">Expiration Date</th>
-                      <th className="py-2.5 px-3 min-w-[130px] w-32">Dispatch Temp °C</th>
-                      <th className="py-2.5 px-3 w-12 text-right print:hidden"></th>
+                      <th className="py-2 px-2.5 w-[19%]">Batch No</th>
+                      <th className="py-2 px-2 w-[11%] text-center">Qty</th>
+                      <th className="py-2 px-2 w-[10%] text-center">Prod. Date</th>
+                      <th className="py-2 px-2 w-[10%] text-center">Exp. Date</th>
+                      <th className="py-2 px-2 w-[8%] text-center">Temp °C</th>
+                      <th className="py-2 px-1.5 w-7 text-right print:hidden"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-800 print:divide-black">
@@ -1686,9 +1686,9 @@ export const FormsView: React.FC<FormsViewProps> = ({
                           }`}
                         >
                           {/* Product Name Display / Search */}
-                          <td className="py-2 px-3 font-semibold text-white print:text-black min-w-[260px]">
+                          <td className="py-2 px-3 font-semibold text-white print:text-black">
                             {item.productName ? (
-                              <div className="py-1">
+                              <div className="py-0.5">
                                 <div className="font-bold text-white print:text-black text-xs tracking-wide">
                                   {item.productName}
                                 </div>
@@ -1718,7 +1718,7 @@ export const FormsView: React.FC<FormsViewProps> = ({
                                     <button
                                       type="button"
                                       onClick={() => handleAddNextBatchForProduct(item.id)}
-                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold text-amber-300 bg-amber-950/80 hover:bg-amber-900 border border-amber-700/80 shadow-sm transition cursor-pointer"
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-300 bg-amber-950/80 hover:bg-amber-900 border border-amber-700/80 shadow-sm transition cursor-pointer"
                                       title={`Add next FIFO batch (${nextUnassignedBatch.batchNo} • ${nextUnassignedBatch.quantity} in stock) grouped with this product`}
                                     >
                                       <span>+ Add Next Batch</span>
@@ -1761,19 +1761,19 @@ export const FormsView: React.FC<FormsViewProps> = ({
                           </td>
 
                           {/* DISPATCH TIME (CAN BE AUTO-FILLED OR MANUALLY ENTERED) */}
-                          <td className="py-2 px-3 min-w-[150px]">
+                          <td className="py-2 px-2.5">
                             <div className="flex items-center space-x-1">
                               <input
                                 type="time"
                                 value={item.dispatchTime || dispatchTime}
                                 onChange={(e) => handleRowTimeChange(item.id, e.target.value)}
-                                className="w-full px-2 py-1.5 bg-stone-800 print:bg-white border border-stone-700 print:border-black rounded-lg text-xs text-stone-100 print:text-black font-mono focus:border-amber-500 focus:outline-none"
+                                className="w-full px-1.5 py-1 bg-stone-800 print:bg-white border border-stone-700 print:border-black rounded text-xs text-stone-100 print:text-black font-mono focus:border-amber-500 focus:outline-none"
                                 title="Manual time entry or auto-filled"
                               />
                               <button
                                 type="button"
                                 onClick={() => handleSetRowTimeToNow(item.id)}
-                                className="px-1.5 py-1.5 bg-stone-700 hover:bg-stone-650 text-amber-400 hover:text-amber-300 rounded-lg text-[10px] font-bold print:hidden transition cursor-pointer shrink-0"
+                                className="px-1.5 py-1 bg-stone-700 hover:bg-stone-650 text-amber-400 hover:text-amber-300 rounded text-[10px] font-bold print:hidden transition cursor-pointer shrink-0"
                                 title="Set this row to current time"
                               >
                                 Now
@@ -1781,22 +1781,22 @@ export const FormsView: React.FC<FormsViewProps> = ({
                             </div>
                           </td>
 
-                          {/* Batch No (FIFO) - Auto-assigned oldest available batch with stock, only available batches in dropdown */}
-                          <td className="py-2 px-3 min-w-[240px]">
+                          {/* Batch No (FIFO) */}
+                          <td className="py-2 px-2.5">
                             {!item.productName ? (
-                              <div className="px-2.5 py-1.5 bg-stone-900/60 border border-stone-800 rounded-lg text-stone-500 font-mono text-xs italic">
+                              <div className="px-2 py-1 bg-stone-900/60 border border-stone-800 rounded text-stone-500 font-mono text-xs italic">
                                 Select product first
                               </div>
                             ) : availableBatches.length === 0 ? (
-                              <div className="px-2.5 py-1.5 bg-red-950/40 border border-red-900/50 rounded-lg text-red-400 font-mono text-xs font-semibold">
-                                Out of Stock (0 available)
+                              <div className="px-2 py-1 bg-red-950/40 border border-red-900/50 rounded text-red-400 font-mono text-xs font-semibold">
+                                Out of Stock (0)
                               </div>
                             ) : (
                               <div>
                                 <select
                                   value={item.batchNo || (availableBatches[0] ? availableBatches[0].batchNo : '')}
                                   onChange={(e) => handleBatchSelect(item.id, e.target.value)}
-                                  className="w-full px-2.5 py-1.5 bg-stone-800 print:bg-white border border-stone-700 print:border-black rounded-lg text-xs text-amber-400 print:text-black font-mono font-bold focus:outline-none focus:border-amber-500 cursor-pointer shadow-sm"
+                                  className="w-full px-2 py-1 bg-stone-800 print:bg-white border border-stone-700 print:border-black rounded text-xs text-amber-400 print:text-black font-mono font-bold focus:outline-none focus:border-amber-500 cursor-pointer shadow-sm truncate"
                                 >
                                   {availableBatches.map((b) => {
                                     const isUsedInOther = otherRowBatchNos.includes(b.batchNo);
@@ -1813,7 +1813,7 @@ export const FormsView: React.FC<FormsViewProps> = ({
                                   })}
                                   {editingLogId && item.batchNo && !availableBatches.some(b => b.batchNo === item.batchNo) && (
                                     <option value={item.batchNo}>
-                                      {item.batchNo} (Historical Batch)
+                                      {item.batchNo} (Historical)
                                     </option>
                                   )}
                                 </select>
@@ -1821,14 +1821,14 @@ export const FormsView: React.FC<FormsViewProps> = ({
                             )}
                           </td>
 
-                          {/* Quantity (Only +/- buttons, no up/down arrows, strictly positive numbers, limits to batch quantity) */}
-                          <td className="py-2 px-3 min-w-[130px]">
+                          {/* Quantity */}
+                          <td className="py-2 px-2 text-center">
                             <div className="flex items-center justify-center space-x-1">
                               <button
                                 type="button"
                                 disabled={item.quantity <= 0}
                                 onClick={() => handleRowQuantityChange(item.id, item.quantity - 1)}
-                                className="w-7 h-7 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center font-bold text-sm print:hidden cursor-pointer border border-stone-700 transition select-none"
+                                className="w-6 h-6 rounded bg-stone-800 hover:bg-stone-700 text-stone-200 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center font-bold text-xs print:hidden cursor-pointer border border-stone-700 transition select-none"
                                 title="Decrease quantity (-)"
                               >
                                 -
@@ -1849,7 +1849,7 @@ export const FormsView: React.FC<FormsViewProps> = ({
                                   const num = digitsOnly === '' ? 0 : parseInt(digitsOnly, 10);
                                   handleRowQuantityChange(item.id, num);
                                 }}
-                                className={`w-14 px-1 py-1 bg-stone-850 print:bg-white border rounded-lg text-center text-xs text-white print:text-black font-bold font-mono focus:outline-none transition ${
+                                className={`w-11 px-1 py-0.5 bg-stone-850 print:bg-white border rounded text-center text-xs text-white print:text-black font-bold font-mono focus:outline-none transition ${
                                   item.availableStock !== undefined && item.quantity >= item.availableStock && item.availableStock > 0
                                     ? 'border-amber-500 bg-amber-500/10 text-amber-300'
                                     : 'border-stone-750 focus:border-amber-500'
@@ -1864,7 +1864,7 @@ export const FormsView: React.FC<FormsViewProps> = ({
                                 type="button"
                                 disabled={item.availableStock !== undefined && item.quantity >= item.availableStock}
                                 onClick={() => handleRowQuantityChange(item.id, item.quantity + 1)}
-                                className="w-7 h-7 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center font-bold text-sm print:hidden cursor-pointer border border-stone-700 transition select-none"
+                                className="w-6 h-6 rounded bg-stone-800 hover:bg-stone-700 text-stone-200 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center font-bold text-xs print:hidden cursor-pointer border border-stone-700 transition select-none"
                                 title={
                                   item.availableStock !== undefined && item.quantity >= item.availableStock
                                     ? `Reached batch stock limit (${item.availableStock})`
@@ -1876,57 +1876,42 @@ export const FormsView: React.FC<FormsViewProps> = ({
                             </div>
                           </td>
 
-                          {/* Prod. Date - Auto-retrieved and locked */}
-                          <td className="py-2 px-3 min-w-[130px]">
-                            <div className="relative">
-                              <input
-                                type="date"
-                                value={item.prodDate}
-                                readOnly
-                                disabled
-                                className="w-full pl-2 pr-6 py-1.5 bg-stone-900/90 print:bg-white border border-stone-800 print:border-black rounded text-xs text-stone-200 print:text-black font-mono select-none cursor-not-allowed opacity-90 shadow-inner"
-                                title="Production date is auto-retrieved from the inventory batch record and cannot be edited."
-                              />
-                              <Lock className="w-3 h-3 text-stone-500 absolute right-2 top-2.5 pointer-events-none print:hidden" />
+                          {/* Prod. Date - Compact auto-retrieved display */}
+                          <td className="py-2 px-2 text-center">
+                            <div 
+                              className="inline-flex items-center justify-center px-1.5 py-1 bg-stone-900/90 print:bg-transparent border border-stone-800 print:border-black rounded text-[11px] text-stone-300 print:text-black font-mono select-none w-full shadow-inner"
+                              title="Production date is auto-retrieved from the batch record"
+                            >
+                              <span>{item.prodDate || '-'}</span>
                             </div>
                           </td>
 
-                          {/* Expiration Date - Auto-retrieved and locked */}
-                          <td className="py-2 px-3 min-w-[130px]">
-                            <div className="relative">
-                              <input
-                                type="date"
-                                value={item.useByDate}
-                                readOnly
-                                disabled
-                                className="w-full pl-2 pr-6 py-1.5 bg-stone-900/90 print:bg-white border border-stone-800 print:border-black rounded text-xs text-amber-400/90 print:text-black font-mono select-none cursor-not-allowed opacity-90 shadow-inner"
-                                title="Expiration date is auto-retrieved from the inventory batch record and cannot be edited."
-                              />
-                              <Lock className="w-3 h-3 text-amber-500/70 absolute right-2 top-2.5 pointer-events-none print:hidden" />
+                          {/* Expiration Date - Compact auto-retrieved display */}
+                          <td className="py-2 px-2 text-center">
+                            <div 
+                              className="inline-flex items-center justify-center px-1.5 py-1 bg-stone-900/90 print:bg-transparent border border-stone-800 print:border-black rounded text-[11px] text-amber-400/90 print:text-black font-mono font-semibold select-none w-full shadow-inner"
+                              title="Expiration date is auto-retrieved from the batch record"
+                            >
+                              <span>{item.useByDate || '-'}</span>
                             </div>
                           </td>
 
-                          {/* Dispatch Temp °C - Auto-retrieved and locked */}
-                          <td className="py-2 px-3 min-w-[130px]">
-                            <div className="relative">
-                              <input
-                                type="text"
-                                value={`${Number(item.dispatchTemp !== undefined ? item.dispatchTemp : 3.5).toFixed(1)} °C`}
-                                readOnly
-                                disabled
-                                className={`w-full pl-2 pr-6 py-1.5 bg-stone-900/90 print:bg-white border rounded text-xs font-mono font-bold select-none cursor-not-allowed opacity-90 shadow-inner ${
-                                  isTempWarm
-                                    ? 'border-red-900/70 text-red-400 print:text-black'
-                                    : 'border-stone-800 text-cyan-300 print:text-black'
-                                }`}
-                                title="Dispatch temperature is auto-retrieved from the inventory batch record and cannot be edited."
-                              />
-                              <Lock className="w-3 h-3 text-cyan-500/70 absolute right-2 top-2.5 pointer-events-none print:hidden" />
+                          {/* Dispatch Temp °C - Compact auto-retrieved display */}
+                          <td className="py-2 px-2 text-center">
+                            <div 
+                              className={`inline-flex items-center justify-center px-1.5 py-1 bg-stone-900/90 print:bg-transparent border rounded text-[11px] font-mono font-bold select-none w-full shadow-inner ${
+                                isTempWarm
+                                  ? 'border-red-900/70 text-red-400 print:text-black'
+                                  : 'border-stone-800 text-cyan-300 print:text-black'
+                              }`}
+                              title="Dispatch temperature is auto-retrieved from the batch record"
+                            >
+                              <span>{Number(item.dispatchTemp !== undefined ? item.dispatchTemp : 3.5).toFixed(1)}°C</span>
                             </div>
                           </td>
 
                           {/* Row Action / Protection Column */}
-                          <td className="py-2 px-3 text-right print:hidden w-12">
+                          <td className="py-2 px-1.5 text-right print:hidden w-7">
                             {(item.isCustom || isExtraBatch || !item.productName) ? (
                               <button
                                 type="button"
